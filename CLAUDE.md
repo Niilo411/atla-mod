@@ -107,7 +107,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball, Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
-- Fire Defensive path in progress:
+- Fire Defensive path COMPLETE:
   - Fire Push (6.0 damage, ~6 block knockback in a 60-degree forward cone
     reaching 8 blocks, 100 chi, 2s cooldown, 5 xp)
   - Fire Shield (channeled; cancels incoming damage while held EXCEPT fall and
@@ -117,6 +117,15 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Firewall (6-block line of fire laid across the ground 2 blocks ahead,
     perpendicular to facing; 30 chi, 1s cooldown, 10 xp. Only ever replaces air,
     so it cannot grief blocks)
+  - Fire Ring (30-block continuous ring of fire at radius 4 around the player;
+    100 chi, 2s cooldown, 8 xp. Its fire burns at 3x normal for 30s — see below)
+- **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
+  fire blocks an ability placed (dimension + pos -> expiry), and the
+  `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything
+  standing on one. Positions are tracked because vanilla has nowhere to hang "this
+  fire is special" — a custom block would need a blockstate, model, texture and its
+  own spread rules just to change a damage number. Entries self-expire, so fire that
+  burns out stops counting on its own. Firewall could opt in with one `mark()` call.
 - **Invulnerability is registry-driven**: `ChanneledAbility.grantsInvulnerability()`
   gates `AbilityHandler.blocksDamage(data, source)`, which a
   `LivingIncomingDamageEvent` handler in `ServerEvents` consults to cancel damage.
@@ -136,7 +145,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 50 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 49 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
