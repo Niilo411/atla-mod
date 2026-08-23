@@ -22,9 +22,20 @@ public interface ChanneledAbility extends Ability {
      */
     int getChiPerSecond();
 
-    /** Most chi a single tick of this channel can cost. Used as the "can you start?" floor. */
+    /** Most chi a single tick of this channel can cost. The default start floor. */
     default int getMaxChiPerTick() {
         return (getChiPerSecond() + 19) / 20;
+    }
+
+    /**
+     * Chi the player must already have before this channel will start.
+     *
+     * This is a gate, not a cost — nothing is deducted for meeting it, and once
+     * running the channel keeps going below this figure until chi actually runs
+     * out. Defaults to a single tick's worth, i.e. "enough to run at all".
+     */
+    default int getMinimumChiToStart() {
+        return getMaxChiPerTick();
     }
 
     /**

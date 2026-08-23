@@ -111,8 +111,12 @@ public class AbilityHandler {
             return;
         }
 
-        if (data.getCurrentChi() < ability.getMaxChiPerTick()) {
-            player.displayClientMessage(Component.literal("§cNot enough Chi!"), true);
+        // A gate, not a cost: nothing is deducted for meeting it, and the channel
+        // keeps running below this figure once it is up.
+        int requiredChi = ability.getMinimumChiToStart();
+        if (data.getCurrentChi() < requiredChi) {
+            player.displayClientMessage(Component.literal(
+                    "§cNot enough Chi! (Requires " + requiredChi + ")"), true);
             return;
         }
 

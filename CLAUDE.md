@@ -111,7 +111,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Fire Push (6.0 damage, ~6 block knockback in a 60-degree forward cone
     reaching 8 blocks, 100 chi, 2s cooldown, 5 xp)
   - Fire Shield (channeled; cancels incoming damage while held EXCEPT fall and
-    void/kill, 25 chi/sec = 50 per 2s, 1 xp/sec, no cooldown, no duration cap)
+    void/kill, 25 chi/sec = 50 per 2s, 1 xp/sec, no cooldown, no duration cap;
+    needs 200 chi banked to START — a gate, not a cost, nothing is deducted for it
+    and it keeps running below 200 once up)
 - **Invulnerability is registry-driven**: `ChanneledAbility.grantsInvulnerability()`
   gates `AbilityHandler.blocksDamage(data, source)`, which a
   `LivingIncomingDamageEvent` handler in `ServerEvents` consults to cancel damage.

@@ -50,6 +50,15 @@ public class FireShield implements ChanneledAbility {
         return 25;
     }
 
+    /**
+     * Needs a solid reserve before it will come up — 200 chi, none of which is
+     * spent on starting. Below that the shield simply refuses.
+     */
+    @Override
+    public int getMinimumChiToStart() {
+        return 200;
+    }
+
     @Override
     public int getXpPerSecond() {
         return 1;
