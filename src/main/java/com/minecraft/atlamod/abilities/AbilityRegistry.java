@@ -2,6 +2,7 @@ package com.minecraft.atlamod.abilities;
 
 import com.minecraft.atlamod.abilities.fire.FireBreath;
 import com.minecraft.atlamod.abilities.fire.FireLeap;
+import com.minecraft.atlamod.abilities.fire.FirePush;
 import com.minecraft.atlamod.abilities.fire.FireWhip;
 import com.minecraft.atlamod.abilities.fire.Fireball;
 
@@ -29,6 +30,9 @@ public final class AbilityRegistry {
         register(new FireWhip());
         register(new Fireball());
         register(new FireBreath());
+
+        // --- FIRE : Defensive ---
+        register(new FirePush());
     }
 
     public static void register(Ability ability) {
