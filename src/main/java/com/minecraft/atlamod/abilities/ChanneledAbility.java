@@ -8,14 +8,24 @@ import net.minecraft.server.level.ServerPlayer;
  * Air Tornado...). The client sends AbilityHoldPacket on key-state CHANGE only.
  *
  * AbilityHandler owns the lifecycle: it records which channeled ability is active
- * on BendingData, drains getChiPerTick() every tick, trickles getXpPerSecond(),
+ * on BendingData, drains getChiPerSecond() spread across the ticks, trickles getXpPerSecond(),
  * and stops the channel automatically when the player runs out of chi. Implementors
  * only fill in the visible effect.
  */
 public interface ChanneledAbility extends Ability {
 
-    /** Chi drained every tick while channeling. Channeling stops when chi runs below this. */
-    int getChiPerTick();
+    /**
+     * Chi drained per SECOND while channeling. The dispatcher spreads this across
+     * the 20 ticks in a second, so rates that aren't a multiple of 20 (like 25/sec
+     * = 1.25/tick) still drain smoothly and add up exactly over each second.
+     * Channeling stops when the player can't afford the next tick.
+     */
+    int getChiPerSecond();
+
+    /** Most chi a single tick of this channel can cost. Used as the "can you start?" floor. */
+    default int getMaxChiPerTick() {
+        return (getChiPerSecond() + 19) / 20;
+    }
 
     /** XP trickled once per second while channeling. 0 for none. */
     default int getXpPerSecond() {

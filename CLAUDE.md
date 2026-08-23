@@ -38,7 +38,7 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
   `canStart(player, data)`. `getKey()` defaults to the lowercased name and is used
   as both the registry key and the cooldown key.
 - `ChanneledAbility.java` — held-key abilities (Fire Breath): `onStart()`, `onTick()`,
-  `onStop()`, `getChiPerTick()`, `getXpPerSecond()`.
+  `onStop()`, `getChiPerSecond()`, `getXpPerSecond()`.
 - `TwoPhaseAbility.java` — charge-then-left-click abilities (Fireball): `onRelease()`.
 - `AbilityRegistry.java` — `Map<String, Ability>`, populated once via
   `AbilityRegistry.bootstrap()`, called from `Atlamod`'s constructor.
@@ -54,7 +54,9 @@ Two rules worth knowing:
 - **Two-phase cooldowns start on release, not on cast** — otherwise the timer would
   run down while the player is still holding the charge.
 - **Channeled abilities are driven entirely by the dispatcher's tick**: it drains
-  `getChiPerTick()`, trickles `getXpPerSecond()` once a second, stops the channel
+  `getChiPerSecond()` (spread exactly across the 20 ticks, so rates like 25/sec
+  that aren't whole numbers per tick neither drift nor stutter), trickles
+  `getXpPerSecond()` once a second, stops the channel
   when chi runs out, and syncs every 4 ticks to avoid flooding packets.
 
 Adding an ability = write the class, register it in `AbilityRegistry.bootstrap()`.
@@ -100,7 +102,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 
 - Fire Offensive path abilities done: Fire Leap, Fire Whip, Fireball, Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
-  drains 4 chi/tick = 80 chi/sec, trickles 2 xp/sec)
+  drains 25 chi/sec, trickles 2 xp/sec)
 - `AbilityHandler` now uses the registry pattern above (was a switch statement).
   The old "channeled tracking is a single boolean" gap is closed —
   `BendingData.getActiveChanneledAbility()` is a general string.

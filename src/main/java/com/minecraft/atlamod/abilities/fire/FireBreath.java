@@ -22,7 +22,7 @@ public class FireBreath implements ChanneledAbility {
         return "Fire Breath";
     }
 
-    /** Paid per tick, not up front. */
+    /** Paid per second while channeling, not up front. */
     @Override
     public int getChiCost() {
         return 0;
@@ -35,8 +35,8 @@ public class FireBreath implements ChanneledAbility {
     }
 
     @Override
-    public int getChiPerTick() {
-        return 4;
+    public int getChiPerSecond() {
+        return 25;
     }
 
     @Override

@@ -93,7 +93,7 @@ public class AbilityHandler {
         // Only one channel at a time.
         if (data.isChanneling()) return;
 
-        if (data.getCurrentChi() < ability.getChiPerTick()) {
+        if (data.getCurrentChi() < ability.getMaxChiPerTick()) {
             player.displayClientMessage(Component.literal("§cNot enough Chi!"), true);
             return;
         }
@@ -124,12 +124,13 @@ public class AbilityHandler {
             return;
         }
 
-        if (data.getCurrentChi() < channeled.getChiPerTick()) {
+        int chiThisTick = chiCostForTick(channeled, player.tickCount);
+        if (data.getCurrentChi() < chiThisTick) {
             stopChannel(player, data, channeled);
             return;
         }
 
-        data.consumeChi(channeled.getChiPerTick());
+        data.consumeChi(chiThisTick);
 
         // Trickle XP once per second, same cadence as Meditate.
         if (player.tickCount % 20 == 0) {
@@ -143,5 +144,20 @@ public class AbilityHandler {
         if (player.tickCount % 4 == 0) {
             AbilitySupport.syncData(player, data);
         }
+    }
+
+    /**
+     * How much chi this particular tick of a channel costs.
+     *
+     * Rates are authored per second but spent per tick, and 20 rarely divides the
+     * rate evenly (25/sec is 1.25/tick). Rounding each tick would drift, so this
+     * differences a running total instead: any 20 consecutive ticks sum to exactly
+     * getChiPerSecond(), while individual ticks alternate (25/sec spends 1 chi on
+     * fifteen ticks and 2 chi on five). The chi bar still drains smoothly.
+     */
+    private static int chiCostForTick(ChanneledAbility ability, int tick) {
+        long rate = ability.getChiPerSecond();
+        long t = Math.max(0, tick);
+        return (int) ((rate * (t + 1)) / 20L - (rate * t) / 20L);
     }
 }
