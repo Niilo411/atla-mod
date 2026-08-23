@@ -93,34 +93,65 @@ public class AbilityHandler {
         // Only one channel at a time.
         if (data.isChanneling()) return;
 
+        if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
+            int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
+            player.displayClientMessage(Component.literal(
+                    "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
+            return;
+        }
+
         if (data.getCurrentChi() < ability.getMaxChiPerTick()) {
             player.displayClientMessage(Component.literal("§cNot enough Chi!"), true);
             return;
         }
 
         data.setActiveChanneledAbility(ability.getKey());
+        data.setChannelTicks(0);
         ability.onStart(player, data);
         AbilitySupport.syncData(player, data);
     }
 
+    /**
+     * Ends a channel. Every route out of a channel comes through here — releasing the
+     * key, running dry on chi, or hitting the duration cap — so the cooldown applies
+     * uniformly and can't be dodged by picking a particular way to stop.
+     */
     private static void stopChannel(ServerPlayer player, BendingData data, ChanneledAbility ability) {
         // Ignore a key-release for an ability that isn't the one currently channeling.
+        // This is also what stops an auto-stopped channel from taking a second cooldown
+        // when the player eventually lets go of the key.
         if (!data.getActiveChanneledAbility().equals(ability.getKey())) return;
 
         data.setActiveChanneledAbility("");
+        data.setChannelTicks(0);
+
+        if (ability.getCooldownTicks() > 0) {
+            data.setCooldown(ability.getKey(), ability.getCooldownTicks());
+        }
+
         ability.onStop(player, data);
         AbilitySupport.syncData(player, data);
     }
 
     /**
      * Called every tick from ServerEvents while any channel is active.
-     * Handles the drain/XP/sync cadence so channeled abilities only implement their effect.
+     * Handles the duration cap, drain, XP and sync cadence so channeled abilities
+     * only implement their effect.
      */
     public static void tickChanneled(ServerPlayer player, BendingData data) {
         Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
         if (!(ability instanceof ChanneledAbility channeled)) {
             // Unknown ability recorded (e.g. removed from the registry) — clear the stuck flag.
             data.setActiveChanneledAbility("");
+            data.setChannelTicks(0);
+            return;
+        }
+
+        // Duration cap is checked BEFORE the effect runs, so a 200-tick cap yields
+        // exactly 200 ticks of effect and stops on the 201st.
+        int maxDuration = channeled.getMaxDurationTicks();
+        if (maxDuration > 0 && data.getChannelTicks() >= maxDuration) {
+            stopChannel(player, data, channeled);
             return;
         }
 
@@ -138,6 +169,7 @@ public class AbilityHandler {
         }
 
         channeled.onTick(player, data);
+        data.setChannelTicks(data.getChannelTicks() + 1);
 
         // Sync every 4 ticks instead of every tick — keeps the Chi bar responsive
         // without flooding packets.

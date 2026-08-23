@@ -39,6 +39,18 @@ public class FireBreath implements ChanneledAbility {
         return 25;
     }
 
+    /** 10 seconds of breath, then it cuts out on its own. */
+    @Override
+    public int getMaxDurationTicks() {
+        return 200;
+    }
+
+    /** 15 second cooldown, applied whenever the channel ends — early release included. */
+    @Override
+    public int getCooldownTicks() {
+        return 300;
+    }
+
     @Override
     public int getXpPerSecond() {
         return 2;

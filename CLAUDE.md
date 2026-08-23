@@ -56,8 +56,12 @@ Two rules worth knowing:
 - **Channeled abilities are driven entirely by the dispatcher's tick**: it drains
   `getChiPerSecond()` (spread exactly across the 20 ticks, so rates like 25/sec
   that aren't whole numbers per tick neither drift nor stutter), trickles
-  `getXpPerSecond()` once a second, stops the channel
-  when chi runs out, and syncs every 4 ticks to avoid flooding packets.
+  `getXpPerSecond()` once a second, enforces `getMaxDurationTicks()`, stops the
+  channel when chi runs out, and syncs every 4 ticks to avoid flooding packets.
+- **A channel's cooldown starts when it ENDS, not when it starts**, and every exit
+  route goes through `stopChannel()` — key release, chi exhaustion, duration cap —
+  so the cooldown applies uniformly. Holding the key past the cap is not a way to
+  dodge it, and the auto-stop doesn't double-apply when the key is finally released.
 
 Adding an ability = write the class, register it in `AbilityRegistry.bootstrap()`.
 Nothing in `AbilityHandler` should need to change.
@@ -102,7 +106,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 
 - Fire Offensive path abilities done: Fire Leap, Fire Whip, Fireball, Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
-  drains 25 chi/sec, trickles 2 xp/sec)
+  25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
 - `AbilityHandler` now uses the registry pattern above (was a switch statement).
   The old "channeled tracking is a single boolean" gap is closed —
   `BendingData.getActiveChanneledAbility()` is a general string.

@@ -37,6 +37,19 @@ public class BendingData {
     public boolean isChanneling() {
         return !getActiveChanneledAbility().isEmpty();
     }
+
+    // How many ticks the current channel has been running, for abilities that
+    // cap their duration. Reset by AbilityHandler when a channel starts.
+    private transient int channelTicks = 0;
+
+    public int getChannelTicks() {
+        return channelTicks;
+    }
+
+    public void setChannelTicks(int ticks) {
+        this.channelTicks = ticks;
+    }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {
@@ -120,6 +133,11 @@ public class BendingData {
 
     public boolean isOnCooldown(String ability) {
         return cooldowns.getOrDefault(ability.toLowerCase(), 0) > 0;
+    }
+
+    /** Ticks left on an ability's cooldown, 0 if it's ready. */
+    public int getCooldownRemaining(String ability) {
+        return Math.max(0, cooldowns.getOrDefault(ability.toLowerCase(), 0));
     }
 
     public void setCooldown(String ability, int ticks) {

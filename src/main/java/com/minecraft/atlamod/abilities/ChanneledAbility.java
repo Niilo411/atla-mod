@@ -27,6 +27,17 @@ public interface ChanneledAbility extends Ability {
         return (getChiPerSecond() + 19) / 20;
     }
 
+    /**
+     * Hard cap on how long this channel may run, in ticks (20 ticks = 1 second).
+     * 0 means unlimited — it runs until the key is released or chi runs out.
+     *
+     * Hitting the cap stops the channel exactly like releasing the key does,
+     * cooldown included, so a player can't dodge the cooldown by holding on.
+     */
+    default int getMaxDurationTicks() {
+        return 0;
+    }
+
     /** XP trickled once per second while channeling. 0 for none. */
     default int getXpPerSecond() {
         return 0;
