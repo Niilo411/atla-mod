@@ -104,15 +104,21 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 
 ## Current Status
 
-- Fire Offensive path abilities done: Fire Leap, Fire Whip, Fireball, Fire Breath
+- Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball, Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
+- Fire Defensive path started: Fire Push (3.0 damage, ~2 block knockback in a
+  60-degree forward cone, 100 chi, 2s cooldown, 5 xp)
+- The UI needs no work per ability: all four path arrays in `UpgradeMenuScreen`
+  already list every planned ability, and unlock cost, tree gating and the equip
+  screen are all generic. A new ability = the class + one `register()` line, as
+  long as its `getName()` matches the menu string case-insensitively.
 - `AbilityHandler` now uses the registry pattern above (was a switch statement).
   The old "channeled tracking is a single boolean" gap is closed —
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 53 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 52 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
