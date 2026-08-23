@@ -21,9 +21,22 @@ public class BendingData {
     private transient boolean isMeditating = false;
     private transient int meditateTickTimer = 0;
     private transient boolean isFireLeaping = false;
-    private transient boolean isBreathingFire = false;
-    public boolean isBreathingFire() { return isBreathingFire; }
-    public void setBreathingFire(boolean isBreathingFire) { this.isBreathingFire = isBreathingFire; }
+    // Which channeled ability (if any) the player is currently holding down.
+    // Generalised from the old single isBreathingFire boolean so more than one
+    // channeled ability can exist without each needing its own flag.
+    private transient String activeChanneledAbility = "";
+
+    public String getActiveChanneledAbility() {
+        return activeChanneledAbility == null ? "" : activeChanneledAbility;
+    }
+
+    public void setActiveChanneledAbility(String ability) {
+        this.activeChanneledAbility = ability == null ? "" : ability;
+    }
+
+    public boolean isChanneling() {
+        return !getActiveChanneledAbility().isEmpty();
+    }
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {

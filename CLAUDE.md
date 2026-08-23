@@ -10,7 +10,8 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
 - **Player data:** Stored via a NeoForge **data attachment** (`ModAttachments.BENDING_DATA`),
   backed by `BendingData.java`. Holds: main/active element, unlocked elements, xp, level,
   chi (resource pool), unlocked abilities, 8 equipped ability slots, and various transient
-  "is currently doing X" flags (e.g. `isFireLeaping`, `isBreathingFire`).
+  "is currently doing X" flags (e.g. `isFireLeaping`), and `activeChanneledAbility`/
+  `activeTwoPhaseAbility` for the two multi-tick ability shapes.
 - **Networking:** Custom packets under `com.minecraft.atlamod.network`, registered once
   in `ModNetworking.register()`. **Critical gotcha we've hit twice:** registration calls
   (`registrar.playToServer(...)` / `playToClient(...)`) must be top-level statements
@@ -27,25 +28,41 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
   meditation, fire breath, etc). New "ongoing ability" logic goes here as a guarded
   `if (data.isXyz()) { ... }` block, or via the ability registry system below.
 
-## Ability System (refactored — use this for all new abilities)
+## Ability System (registry pattern — use this for all new abilities)
 
-We moved off a giant switch statement in `AbilityHandler` to a registry pattern:
+`AbilityHandler` is a thin dispatcher; ability effects live in one class each under
+`abilities/<element>/`. There are **three ability shapes**, all in `abilities/`:
 
-- `abilities/Ability.java` — interface: `getName()`, `getChiCost()`, `getXpReward()`,
-  `execute(player, data)`, optional `getCooldownTicks()`
-- `abilities/ChanneledAbility.java` — extends `Ability` for held-key abilities:
-  `onStart()`, `onTick()`, `onStop()`
-- `abilities/AbilityRegistry.java` — `Map<String, Ability>`, populated once via
-  `AbilityRegistry.bootstrap()` (call this from `Atlamod`'s constructor)
-- One class per ability, organized by element package: `abilities/fire/FireLeap.java`,
-  `abilities/fire/FireBreath.java`, etc.
-- `AbilityHandler.java` is now a thin dispatcher: looks up the ability in the registry,
-  handles the shared chi-cost/xp/cooldown bookkeeping, then calls the ability's own logic.
+- `Ability.java` — base interface: `getName()`, `getChiCost()`, `getXpReward()`,
+  `execute(player, data)`, plus optional `getCooldownTicks()` and
+  `canStart(player, data)`. `getKey()` defaults to the lowercased name and is used
+  as both the registry key and the cooldown key.
+- `ChanneledAbility.java` — held-key abilities (Fire Breath): `onStart()`, `onTick()`,
+  `onStop()`, `getChiPerTick()`, `getXpPerSecond()`.
+- `TwoPhaseAbility.java` — charge-then-left-click abilities (Fireball): `onRelease()`.
+- `AbilityRegistry.java` — `Map<String, Ability>`, populated once via
+  `AbilityRegistry.bootstrap()`, called from `Atlamod`'s constructor.
+- `AbilitySupport.java` — shared chi/XP/sync helpers (`consumeChiAndGiveXp`,
+  `grantXp`, `syncData`). XP threshold per level is `XP_PER_LEVEL` (200).
 
-**Known gap to close:** channeled-ability "which one is currently active" tracking is
-still a single stopgap boolean (`data.isBreathingFire()`) rather than a general
-`data.getActiveChanneledAbility()` string. Fine while Fire Breath is the only channeled
-ability — needs generalizing before adding a second one (e.g. Water Stream, Air Tornado).
+**The dispatcher owns everything shared**, so ability classes only hold their effect:
+cooldown gating, the `canStart` precondition (checked *before* chi is spent, so a
+blocked cast is free), chi cost, XP reward, arming/clearing two-phase abilities,
+the channeling lifecycle, and syncing to the client.
+
+Two rules worth knowing:
+- **Two-phase cooldowns start on release, not on cast** — otherwise the timer would
+  run down while the player is still holding the charge.
+- **Channeled abilities are driven entirely by the dispatcher's tick**: it drains
+  `getChiPerTick()`, trickles `getXpPerSecond()` once a second, stops the channel
+  when chi runs out, and syncs every 4 ticks to avoid flooding packets.
+
+Adding an ability = write the class, register it in `AbilityRegistry.bootstrap()`.
+Nothing in `AbilityHandler` should need to change.
+
+Per-tick state that isn't channeled (e.g. Fire Leap's fire trail, which ends itself
+on landing) still lives on the ability class as a `static tick(player, data)`, called
+from a guarded block in `ServerEvents.onPlayerTick`.
 
 ## Progression System
 
@@ -81,9 +98,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 
 ## Current Status
 
-- Fire Offensive path abilities done: Fire Leap, Fire Whip, Fireball, **Fire Breath**
-  (just implemented — channeled cone-damage ability, ignites ground, drains 15 chi/sec)
-- Just refactored `AbilityHandler` from a switch statement into the registry pattern above
+- Fire Offensive path abilities done: Fire Leap, Fire Whip, Fireball, Fire Breath
+  (channeled cone of flame, damages + ignites entities in a 6-block line;
+  drains 4 chi/tick = 80 chi/sec, trickles 2 xp/sec)
+- `AbilityHandler` now uses the registry pattern above (was a switch statement).
+  The old "channeled tracking is a single boolean" gap is closed —
+  `BendingData.getActiveChanneledAbility()` is a general string.
+- Commands: `/bend add|remove <element>` and `/bend level <amount>`.
+  Note `/bend level` bumps level without touching xp, so the two can drift.
 - 53 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
