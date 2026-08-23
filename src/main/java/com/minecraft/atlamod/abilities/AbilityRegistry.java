@@ -5,6 +5,7 @@ import com.minecraft.atlamod.abilities.fire.FireLeap;
 import com.minecraft.atlamod.abilities.fire.FirePush;
 import com.minecraft.atlamod.abilities.fire.FireShield;
 import com.minecraft.atlamod.abilities.fire.FireWhip;
+import com.minecraft.atlamod.abilities.fire.Firewall;
 import com.minecraft.atlamod.abilities.fire.Fireball;
 
 import java.util.HashMap;
@@ -35,6 +36,7 @@ public final class AbilityRegistry {
         // --- FIRE : Defensive ---
         register(new FirePush());
         register(new FireShield());
+        register(new Firewall());
     }
 
     public static void register(Ability ability) {

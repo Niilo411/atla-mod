@@ -114,6 +114,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     void/kill, 25 chi/sec = 50 per 2s, 1 xp/sec, no cooldown, no duration cap;
     needs 200 chi banked to START — a gate, not a cost, nothing is deducted for it
     and it keeps running below 200 once up)
+  - Firewall (6-block line of fire laid across the ground 2 blocks ahead,
+    perpendicular to facing; 30 chi, 1s cooldown, 10 xp. Only ever replaces air,
+    so it cannot grief blocks)
 - **Invulnerability is registry-driven**: `ChanneledAbility.grantsInvulnerability()`
   gates `AbilityHandler.blocksDamage(data, source)`, which a
   `LivingIncomingDamageEvent` handler in `ServerEvents` consults to cancel damage.
@@ -133,7 +136,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 51 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 50 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
