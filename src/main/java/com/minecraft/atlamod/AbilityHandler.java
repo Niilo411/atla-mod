@@ -25,6 +25,15 @@ public class AbilityHandler {
         Ability ability = AbilityRegistry.get(abilityName);
         if (ability == null) return;
 
+        // Channeled abilities do NOT start here — they come in through
+        // executeAbilityHold() -> startChannel(). The client can't tell the two
+        // shapes apart, so it fires UseAbilityPacket AND AbilityHoldPacket on the
+        // same key press. Without this guard the cast path would run a channeled
+        // ability's execute() (empty by default, so nothing visible happens) and
+        // then stamp its cooldown, which then blocks the hold path from ever
+        // starting the channel — the ability looks dead and permanently cooling.
+        if (ability instanceof ChanneledAbility) return;
+
         if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
             player.displayClientMessage(
                     Component.literal("§c" + ability.getName() + " is on cooldown!"), true);
