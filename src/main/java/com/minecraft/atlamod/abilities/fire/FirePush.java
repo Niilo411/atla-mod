@@ -19,7 +19,7 @@ import net.minecraft.world.phys.Vec3;
 public class FirePush implements Ability {
 
     /** How far in front of the player the push reaches, in blocks. */
-    private static final double RANGE = 4.0;
+    private static final double RANGE = 8.0;
 
     /**
      * Cone width, as the minimum dot product between the player's look vector and
@@ -28,19 +28,20 @@ public class FirePush implements Ability {
      */
     private static final double CONE_DOT = 0.5;
 
-    /** 1.5 hearts. Minecraft health is half-hearts, so 3.0F. */
-    private static final float DAMAGE = 3.0F;
+    /** 3 hearts. Minecraft health is half-hearts, so 6.0F. */
+    private static final float DAMAGE = 6.0F;
 
     /**
-     * Horizontal launch velocity, tuned so targets travel about 2 blocks.
+     * Horizontal launch velocity, tuned so targets travel about 6 blocks.
      *
      * Minecraft knockback is an impulse, not a distance: the entity is given a
      * velocity and then decays under drag (0.91/tick airborne), so distance can't
      * be set exactly. With PUSH_LIFT below the target is airborne ~11 ticks, and
-     * the resulting travel is roughly v0 * 7, hence ~0.28 for two blocks.
-     * Raise this to push further.
+     * the resulting travel is roughly v0 * 7, hence ~0.84 for six blocks.
+     * Distance scales linearly with this value, since drag is multiplicative and
+     * airtime is set by PUSH_LIFT rather than by horizontal speed.
      */
-    private static final double PUSH_SPEED = 0.28;
+    private static final double PUSH_SPEED = 0.84;
 
     /** A little lift so targets slide back instead of being pinned by ground friction. */
     private static final double PUSH_LIFT = 0.2;
@@ -84,8 +85,11 @@ public class FirePush implements Ability {
         // One box covering the whole reach, then filtered to the forward cone.
         // Sweeping step-by-step like Fire Whip would hit the same entity at several
         // steps and push it repeatedly.
-        Vec3 center = eye.add(look.scale(RANGE / 2.0));
-        AABB searchBox = new AABB(center, center).inflate(RANGE / 2.0 + 1.0);
+        // A box of +-RANGE around the eye. Any point within RANGE blocks is inside
+        // it on every axis, so nothing in the cone can fall outside the search. A
+        // tighter box centred half-way down the look vector misses targets at the
+        // outer edge of the cone, which matters more the longer RANGE gets.
+        AABB searchBox = new AABB(eye, eye).inflate(RANGE);
 
         for (Entity target : level.getEntities(player, searchBox)) {
             if (!(target instanceof LivingEntity living) || !living.isAlive()) continue;

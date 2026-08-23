@@ -107,8 +107,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball, Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
-- Fire Defensive path started: Fire Push (3.0 damage, ~2 block knockback in a
-  60-degree forward cone, 100 chi, 2s cooldown, 5 xp)
+- Fire Defensive path started: Fire Push (6.0 damage, ~6 block knockback in a
+  60-degree forward cone reaching 8 blocks, 100 chi, 2s cooldown, 5 xp)
 - The UI needs no work per ability: all four path arrays in `UpgradeMenuScreen`
   already list every planned ability, and unlock cost, tree gating and the equip
   screen are all generic. A new ability = the class + one `register()` line, as
