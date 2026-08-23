@@ -52,7 +52,7 @@ public class FireShield implements ChanneledAbility {
 
     @Override
     public int getXpPerSecond() {
-        return 10;
+        return 1;
     }
 
     @Override

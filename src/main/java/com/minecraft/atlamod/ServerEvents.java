@@ -182,7 +182,7 @@ public class ServerEvents {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         BendingData data = player.getData(ModAttachments.BENDING_DATA);
-        if (AbilityHandler.isInvulnerableFromAbility(data)) {
+        if (AbilityHandler.blocksDamage(data, event.getSource())) {
             event.setCanceled(true);
         }
     }

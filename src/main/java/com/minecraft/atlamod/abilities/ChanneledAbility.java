@@ -39,7 +39,11 @@ public interface ChanneledAbility extends Ability {
     }
 
     /**
-     * Whether damage should be cancelled outright while this channel is running.
+     * Whether incoming damage should be cancelled while this channel is running.
+     *
+     * Not total immunity: AbilityHandler#blocksDamage always lets fall damage and
+     * anything tagged BYPASSES_INVULNERABILITY (the void, /kill) through. A shield
+     * stops what is coming at the player, not the ground or the bottom of the world.
      *
      * Implemented by cancelling LivingIncomingDamageEvent rather than by setting
      * Entity#setInvulnerable, because that flag is written to the player's NBT —

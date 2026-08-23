@@ -7,6 +7,8 @@ import com.minecraft.atlamod.abilities.ChanneledAbility;
 import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
 
 /**
  * Thin dispatcher. It owns the rules that apply to EVERY ability — cooldown gating,
@@ -203,16 +205,29 @@ public class AbilityHandler {
     }
 
     /**
-     * Whether the player's active channel makes them immune to damage right now.
+     * Whether the player's active channel should block this particular damage.
      * Consulted by the LivingIncomingDamageEvent handler in ServerEvents.
      *
      * Kept here rather than in ServerEvents so the answer stays driven by the
      * registry: any future channel (Water Shield, Earth Armor) gets this for free
      * by overriding grantsInvulnerability().
      */
-    public static boolean isInvulnerableFromAbility(BendingData data) {
+    public static boolean blocksDamage(BendingData data, DamageSource source) {
         if (!data.isChanneling()) return false;
+
         Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
-        return ability instanceof ChanneledAbility channeled && channeled.grantsInvulnerability();
+        if (!(ability instanceof ChanneledAbility channeled) || !channeled.grantsInvulnerability()) {
+            return false;
+        }
+
+        // A bending shield stops what's coming AT the player. It is not a reason to
+        // survive the ground or the bottom of the world, so these always land:
+        //   IS_FALL                  — fall damage (and stalagmites)
+        //   BYPASSES_INVULNERABILITY — the void, and /kill, which should still work
+        //                              on a shielded player
+        if (source.is(DamageTypeTags.IS_FALL)) return false;
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
+
+        return true;
     }
 }
