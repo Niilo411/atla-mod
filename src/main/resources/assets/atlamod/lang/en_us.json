@@ -1,0 +1,13 @@
+{
+  "itemGroup.atlamod": "Example Mod Tab",
+  "block.atlamod.example_block": "Example Block",
+  "item.atlamod.example_item": "Example Item",
+
+  "atlamod.configuration.title": "Atla mod Configs",
+  "atlamod.configuration.section.atlamod.common.toml": "Atla mod Configs",
+  "atlamod.configuration.section.atlamod.common.toml.title": "Atla mod Configs",
+  "atlamod.configuration.items": "Item List",
+  "atlamod.configuration.logDirtBlock": "Log Dirt Block",
+  "atlamod.configuration.magicNumberIntroduction": "Magic Number Text",
+  "atlamod.configuration.magicNumber": "Magic Number"
+}

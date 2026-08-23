@@ -1,0 +1,154 @@
+package com.minecraft.atlamod.network;
+
+import com.minecraft.atlamod.network.EquipAbilityPacket;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+
+@EventBusSubscriber(modid = "atlamod", bus = EventBusSubscriber.Bus.MOD)
+public class ModNetworking {
+
+    @SubscribeEvent
+    public static void register(final RegisterPayloadHandlersEvent event) {
+        final PayloadRegistrar registrar = event.registrar("1.0.0");
+
+        // 1. Element Choice Packet (Client -> Server)
+        registrar.playToServer(
+                ElementChoicePacket.TYPE,
+                ElementChoicePacket.STREAM_CODEC,
+                (ElementChoicePacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setMainElement(payload.element());
+                            data.setActiveElement(payload.element());
+                            if (!data.getUnlockedElements().contains(payload.element())) {
+                                data.getUnlockedElements().add(payload.element());
+                            }
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+                        }
+                    });
+                }
+        );
+
+// 2. Switch Element Packet (Client -> Server)
+        registrar.playToServer(
+                SwitchElementPacket.TYPE,
+                SwitchElementPacket.STREAM_CODEC,
+                (SwitchElementPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setActiveElement(payload.newElement());
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+                        }
+                    });
+                });
+                // --- EQUIP ABILITY PACKET (Client -> Server) ---
+                registrar.playToServer(
+                        com.minecraft.atlamod.network.EquipAbilityPacket.TYPE,
+                        com.minecraft.atlamod.network.EquipAbilityPacket.STREAM_CODEC,
+                        com.minecraft.atlamod.network.EquipAbilityPacket::handle
+                );
+
+        // 3. Meditate Packet (Client -> Server)
+        registrar.playToServer(
+                MeditatePacket.TYPE,
+                MeditatePacket.STREAM_CODEC,
+                (MeditatePacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setMeditating(payload.isStarting());
+                            if (!payload.isStarting()) {
+                                data.setMeditateTickTimer(0);
+                            }
+                            // deleted: registrar.playToServer(...) — was invalid at runtime and crashed the game
+                        }
+                    });
+                }
+        );
+
+        // 4. Use Ability Packet (Client -> Server)
+        registrar.playToServer(
+                UseAbilityPacket.TYPE,
+                UseAbilityPacket.STREAM_CODEC,
+                UseAbilityPacket::handle
+        );
+
+        // 5. Unlock Ability Packet (Client -> Server)
+        registrar.playToServer(
+                UnlockAbilityPacket.TYPE,
+                UnlockAbilityPacket.STREAM_CODEC,
+                UnlockAbilityPacket::handle
+        );
+        registrar.playToServer(
+                LeftClickTriggerPacket.TYPE,
+                LeftClickTriggerPacket.STREAM_CODEC,
+                LeftClickTriggerPacket::handle
+        );
+
+        // 6. Ability Hold Packet (Client -> Server) — for channeled abilities like Fire Breath
+        registrar.playToServer(
+                AbilityHoldPacket.TYPE,
+                AbilityHoldPacket.STREAM_CODEC,
+                AbilityHoldPacket::handle
+        );
+
+        // 7. Sync Stats Packet (Server -> Client)
+        registrar.playToClient(
+                SyncStatsPacket.TYPE,
+                SyncStatsPacket.STREAM_CODEC,
+                (SyncStatsPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setXp(payload.xp());
+                            data.setLevel(payload.level());
+                            data.setCurrentChi(payload.currentChi());
+                        }
+                    });
+                }
+        );
+
+// 8. Sync Bending Data Packet (Server -> Client)
+        registrar.playToClient(
+                com.minecraft.atlamod.network.SyncBendingDataPacket.TYPE,
+                com.minecraft.atlamod.network.SyncBendingDataPacket.STREAM_CODEC,
+                (com.minecraft.atlamod.network.SyncBendingDataPacket payload, net.neoforged.neoforge.network.handling.IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setMainElement(payload.mainElement());
+                            data.setActiveElement(payload.activeElement());
+
+                            data.getUnlockedElements().clear();
+                            if (payload.unlockedElements() != null) data.getUnlockedElements().addAll(payload.unlockedElements());
+
+                            data.getUnlockedAbilities().clear();
+                            if (payload.unlockedAbilities() != null) data.getUnlockedAbilities().addAll(payload.unlockedAbilities());
+
+                            // Perfect 1:1 overwrite using the titanium vault setter
+                            if (payload.equippedAbilities() != null) {
+                                data.setAllEquippedAbilities(payload.equippedAbilities());
+                            }
+
+                            // Lock it in for the UI
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+
+                            if (!payload.hasChosen()) {
+                                com.minecraft.atlamod.client.ClientEvents.needsToOpenMenu = true;
+                            }
+                        }
+                    });
+                }
+        );
+    }
+}
