@@ -201,4 +201,18 @@ public class AbilityHandler {
         long t = Math.max(0, tick);
         return (int) ((rate * (t + 1)) / 20L - (rate * t) / 20L);
     }
+
+    /**
+     * Whether the player's active channel makes them immune to damage right now.
+     * Consulted by the LivingIncomingDamageEvent handler in ServerEvents.
+     *
+     * Kept here rather than in ServerEvents so the answer stays driven by the
+     * registry: any future channel (Water Shield, Earth Armor) gets this for free
+     * by overriding grantsInvulnerability().
+     */
+    public static boolean isInvulnerableFromAbility(BendingData data) {
+        if (!data.isChanneling()) return false;
+        Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
+        return ability instanceof ChanneledAbility channeled && channeled.grantsInvulnerability();
+    }
 }

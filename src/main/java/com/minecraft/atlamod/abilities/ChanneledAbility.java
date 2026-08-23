@@ -38,6 +38,18 @@ public interface ChanneledAbility extends Ability {
         return 0;
     }
 
+    /**
+     * Whether damage should be cancelled outright while this channel is running.
+     *
+     * Implemented by cancelling LivingIncomingDamageEvent rather than by setting
+     * Entity#setInvulnerable, because that flag is written to the player's NBT —
+     * logging out mid-channel would leave the player invincible for good. Reacting
+     * to the event keeps invulnerability strictly tied to the channel being active.
+     */
+    default boolean grantsInvulnerability() {
+        return false;
+    }
+
     /** XP trickled once per second while channeling. 0 for none. */
     default int getXpPerSecond() {
         return 0;

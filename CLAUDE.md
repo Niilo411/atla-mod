@@ -107,8 +107,19 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball, Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
-- Fire Defensive path started: Fire Push (6.0 damage, ~6 block knockback in a
-  60-degree forward cone reaching 8 blocks, 100 chi, 2s cooldown, 5 xp)
+- Fire Defensive path in progress:
+  - Fire Push (6.0 damage, ~6 block knockback in a 60-degree forward cone
+    reaching 8 blocks, 100 chi, 2s cooldown, 5 xp)
+  - Fire Shield (channeled; cancels ALL incoming damage while held, 25 chi/sec
+    = 50 per 2s, 10 xp/sec, no cooldown, no duration cap — chi is the only limit)
+- **Invulnerability is registry-driven**: `ChanneledAbility.grantsInvulnerability()`
+  plus a `LivingIncomingDamageEvent` cancel in `ServerEvents`. Deliberately NOT
+  `Entity#setInvulnerable`, which persists in player NBT and would leave anyone who
+  logged out mid-shield invincible forever. Water Shield / Earth Armor get this for
+  free by overriding the one method.
+- Fire Shield is the SECOND channeled ability, so the generalised
+  `activeChanneledAbility` tracking is now actually load-bearing: only one channel
+  can run at a time, and releasing one channel's key can't stop the other.
 - The UI needs no work per ability: all four path arrays in `UpgradeMenuScreen`
   already list every planned ability, and unlock cost, tree gating and the equip
   screen are all generic. A new ability = the class + one `register()` line, as
@@ -118,7 +129,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 52 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 51 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

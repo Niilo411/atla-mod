@@ -168,6 +168,25 @@ public class ServerEvents {
         }
     }
 
+    /**
+     * Cancels all incoming damage while the player is channeling an ability that
+     * grants invulnerability (Fire Shield).
+     *
+     * Done as an event cancel rather than Entity#setInvulnerable because that flag
+     * is persisted in player NBT — logging out mid-shield would otherwise leave the
+     * player invincible permanently. Cancelling here also removes the damage's
+     * knockback along with the damage.
+     */
+    @SubscribeEvent
+    public static void onIncomingDamage(net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        BendingData data = player.getData(ModAttachments.BENDING_DATA);
+        if (AbilityHandler.isInvulnerableFromAbility(data)) {
+            event.setCanceled(true);
+        }
+    }
+
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
