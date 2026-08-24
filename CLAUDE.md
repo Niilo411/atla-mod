@@ -338,8 +338,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
   - Water stream (must be LOOKING at water within 20 blocks; tears a stream out and
-    holds it for a 3s window, then left click to throw for 8.0 damage. 75 chi, 8 xp,
-    3s cooldown. Chi is spent on the DRAW, so letting the window lapse costs the cast)
+    holds it for a 3s window, then left click to throw for 8.0 damage. 100 chi, 8 xp,
+    NO cooldown — the 3s window and the 100 chi are the whole limit. Chi is spent on
+    the DRAW, so letting the window lapse costs the cast)
 - **An armed two-phase ability can now expire**: `TwoPhaseAbility.getArmedDurationTicks()`
   (0 = waits indefinitely, which is Fireball and Water ball) plus `onArmedExpire()`.
   `AbilityHandler.tickArmedTwoPhase` runs the countdown, applies the cooldown on expiry

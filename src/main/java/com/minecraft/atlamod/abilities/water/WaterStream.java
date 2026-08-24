@@ -53,17 +53,12 @@ public class WaterStream implements TwoPhaseAbility {
 
     @Override
     public int getChiCost() {
-        return 75;
+        return 100;
     }
 
     @Override
     public int getXpReward() {
         return 8;
-    }
-
-    @Override
-    public int getCooldownTicks() {
-        return 60; // 3 seconds, from the throw or from losing the water
     }
 
     @Override
