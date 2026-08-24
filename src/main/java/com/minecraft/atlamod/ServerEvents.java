@@ -214,7 +214,12 @@ public class ServerEvents {
             player.setData(ModAttachments.BENDING_DATA, data);
 
             // --- CHI REGEN ---
-            if (player.tickCount % 20 == 0) {
+            // Regen is held off for a few seconds after any chi is spent, so a cheap
+            // ability can't be sustained indefinitely by regen alone. The countdown
+            // runs every tick; the refill itself stays on the 1-second cadence.
+            if (data.getChiRegenDelay() > 0) {
+                data.setChiRegenDelay(data.getChiRegenDelay() - 1);
+            } else if (player.tickCount % 20 == 0) {
                 if (data.getCurrentChi() < data.getMaxChi()) {
                     // Divide max Chi by 100 to get exactly 1% regen per second (100 seconds to full)
                     int regenAmount = Math.max(1, data.getMaxChi() / 100);

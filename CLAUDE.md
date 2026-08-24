@@ -146,6 +146,12 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Fire Shield is the SECOND channeled ability, so the generalised
   `activeChanneledAbility` tracking is now actually load-bearing: only one channel
   can run at a time, and releasing one channel's key can't stop the other.
+- **Chi regen is delayed after spending**: passive regen (1% of max per second) is
+  held off for `BendingData.CHI_REGEN_DELAY_TICKS` (60 ticks / 3s) after any chi is
+  spent, so regen can't bankroll a cheap ability indefinitely. The delay is armed
+  inside `BendingData.consumeChi()` itself, so every ability gets it without having
+  to remember — and channels re-arm it every tick, meaning they now drain at their
+  full rate rather than rate-minus-regen, and only start refilling 3s after release.
 - The UI needs no work per ability: all four path arrays in `UpgradeMenuScreen`
   already list every planned ability, and unlock cost, tree gating and the equip
   screen are all generic. A new ability = the class + one `register()` line, as

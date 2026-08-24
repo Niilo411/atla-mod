@@ -118,8 +118,31 @@ public class BendingData {
     public void setLevel(int level) { this.level = level; }
     public int getCurrentChi() { return currentChi; }
     public void setCurrentChi(int currentChi) { this.currentChi = currentChi; }
-    public void consumeChi(int amount) { this.currentChi = Math.max(0, this.currentChi - amount); }
+    /**
+     * Spends chi and restarts the regen delay. Every ability goes through here, so
+     * the delay applies to all of them without each having to remember it — including
+     * channels, which re-arm it every tick and so only start regenerating once the
+     * channel has been off for the full delay.
+     */
+    public void consumeChi(int amount) {
+        if (amount <= 0) return;
+        this.currentChi = Math.max(0, this.currentChi - amount);
+        this.chiRegenDelay = CHI_REGEN_DELAY_TICKS;
+    }
+
     public int getMaxChi() { return 500 + (this.level * 100); }
+
+    // --- CHI REGEN DELAY ---
+    // Spending chi holds off passive regen briefly, so regen can't be used to pay
+    // for an ability as fast as the ability costs.
+
+    /** Ticks of quiet required after spending chi before regen resumes (3 seconds). */
+    public static final int CHI_REGEN_DELAY_TICKS = 60;
+
+    private transient int chiRegenDelay = 0;
+
+    public int getChiRegenDelay() { return chiRegenDelay; }
+    public void setChiRegenDelay(int ticks) { this.chiRegenDelay = Math.max(0, ticks); }
 
     // --- ABILITY FLAGS ---
     public boolean isMeditating() { return isMeditating; }
