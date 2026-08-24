@@ -185,5 +185,15 @@ public class ModNetworking {
                     });
                 }
         );
+
+        // --- ROOTED (Server -> Client) : abilities that hold the player still ---
+        registrar.playToClient(
+                RootedPacket.TYPE,
+                RootedPacket.STREAM_CODEC,
+                (RootedPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() ->
+                            com.minecraft.atlamod.client.ClientRootState.set(payload.rooted()));
+                }
+        );
     }
 }

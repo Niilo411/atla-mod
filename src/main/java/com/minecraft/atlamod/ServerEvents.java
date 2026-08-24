@@ -123,6 +123,8 @@ public class ServerEvents {
             // mid-charge would come back to a stale bar stuck on their screen.
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.ChargeStatusPacket("", 0, 0, false));
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.RootedPacket(false));
 
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
@@ -434,6 +436,14 @@ public class ServerEvents {
                 // but the menu shows every slot empty after a death.
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                         new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
+
+                // Dying mid-channel or mid-charge ends them server-side, but these two
+                // are client-side statics that survive it — leaving a stale charge bar
+                // on screen, or worse, a player who respawns unable to move.
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                        new com.minecraft.atlamod.network.RootedPacket(false));
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                        new com.minecraft.atlamod.network.ChargeStatusPacket("", 0, 0, false));
             }));
         }
     }

@@ -333,6 +333,25 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- Water Defensive path started: Water shield (channeled; same shape and cost as Fire
+  Shield — 25 chi/sec, 1 xp/sec, no cooldown, no cap, 200 chi to start — and gets its
+  invulnerability from the same `grantsInvulnerability()` override, which is what that
+  contract was built for. Four wheeling masses of water, and anything that comes within
+  2.2 blocks gets Slowness II)
+- **Rooting**: `ChanneledAbility.rootsPlayer()` (both shields) pins the player. Done on
+  BOTH sides — the server zeroes horizontal motion (leaving downward alone, so a shield
+  is not also a hover), and `RootedPacket` tells the client to stop taking movement
+  input. Server-side alone would leave the client walking and being corrected every
+  tick, which rubber-bands instead of holding still. `ClientRootState` is a client
+  static, so login AND respawn clear it — dying while shielded would otherwise leave a
+  player who cannot move.
+- **Water shield's four "blocks" are dense particle clusters, not real water.** Water
+  source blocks placed and moved every tick would flood everything around the player,
+  and keep flowing after the shield moved on. The slowing is applied directly to nearby
+  entities, so the gameplay half does not depend on how the water is drawn.
+- **Held abilities take canteen water once per activation, not per tick.** The check
+  lives in `startChannel` as well as `performCast`; per-tick draw would empty a full
+  canteen in one second.
 - **FIRE IS COMPLETE — all 16 abilities across all 4 paths.** 41 left across
   Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because

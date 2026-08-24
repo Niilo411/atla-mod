@@ -70,6 +70,12 @@ public class FireShield implements ChanneledAbility {
         return true;
     }
 
+    /** Holds the bender in place: a shield is a stance, not something you walk with. */
+    @Override
+    public boolean rootsPlayer() {
+        return true;
+    }
+
     @Override
     public void onStart(ServerPlayer player, BendingData data) {
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),

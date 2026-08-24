@@ -241,9 +241,17 @@ public class AbilityHandler {
             return;
         }
 
+        // Water once per activation, not per tick: a channel is one use of the
+        // ability, and draining a canteen unit every tick would empty it in a second.
+        if (ability.requiresWater()
+                && !com.minecraft.atlamod.abilities.WaterSupply.tryConsume(player)) {
+            return;
+        }
+
         data.setActiveChanneledAbility(ability.getKey());
         data.setChannelTicks(0);
         ability.onStart(player, data);
+        setRooted(player, ability.rootsPlayer());
         AbilitySupport.syncData(player, data);
     }
 
@@ -265,6 +273,7 @@ public class AbilityHandler {
             data.setCooldown(ability.getKey(), ability.getCooldownTicks());
         }
 
+        setRooted(player, false);
         ability.onStop(player, data);
         AbilitySupport.syncData(player, data);
     }
@@ -304,6 +313,7 @@ public class AbilityHandler {
             AbilitySupport.grantXp(data, channeled.getXpPerSecond());
         }
 
+        if (channeled.rootsPlayer()) holdStill(player);
         channeled.onTick(player, data);
         data.setChannelTicks(data.getChannelTicks() + 1);
 
@@ -384,5 +394,24 @@ public class AbilityHandler {
         }
 
         PacketDistributor.sendToPlayer(player, new ChargeStatusPacket("", 0, 0, false));
+    }
+
+    /** Tells the client whether an ability is holding the player still. */
+    private static void setRooted(ServerPlayer player, boolean rooted) {
+        PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.RootedPacket(rooted));
+    }
+
+    /**
+     * Pins the player where they stand while a rooting channel runs.
+     *
+     * Horizontal motion is zeroed but downward motion is left alone, so a shield does
+     * not also make the player hover — being rooted should not mean being suspended
+     * in mid-air if the ground is taken out from under them.
+     */
+    private static void holdStill(ServerPlayer player) {
+        net.minecraft.world.phys.Vec3 motion = player.getDeltaMovement();
+        player.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
+        // Players ignore server-side velocity unless it is explicitly pushed to them.
+        player.hurtMarked = true;
     }
 }

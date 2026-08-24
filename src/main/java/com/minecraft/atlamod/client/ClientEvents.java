@@ -101,6 +101,16 @@ public class ClientEvents {
                     // Stop local velocity so you don't slide
                     mc.player.setDeltaMovement(0, mc.player.getDeltaMovement().y, 0);
                 }
+
+                // Abilities that hold you in place (the shields). The server pins the
+                // player too; this stops the client trying to walk and being corrected
+                // every tick, which would rubber-band rather than hold still.
+                if (ClientRootState.isRooted()) {
+                    mc.player.input.forwardImpulse = 0.0f;
+                    mc.player.input.leftImpulse = 0.0f;
+                    mc.player.input.jumping = false;
+                    mc.player.setDeltaMovement(0, mc.player.getDeltaMovement().y, 0);
+                }
             }
             // 3. Check for 'N' key presses (Upgrade Menu)
             while (KeyBindings.UPGRADE_MENU.consumeClick()) {

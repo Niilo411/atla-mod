@@ -65,6 +65,18 @@ public interface ChanneledAbility extends Ability {
         return false;
     }
 
+    /**
+     * Whether the player is held in place while this channel runs (both shields).
+     *
+     * Rooting is done on the server AND on the client. Zeroing motion server-side
+     * alone would leave the client still trying to walk and being corrected every
+     * tick, which rubber-bands; the client is told to stop taking movement input so
+     * the two agree.
+     */
+    default boolean rootsPlayer() {
+        return false;
+    }
+
     /** XP trickled once per second while channeling. 0 for none. */
     default int getXpPerSecond() {
         return 0;
