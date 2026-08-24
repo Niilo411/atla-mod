@@ -32,6 +32,17 @@ public interface Ability {
         return true;
     }
 
+    /**
+     * Whether this ability needs water to hand — true for waterbending.
+     *
+     * The dispatcher checks it before chi is spent: near open water it costs
+     * nothing, away from water it draws a unit from the player's canteen, and with
+     * neither the cast is refused for free. See WaterSupply.
+     */
+    default boolean requiresWater() {
+        return false;
+    }
+
     /** The actual effect. Chi has already been consumed and XP already granted by this point. */
     void execute(ServerPlayer player, BendingData data);
 

@@ -61,6 +61,13 @@ public class AbilityHandler {
         // Per-ability precondition runs before chi is spent, so a blocked cast is free.
         if (!ability.canStart(player, data)) return;
 
+        // Water has to be found before chi is spent, so a bender caught dry loses
+        // nothing for trying.
+        if (ability.requiresWater()
+                && !com.minecraft.atlamod.abilities.WaterSupply.tryConsume(player)) {
+            return;
+        }
+
         if (!AbilitySupport.consumeChiAndGiveXp(player, data, ability.getChiCost(), ability.getXpReward())) {
             return;
         }

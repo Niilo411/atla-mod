@@ -50,6 +50,10 @@ public class Atlamod {
     // Creates a new BlockItem with the id "atlamod:example_block", combining the namespace and path
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
+    // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
+    public static final DeferredItem<Item> WATER_CANTEEN = ITEMS.register("water_canteen",
+            () -> new WaterCanteenItem(new Item.Properties()));
+
     // Ability-placed fire that vanilla can't provide: stackable, and blue on demand.
     // No BlockItem — nothing should ever hold one.
     public static final DeferredBlock<Block> BENDING_FIRE = BLOCKS.register("bending_fire",

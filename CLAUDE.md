@@ -117,6 +117,27 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Balanced: Mine-1, Earth dig-4s, Earth grab-15
 - Masterclass: Earthquake-15, Ravine-15, Earth sink-15
 
+
+## Waterbending resources
+
+- **Water Canteen** (`WaterCanteenItem`): crafted from 3 sticks (top), string either
+  side of an empty middle, 3 leather (bottom). Right click at or in open water to
+  fill; each waterbending ability used away from water drinks one unit.
+- **The water level IS the durability value.** 20 units, so one ability costs exactly
+  the 5% the design asks for, and the vanilla durability bar becomes the gauge for
+  free (recoloured blue, and always visible so an empty canteen still looks like a
+  canteen). It is NEVER damaged through `hurtAndBreak` — the damage value is set
+  directly, so running dry leaves an empty canteen rather than destroying it.
+- **`Ability.requiresWater()`** (default false) is the hook. The dispatcher checks it
+  in `performCast` BEFORE chi is spent, so a bender caught dry loses nothing for
+  trying. `WaterSupply.tryConsume` then: free if open water is within 15 blocks,
+  otherwise one unit from a canteen in the inventory or off-hand, otherwise refused
+  with a message.
+- **The 15-block search walks expanding shells, not a flat triple loop.** Standing at
+  the edge of a lake is the common case and bails out almost immediately; only a
+  genuinely dry cast pays for the full 31-cube.
+- No water abilities exist yet, so `requiresWater()` is infrastructure waiting to be
+  used — nothing overrides it until the Water paths are built.
 ## Current Status
 
 - Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball (hold 2s to build,

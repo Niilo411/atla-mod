@@ -2,6 +2,8 @@
   "itemGroup.atlamod": "Example Mod Tab",
   "block.atlamod.example_block": "Example Block",
   "item.atlamod.example_item": "Example Item",
+  "item.atlamod.water_canteen": "Water Canteen",
+  "block.atlamod.bending_fire": "Bending Fire",
 
   "atlamod.configuration.title": "Atla mod Configs",
   "atlamod.configuration.section.atlamod.common.toml": "Atla mod Configs",
