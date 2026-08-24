@@ -44,8 +44,14 @@ public final class Tsunamis {
     /** Placed and cleared with no neighbour notification, so the wave never spreads. */
     private static final int QUIET = Block.UPDATE_CLIENTS;
 
-    /** Blocks travelled per tick. */
+    /** Blocks moved per step. */
     private static final int SPEED = 1;
+
+    /**
+     * Ticks between steps. A wave that advanced every tick crossed its twenty blocks
+     * in a second, which read as a wall being teleported rather than as water moving.
+     */
+    private static final int ADVANCE_EVERY = 2;
 
     /** How many slices thick the wall of water is. */
     private static final int BODY_DEPTH = 4;
@@ -75,6 +81,7 @@ public final class Tsunamis {
         final float damage;
 
         int front = 0;
+        int age = 0;
         final Deque<List<BlockPos>> slices = new ArrayDeque<>();
 
         /** Each thing is hit once, however many slices wash over it. */
@@ -115,6 +122,15 @@ public final class Tsunamis {
 
     /** @return false once the wave has run its distance and been drained */
     private static boolean advance(Wave wave) {
+        // The wall only moves every so many ticks, but it goes on hitting things every
+        // tick — something walking into a wave that happens to be between steps should
+        // still be caught by it.
+        wave.age++;
+        if (wave.age % ADVANCE_EVERY != 0) {
+            strike(wave);
+            return true;
+        }
+
         wave.front += SPEED;
 
         if (wave.front > wave.range) {

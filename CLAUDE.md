@@ -349,7 +349,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     potion effect, so nothing can dispel it and no timer is ever shown. Also makes the
     bender immune to Drown)
   - Tsunami (CHARGED 3s, then a wall of water 9 across and 4 high rolls 20 blocks out,
-    hitting everything once for 14.0 and carrying it along. 750 chi, 25 xp, no cooldown)
+    hitting everything once for 24.0 and carrying it along — enough to one-shot a
+    zombie, and `indirect_magic` bypasses armour so a geared one dies the same. Moves
+    1 block every 2 ticks, so 20 blocks takes 2s. 750 chi, 25 xp, no cooldown)
 - **Tsunami is Water Sphere in reverse and borrows its trick**: blocks are placed AND
   cleared with `Block.UPDATE_CLIENTS`, no neighbour updates. Dropping a wall of water in
   the ordinary way would have every block of it try to flow, and a wave that spread on

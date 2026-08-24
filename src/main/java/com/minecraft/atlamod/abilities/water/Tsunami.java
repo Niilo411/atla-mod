@@ -25,8 +25,12 @@ public class Tsunami implements ChargedAbility {
     /** How far the wave rolls. */
     private static final int RANGE = 20;
 
-    /** 7 hearts to everything it washes over, once each. */
-    private static final float DAMAGE = 14.0F;
+    /**
+     * 12 hearts, enough to take a zombie down in one pass with room to spare — they
+     * have 20 health, and Tsunami damages through indirect magic, which vanilla tags
+     * as bypassing armour, so a geared one dies the same as a bare one.
+     */
+    private static final float DAMAGE = 24.0F;
 
     @Override
     public String getName() {
