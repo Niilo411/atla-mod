@@ -20,17 +20,19 @@ import net.minecraft.world.effect.MobEffects;
  */
 public class WaterHeal implements ChanneledAbility {
 
-    /** Regeneration II. */
-    private static final int REGEN_LEVEL = 1;
+    /** Regeneration I. */
+    private static final int REGEN_LEVEL = 0;
 
     /**
-     * Long enough to outlast the gap between refreshes, short enough that the healing
-     * stops promptly once the channel does.
+     * Exactly one heal beat. Regeneration I heals on ticks where its remaining
+     * duration divides by 50, and the check runs before the duration is decremented,
+     * so an instance created at 50 heals immediately and then expires cleanly.
+     *
+     * Re-applying only once the previous instance has gone therefore reproduces
+     * vanilla's rate exactly, and leaves at most 2.5 seconds of regeneration running
+     * on after the channel stops.
      */
-    private static final int REGEN_DURATION = 60;
-
-    /** Refresh only once the effect drops below this, never every tick — see onTick. */
-    private static final int REFRESH_BELOW = 25;
+    private static final int REGEN_DURATION = 50;
 
     @Override
     public String getName() {
@@ -89,12 +91,15 @@ public class WaterHeal implements ChanneledAbility {
 
     @Override
     public void onTick(ServerPlayer player, BendingData data) {
-        // Only topped up as it runs low, NOT every tick. Re-adding an effect replaces
-        // the instance and resets its internal counter, and regeneration only heals on
-        // ticks where that counter comes round — refreshing constantly would leave the
-        // player with a permanent regeneration icon that never actually heals them.
-        MobEffectInstance current = player.getEffect(MobEffects.REGENERATION);
-        if (current == null || current.getDuration() < REFRESH_BELOW) {
+        // Re-applied ONLY once the previous instance has expired, never on a timer and
+        // never every tick. Re-adding replaces the instance and resets its counter, and
+        // regeneration heals only on ticks where that counter comes round: refreshing
+        // early moves the beat, and refreshing constantly gives a permanent regeneration
+        // icon that never heals at all. Letting each instance run out keeps vanilla's rate.
+        //
+        // It also means a stronger regeneration the player already has — from a potion,
+        // say — is left alone rather than being replaced with ours.
+        if (player.getEffect(MobEffects.REGENERATION) == null) {
             player.addEffect(new MobEffectInstance(
                     MobEffects.REGENERATION, REGEN_DURATION, REGEN_LEVEL, false, true, true));
         }

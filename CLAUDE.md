@@ -340,7 +340,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     2.2 blocks gets Slowness II)
   - Water push (60-degree forward cone reaching 8 blocks, ~6 block knockback plus 1s of
     Slowness I. NO damage — pure control. 100 chi, 10 xp, 2s cooldown)
-  - Water heal (channeled; Regeneration II while standing IN water. 15 chi/sec, 7 xp/sec,
+  - Water heal (channeled; Regeneration I while standing IN water. 15 chi/sec, 7 xp/sec,
     no cooldown. Refuses to start on dry land and ends the moment you wade out)
 - **`ChanneledAbility.canContinue()`** (default true) is checked every tick and stops the
   channel when it returns false — for conditions that lapse while the key is still held,
@@ -348,7 +348,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - **Refreshing a MobEffect every tick stops it working.** Re-adding replaces the instance
   and resets its internal counter, and regeneration only heals on ticks where that counter
   comes round — so a per-tick refresh gives a permanent regeneration icon that never heals.
-  Water heal tops it up only once it drops below a threshold. Applies to any future
+  Water heal re-applies only once the previous instance has EXPIRED — a 50 tick
+  instance is exactly one Regen I beat, so this reproduces vanilla's rate exactly and
+  leaves a stronger potion regen alone. Applies to any future
   effect-granting ability.
 - **Rooting**: `ChanneledAbility.rootsPlayer()` (both shields) pins the player. Done on
   BOTH sides — the server zeroes horizontal motion (leaving downward alone, so a shield
