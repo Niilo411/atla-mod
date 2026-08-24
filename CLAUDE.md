@@ -174,6 +174,10 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     all scaling with charge. Lays
     fire through `BendingFire.placeGrounded`, so Taller Fire and blue fire both
     apply to it. 150 chi, 20 xp, 1s cooldown)
+  - Fire immunity (PASSIVE — cancels every `IS_FIRE` source aimed at the wearer:
+    fire, lava, magma, burning, and every fire ability including their own blue
+    fire. Also clears fire ticks each tick, since burning and being hurt by it are
+    separate in Minecraft and cancelling only the damage leaves you visibly alight)
 - **`ChargedAbility.firesOnRelease()`** (default false) makes an early release cast a
   weaker version instead of throwing the charge away, with `getMinimumChargeTicks()`
   as the floor below which a stray tap still costs nothing. Abilities scale off
@@ -282,7 +286,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 43 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 42 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

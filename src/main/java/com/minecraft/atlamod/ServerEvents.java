@@ -215,6 +215,17 @@ public class ServerEvents {
                 event.setCanceled(true);
                 return;
             }
+
+            // Fire immunity: nothing that burns gets through. Checked against the
+            // whole IS_FIRE tag rather than a list of sources, so lava, magma, being
+            // alight and every fire ability are all covered at once — including this
+            // player's own blue fire, which otherwise hits for a flat 3 hearts.
+            if (event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)
+                    && data.hasPassiveEquipped(
+                            com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
+                event.setCanceled(true);
+                return;
+            }
         }
 
         // Blue Fire doubles what the bender's own fire abilities hit for.
@@ -273,6 +284,15 @@ public class ServerEvents {
 
             // --- UNIVERSAL COOLDOWN TICKER (Must be at the very top!) ---
             data.tickCooldowns();
+
+            // --- FIRE IMMUNITY PASSIVE ---
+            // Damage is cancelled in the damage handler, but burning is separate from
+            // being hurt by it: without this the player stands there wreathed in
+            // flames taking nothing, which reads as a bug rather than as immunity.
+            if (player.isOnFire() && data.hasPassiveEquipped(
+                    com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
+                player.clearFire();
+            }
             player.setData(ModAttachments.BENDING_DATA, data);
 
             // --- CHI REGEN ---

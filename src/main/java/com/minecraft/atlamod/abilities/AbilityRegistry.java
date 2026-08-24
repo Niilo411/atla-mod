@@ -6,6 +6,7 @@ import com.minecraft.atlamod.abilities.fire.FirePush;
 import com.minecraft.atlamod.abilities.fire.FireRing;
 import com.minecraft.atlamod.abilities.fire.BlueFire;
 import com.minecraft.atlamod.abilities.fire.FireBlow;
+import com.minecraft.atlamod.abilities.fire.FireImmunity;
 import com.minecraft.atlamod.abilities.fire.FireRocket;
 import com.minecraft.atlamod.abilities.fire.FireShield;
 import com.minecraft.atlamod.abilities.fire.FireSpikes;
@@ -55,6 +56,7 @@ public final class AbilityRegistry {
         // --- FIRE : Masterclass ---
         register(new BlueFire());
         register(new FireBlow());
+        register(new FireImmunity());
     }
 
     public static void register(Ability ability) {
