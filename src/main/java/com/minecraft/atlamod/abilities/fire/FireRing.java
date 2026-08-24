@@ -38,6 +38,9 @@ public class FireRing implements Ability {
     /** How long this fire keeps its damage bonus, in ticks (30 seconds). */
     private static final int ENHANCED_LIFETIME = 600;
 
+    /** How much harder this ring burns than ordinary fire. */
+    private static final float DAMAGE_MULTIPLIER = 3.0F;
+
     @Override
     public String getName() {
         return "Fire Ring";
@@ -94,7 +97,7 @@ public class FireRing implements Ability {
 
             if (level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
                 level.setBlockAndUpdate(pos, Blocks.FIRE.defaultBlockState());
-                BendingFire.mark(level, pos, ENHANCED_LIFETIME);
+                BendingFire.mark(level, pos, ENHANCED_LIFETIME, DAMAGE_MULTIPLIER);
 
                 level.sendParticles(ParticleTypes.FLAME,
                         pos.getX() + 0.5, pos.getY() + 0.4, pos.getZ() + 0.5,

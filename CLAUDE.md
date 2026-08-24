@@ -119,10 +119,15 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     so it cannot grief blocks)
   - Fire Ring (30-block continuous ring of fire at radius 4 around the player;
     100 chi, 2s cooldown, 8 xp. Its fire burns at 3x normal for 30s — see below)
+- Fire Balanced path started: Ignite (lights whatever you look at up to 20 blocks;
+  its fire burns at 2x for 30s. Aimed at a furnace/blast furnace/smoker it fuels
+  that instead, burning 15s. 50 chi, 5 xp, no cooldown. `canStart` refuses the cast
+  when nothing is in view, so looking at the sky costs nothing)
 - **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
   fire blocks an ability placed (dimension + pos -> expiry), and the
   `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything
-  standing on one. Positions are tracked because vanilla has nowhere to hang "this
+  standing on one, each fire carrying its own multiplier (Fire Ring 3x, Ignite 2x).
+  Positions are tracked because vanilla has nowhere to hang "this
   fire is special" — a custom block would need a blockstate, model, texture and its
   own spread rules just to change a damage number. Entries self-expire, so fire that
   burns out stops counting on its own. Firewall could opt in with one `mark()` call.
@@ -133,6 +138,11 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `/kill` still land. Deliberately NOT `Entity#setInvulnerable`, which persists in
   player NBT and would leave anyone who logged out mid-shield invincible forever.
   Water Shield / Earth Armor get all of this by overriding the one method.
+- **Access transformer**: `src/main/resources/META-INF/accesstransformer.cfg` opens
+  `AbstractFurnaceBlockEntity.litTime`/`litDuration` (package-private, and the
+  `ContainerData` exposing them is protected — there is no public "burn for N ticks"
+  API). NeoForge auto-detects the file at that path, so no build.gradle change is
+  needed, and it ships inside the jar so it applies in production too.
 - Fire Shield is the SECOND channeled ability, so the generalised
   `activeChanneledAbility` tracking is now actually load-bearing: only one channel
   can run at a time, and releasing one channel's key can't stop the other.
@@ -145,7 +155,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 49 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 48 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

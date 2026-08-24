@@ -168,9 +168,6 @@ public class ServerEvents {
         }
     }
 
-    /** How much harder ability-placed fire burns than ordinary fire. */
-    private static final float BENDING_FIRE_MULTIPLIER = 3.0F;
-
     /**
      * Two jobs on incoming damage:
      *
@@ -180,9 +177,9 @@ public class ServerEvents {
      *    logging out mid-shield would otherwise leave the player invincible
      *    permanently. Cancelling here also drops the damage's knockback with it.
      *
-     * 2. Scale up fire damage for anything standing in fire an ability placed
-     *    (Fire Ring). This applies to every living entity, not just players, since
-     *    the whole point is that it hurts the mobs you ringed.
+     * 2. Scale fire damage for anything standing in fire an ability placed (Fire
+     *    Ring, Ignite), by that fire's own multiplier. Applies to every living
+     *    entity, not just players — the point is that it hurts what you burned.
      *
      * The shield is handled first and returns, so a shielded player standing in
      * their own ring still takes nothing.
@@ -200,8 +197,10 @@ public class ServerEvents {
         if (!event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) return;
         if (!(event.getEntity().level() instanceof ServerLevel level)) return;
 
-        if (com.minecraft.atlamod.abilities.BendingFire.isEnhanced(level, event.getEntity().blockPosition())) {
-            event.setAmount(event.getAmount() * BENDING_FIRE_MULTIPLIER);
+        float multiplier = com.minecraft.atlamod.abilities.BendingFire.getMultiplier(
+                level, event.getEntity().blockPosition());
+        if (multiplier > 1.0F) {
+            event.setAmount(event.getAmount() * multiplier);
         }
     }
 
