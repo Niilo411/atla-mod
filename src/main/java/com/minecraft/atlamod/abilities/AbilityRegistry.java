@@ -4,6 +4,7 @@ import com.minecraft.atlamod.abilities.fire.FireBreath;
 import com.minecraft.atlamod.abilities.fire.FireLeap;
 import com.minecraft.atlamod.abilities.fire.FirePush;
 import com.minecraft.atlamod.abilities.fire.FireRing;
+import com.minecraft.atlamod.abilities.fire.FireRocket;
 import com.minecraft.atlamod.abilities.fire.FireShield;
 import com.minecraft.atlamod.abilities.fire.FireSpikes;
 import com.minecraft.atlamod.abilities.fire.FireWhip;
@@ -45,6 +46,7 @@ public final class AbilityRegistry {
         // --- FIRE : Balanced ---
         register(new Ignite());
         register(new FireSpikes());
+        register(new FireRocket());
     }
 
     public static void register(Ability ability) {

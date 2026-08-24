@@ -168,6 +168,15 @@ public class BendingData {
     public int getChiRegenDelay() { return chiRegenDelay; }
     public void setChiRegenDelay(int ticks) { this.chiRegenDelay = Math.max(0, ticks); }
 
+    // --- FALL PROTECTION ---
+    // Ticks left of "landing softly", granted by Fire Rocket when it cuts out so the
+    // descent it put you in doesn't hurt. Kept as a countdown rather than an event
+    // cancel because zeroing fallDistance stops the damage ever being calculated.
+    private transient int fallImmunityTicks = 0;
+
+    public int getFallImmunityTicks() { return fallImmunityTicks; }
+    public void setFallImmunityTicks(int ticks) { this.fallImmunityTicks = Math.max(0, ticks); }
+
     // --- ABILITY FLAGS ---
     public boolean isMeditating() { return isMeditating; }
     public void setMeditating(boolean isMeditating) { this.isMeditating = isMeditating; }

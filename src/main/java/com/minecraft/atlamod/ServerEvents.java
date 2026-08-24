@@ -123,6 +123,15 @@ public class ServerEvents {
             // mid-charge would come back to a stale bar stuck on their screen.
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.ChargeStatusPacket("", 0, 0, false));
+
+            // Safety net: Fire Rocket grants flight through the vanilla ability
+            // flags, and those are saved to player NBT. If the player disconnected
+            // mid-flight, onStop() never ran and they would return able to fly
+            // forever with nothing in the world to take it back.
+            if (!player.isCreative() && !player.isSpectator()
+                    && (player.getAbilities().mayfly || player.getAbilities().flying)) {
+                com.minecraft.atlamod.abilities.fire.FireRocket.stopFlight(player);
+            }
         }
     }
     @SubscribeEvent
@@ -217,6 +226,15 @@ public class ServerEvents {
 
             // --- UNIVERSAL COOLDOWN TICKER (Must be at the very top!) ---
             data.tickCooldowns();
+
+            // --- FALL PROTECTION COUNTDOWN ---
+            // Granted by Fire Rocket on shutdown. Zeroing fallDistance means the
+            // damage is never calculated in the first place, so nothing has to be
+            // cancelled later.
+            if (data.getFallImmunityTicks() > 0) {
+                data.setFallImmunityTicks(data.getFallImmunityTicks() - 1);
+                player.fallDistance = 0.0F;
+            }
             player.setData(ModAttachments.BENDING_DATA, data);
 
             // --- CHI REGEN ---
@@ -318,6 +336,14 @@ public class ServerEvents {
     @SubscribeEvent
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            // Same safety net as login: if the player died mid-rocket, onStop() never
+            // ran. Vanilla usually rebuilds abilities from the gamemode on respawn,
+            // but the cost of being wrong here is permanent creative flight.
+            if (!player.isCreative() && !player.isSpectator()
+                    && (player.getAbilities().mayfly || player.getAbilities().flying)) {
+                com.minecraft.atlamod.abilities.fire.FireRocket.stopFlight(player);
+            }
+
             // Give the client 5 ticks to load the new body before sending the UI sync
             player.getServer().tell(new net.minecraft.server.TickTask(player.getServer().getTickCount() + 5, () -> {
                 BendingData data = player.getData(ModAttachments.BENDING_DATA);

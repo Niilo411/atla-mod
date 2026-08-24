@@ -144,6 +144,20 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Fire Spikes (2s hold to charge, then ~25 fire blocks scattered randomly out to
     15 blocks, even across the area rather than bunched near the player; burns at
     2x for 30s. 100 chi, 10 xp, no cooldown)
+  - Fire Rocket (channeled creative-style flight at 0.03 fly speed vs vanilla 0.05,
+    capped 10 blocks above ground, flame venting from the feet; 15 chi/sec, 5 xp/sec,
+    no cooldown. No fall damage while lit, plus 100 ticks of grace after it cuts out
+    so the descent it caused can't kill you)
+- **Flight flags are persisted, so they need a safety net**: Fire Rocket grants
+  flight via `player.getAbilities().mayfly/flying`, which `Abilities.addSaveData`
+  writes to player NBT. Disconnecting or dying mid-flight means `onStop()` never
+  runs, which would leave permanent creative flight. `FireRocket.stopFlight()` is
+  called from BOTH the login and respawn handlers in `ServerEvents`, and skips
+  players actually in creative/spectator so it can't strip legitimate flight.
+- **Fall damage is removed by zeroing `fallDistance`**, not by cancelling a damage
+  event — if the distance never accumulates, the damage is never calculated, so
+  there is nothing to intercept. `BendingData.fallImmunityTicks` counts the grace
+  window down in the tick loop.
 - **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
   fire blocks an ability placed (dimension + pos -> expiry), and the
   `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything
@@ -189,7 +203,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 47 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 46 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
