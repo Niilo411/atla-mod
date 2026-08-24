@@ -340,7 +340,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- Water Masterclass path started (gated behind the other three):
+- Water Masterclass path COMPLETE (gated behind the other three):
   - Drown (renamed from the design doc's "Water bubble"; CHARGED up to 5s and fires on
     release like Fire blow. Pops every air bubble and then keeps the victim without air
     — 5s of drowning at a 1s charge, 15s at 5s, one heart a second throughout. 250 chi,
@@ -348,6 +348,17 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - water breathing (PASSIVE — air is topped up every tick rather than granted as a
     potion effect, so nothing can dispel it and no timer is ever shown. Also makes the
     bender immune to Drown)
+  - Tsunami (CHARGED 3s, then a wall of water 9 across and 4 high rolls 20 blocks out,
+    hitting everything once for 14.0 and carrying it along. 750 chi, 25 xp, no cooldown)
+- **Tsunami is Water Sphere in reverse and borrows its trick**: blocks are placed AND
+  cleared with `Block.UPDATE_CLIENTS`, no neighbour updates. Dropping a wall of water in
+  the ordinary way would have every block of it try to flow, and a wave that spread on
+  its own would flood whatever it crossed and never leave. The wave is a moving BODY —
+  four slices laid at the front, taken up at the back — so it travels rather than filling
+  in behind. Only air is replaced, each column finds its own footing so it rides terrain,
+  and each victim is struck once however many slices wash over it.
+- **Tsunami costs more chi than a new bender can hold**, like Fire Rain: `getMaxChi()` is
+  `500 + level*100`, so 750 needs level 3. A gate, not a bug.
 - **water breathing answers Drown.** A bender who cannot run out of air cannot be
   drowned, so `Drownings` DROPS a victim wearing it rather than ignoring them — otherwise
   the two masterclass abilities would spend fifteen seconds setting the same air value
@@ -501,8 +512,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - **Held abilities take canteen water once per activation, not per tick.** The check
   lives in `startChannel` as well as `performCast`; per-tick draw would empty a full
   canteen in one second.
-- **FIRE IS COMPLETE — all 16 abilities across all 4 paths.** 41 left across
-  Water/Air/Earth × 4 paths (Water Defensive now done, 38 left)
+- **FIRE IS COMPLETE — all 16 abilities across all 4 paths.**
+- **WATER IS COMPLETE — all 12 abilities across all 4 paths.** 26 left across
+  Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
