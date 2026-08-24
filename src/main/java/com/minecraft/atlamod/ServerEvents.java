@@ -117,6 +117,12 @@ public class ServerEvents {
                     data.getLevel(),
                     data.getCurrentChi()
             ));
+
+            // Clear any leftover charge meter. ClientChargeState is a static on the
+            // client and survives a relog, so without this a player who logged out
+            // mid-charge would come back to a stale bar stuck on their screen.
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.ChargeStatusPacket("", 0, 0, false));
         }
     }
     @SubscribeEvent
@@ -244,6 +250,21 @@ public class ServerEvents {
                     double pz = player.getZ() + look.z * 1.5;
 
                     serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, px, py, pz, 2, 0.1, 0.1, 0.1, 0.02);
+                }
+            }
+
+            // --- ARMED TWO-PHASE ABILITY VISUALS ---
+            // Generic: any armed two-phase ability shows a ball of fire being held,
+            // so other players can see it coming rather than only the caster's HUD.
+            if (!data.getActiveTwoPhaseAbility().isEmpty()) {
+                if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+                    double px = player.getX() + look.x * 2.0;
+                    double py = player.getY() + 1.2 + look.y * 2.0;
+                    double pz = player.getZ() + look.z * 2.0;
+
+                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                            px, py, pz, 10, 0.3, 0.3, 0.3, 0.05);
                 }
             }
 

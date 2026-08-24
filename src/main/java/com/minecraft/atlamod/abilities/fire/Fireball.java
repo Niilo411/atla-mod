@@ -2,6 +2,7 @@ package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.ChargedAbility;
+import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -11,12 +12,14 @@ import net.minecraft.world.entity.projectile.LargeFireball;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Offensive / Fire. Held for two seconds to build up, then throws itself.
+ * Offensive / Fire. Both shapes at once: hold the slot key for two seconds to
+ * build the fireball, then left click to throw it.
  *
- * Was previously two-phase — arm on a press, throw on a left click — and is now a
- * charge, so the wind-up is a timer rather than a second input.
+ * ChargedAbility drives the wind-up; TwoPhaseAbility is what the wind-up produces.
+ * The dispatcher arms the two-phase slot as part of the completed cast, which is
+ * also why the cooldown waits for the throw rather than starting when it is built.
  */
-public class Fireball implements ChargedAbility {
+public class Fireball implements ChargedAbility, TwoPhaseAbility {
 
     @Override
     public String getName() {
@@ -35,18 +38,28 @@ public class Fireball implements ChargedAbility {
 
     @Override
     public int getCooldownTicks() {
-        return 40; // 2 seconds
+        return 40; // 2 seconds, starting from the throw
     }
 
     @Override
     public int getChargeTicks() {
-        return 40; // 2 seconds of hold
+        return 40; // 2 seconds of hold to build it
+    }
+
+    /**
+     * Refuses to start a second wind-up while a built fireball is still in hand.
+     * Without this the player could charge again, pay another 100 chi, and simply
+     * re-arm the slot they already had armed.
+     */
+    @Override
+    public boolean canStart(ServerPlayer player, BendingData data) {
+        return data.getActiveTwoPhaseAbility().isEmpty();
     }
 
     @Override
     public void onChargeStart(ServerPlayer player, BendingData data) {
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 1.0F);
+                SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 0.8F);
     }
 
     @Override
@@ -63,8 +76,19 @@ public class Fireball implements ChargedAbility {
         level.sendParticles(ParticleTypes.FLAME, px, py, pz, 4, spread, spread, spread, 0.01);
     }
 
+    /**
+     * The charge completed. The dispatcher has already armed the two-phase slot,
+     * so all that is left is telling the player it is ready to throw.
+     */
     @Override
     public void execute(ServerPlayer player, BendingData data) {
+        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 1.6F);
+    }
+
+    /** Left click, with a built fireball in hand. */
+    @Override
+    public void onRelease(ServerPlayer player, BendingData data) {
         ServerLevel level = (ServerLevel) player.level();
         Vec3 look = player.getLookAngle();
 

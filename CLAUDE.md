@@ -39,14 +39,18 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
   as both the registry key and the cooldown key.
 - `ChanneledAbility.java` — held-key abilities (Fire Breath): `onStart()`, `onTick()`,
   `onStop()`, `getChiPerSecond()`, `getXpPerSecond()`.
-- `ChargedAbility.java` — hold-to-wind-up abilities that fire themselves when full
-  (Fireball, Fire Spikes): `getChargeTicks()`, `onChargeStart/Tick/Cancel()`. The
-  payload is the ordinary `execute()`, run through the same `performCast()` path an
-  instant cast uses. Chi is only CHECKED at charge start and spent when the cast
-  lands, so letting go early is free.
-- `TwoPhaseAbility.java` — arm-then-left-click abilities: `onRelease()`. Currently
-  has NO implementors (Fireball moved to `ChargedAbility`); the interface and its
-  left-click plumbing are kept for a future ability that wants that shape.
+- `ChargedAbility.java` — hold-to-wind-up abilities (Fireball, Fire Spikes):
+  `getChargeTicks()`, `onChargeStart/Tick/Cancel()`. The payload is the ordinary
+  `execute()`, run through the same `performCast()` path an instant cast uses. Chi
+  is only CHECKED at charge start and spent when the cast lands, so letting go
+  early is free.
+- `TwoPhaseAbility.java` — arm-then-left-click abilities: `onRelease()`.
+- **The two combine.** Fireball implements BOTH: the charge builds it, and what the
+  completed charge produces is the armed two-phase slot, which the left click then
+  throws. `performCast` arms two-phase abilities and deliberately skips the cooldown
+  for them, so Fireball's cooldown starts on the throw rather than when it is built.
+  Releasing the slot key after a full charge does NOT disarm it — `cancelCharge`
+  only ever touches the charging slot.
 - `AbilityRegistry.java` — `Map<String, Ability>`, populated once via
   `AbilityRegistry.bootstrap()`, called from `Atlamod`'s constructor.
 - `AbilitySupport.java` — shared chi/XP/sync helpers (`consumeChiAndGiveXp`,
@@ -115,8 +119,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 
 ## Current Status
 
-- Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball (2s hold to charge,
-  then throws itself; 100 chi, 10 xp, 2s cooldown), Fire Breath
+- Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball (hold 2s to build,
+  then LEFT CLICK to throw; 100 chi + 10 xp on completing the charge, 2s cooldown
+  from the throw), Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
 - Fire Defensive path COMPLETE:
@@ -162,6 +167,13 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Fire Shield is the SECOND channeled ability, so the generalised
   `activeChanneledAbility` tracking is now actually load-bearing: only one channel
   can run at a time, and releasing one channel's key can't stop the other.
+- **Charge meter HUD**: `ChargeStatusPacket` (server -> client) feeds
+  `client/ClientChargeState`, a static the `ModHudOverlay` layer reads to draw a bar
+  at top centre — filling while charging, then "ready — left click to throw" once
+  armed. `AbilityHandler.syncChargeStatus()` READS the state rather than being told
+  it, so call sites only signal "something changed" and can't disagree about what to
+  show. Sent on charge start/cancel/complete, on the left-click release, every 2
+  ticks while charging, and on login to clear a bar left stale by a relog.
 - **Chi regen is delayed after spending**: passive regen (1% of max per second) is
   held off for `BendingData.CHI_REGEN_DELAY_TICKS` (60 ticks / 3s) after any chi is
   spent, so regen can't bankroll a cheap ability indefinitely. The delay is armed

@@ -150,5 +150,17 @@ public class ModNetworking {
                     });
                 }
         );
+
+        // --- CHARGE STATUS (Server -> Client) : drives the HUD charge meter ---
+        // Top-level inside register(), NOT nested in another handler lambda —
+        // nesting it would throw "Cannot register payload after registration phase".
+        registrar.playToClient(
+                ChargeStatusPacket.TYPE,
+                ChargeStatusPacket.STREAM_CODEC,
+                (ChargeStatusPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> com.minecraft.atlamod.client.ClientChargeState.update(
+                            payload.ability(), payload.held(), payload.total(), payload.armed()));
+                }
+        );
     }
 }

@@ -73,6 +73,30 @@ public class ModHudOverlay {
             String chiText = currentChi + "/" + maxChi;
             guiGraphics.drawString(mc.font, chiText, barX + (barWidth / 2) - (mc.font.width(chiText) / 2), barY - 9, 0xFFFFFF);
         }
+        // 3. Charge meter, top centre — Fireball's wind-up and its ready-to-throw state
+        if (ClientChargeState.isActive()) {
+            int screenWidth = mc.getWindow().getGuiScaledWidth();
+
+            int barWidth = 120;
+            int barHeight = 6;
+            int barX = (screenWidth - barWidth) / 2;
+            int barY = 14;
+
+            int filled = (int) (barWidth * ClientChargeState.progress());
+
+            // Backing, fill, then a border so a part-full bar still reads as a bar.
+            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF222222);
+            guiGraphics.fill(barX, barY, barX + filled, barY + barHeight,
+                    ClientChargeState.armed ? 0xFFFFCC22 : 0xFFFF6622);
+            guiGraphics.renderOutline(barX, barY, barWidth, barHeight, 0xFF000000);
+
+            String label = ClientChargeState.armed
+                    ? "§e" + ClientChargeState.ability + " ready — left click to throw"
+                    : "§6" + ClientChargeState.ability + " charging...";
+
+            guiGraphics.drawString(mc.font, label,
+                    (screenWidth / 2) - (mc.font.width(label) / 2), barY - 11, 0xFFFFFF);
+        }
     };
 
     @SubscribeEvent

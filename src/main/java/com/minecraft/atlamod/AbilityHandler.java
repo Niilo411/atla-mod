@@ -7,9 +7,11 @@ import com.minecraft.atlamod.abilities.ChanneledAbility;
 import com.minecraft.atlamod.abilities.ChargedAbility;
 import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.network.chat.Component;
+import com.minecraft.atlamod.network.ChargeStatusPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Thin dispatcher. It owns the rules that apply to EVERY ability — cooldown gating,
@@ -95,6 +97,7 @@ public class AbilityHandler {
         }
 
         AbilitySupport.syncData(player, data);
+        syncChargeStatus(player, data);
     }
 
     // ==========================================
@@ -145,6 +148,7 @@ public class AbilityHandler {
         data.setActiveChargingAbility(ability.getKey());
         data.setChargeTicks(0);
         ability.onChargeStart(player, data);
+        syncChargeStatus(player, data);
         AbilitySupport.syncData(player, data);
     }
 
@@ -157,6 +161,7 @@ public class AbilityHandler {
         data.setActiveChargingAbility("");
         data.setChargeTicks(0);
         ability.onChargeCancel(player, data);
+        syncChargeStatus(player, data);
         AbilitySupport.syncData(player, data);
     }
 
@@ -178,6 +183,8 @@ public class AbilityHandler {
 
         if (held < charged.getChargeTicks()) {
             charged.onChargeTick(player, data, held);
+            // Every other tick is smooth enough for the meter without flooding packets.
+            if (held % 2 == 0) syncChargeStatus(player, data);
             return;
         }
 
@@ -186,6 +193,7 @@ public class AbilityHandler {
         data.setActiveChargingAbility("");
         data.setChargeTicks(0);
         performCast(player, data, charged);
+        syncChargeStatus(player, data);
     }
 
     private static void startChannel(ServerPlayer player, BendingData data, ChanneledAbility ability) {
@@ -321,5 +329,35 @@ public class AbilityHandler {
         if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
 
         return true;
+    }
+
+    /**
+     * Pushes the current charge/armed state to the player's HUD.
+     *
+     * Reads the state rather than being told it, so callers only have to say "this
+     * changed" and can't disagree with each other about what to display.
+     */
+    private static void syncChargeStatus(ServerPlayer player, BendingData data) {
+        String charging = data.getActiveChargingAbility();
+        if (!charging.isEmpty()) {
+            Ability ability = AbilityRegistry.get(charging);
+            int total = (ability instanceof ChargedAbility charged) ? charged.getChargeTicks() : 0;
+            String label = ability != null ? ability.getName() : charging;
+
+            PacketDistributor.sendToPlayer(player,
+                    new ChargeStatusPacket(label, data.getChargeTicks(), total, false));
+            return;
+        }
+
+        String armed = data.getActiveTwoPhaseAbility();
+        if (!armed.isEmpty()) {
+            Ability ability = AbilityRegistry.get(armed);
+            String label = ability != null ? ability.getName() : armed;
+
+            PacketDistributor.sendToPlayer(player, new ChargeStatusPacket(label, 1, 1, true));
+            return;
+        }
+
+        PacketDistributor.sendToPlayer(player, new ChargeStatusPacket("", 0, 0, false));
     }
 }
