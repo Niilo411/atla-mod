@@ -53,8 +53,22 @@ public final class Tsunamis {
      */
     private static final int ADVANCE_EVERY = 2;
 
-    /** How many slices thick the wall of water is. */
-    private static final int BODY_DEPTH = 4;
+    /**
+     * How many slices thick the wall of water is.
+     *
+     * CAREFUL: this is tied to ADVANCE_EVERY by vanilla's own timing. Placing a water
+     * block schedules it to spread five ticks later, and suppressing the neighbour
+     * update does NOT suppress that — the block schedules its own tick. A slice is
+     * only safe while it is taken up again before that tick comes round, so
+     *
+     *     BODY_DEPTH * ADVANCE_EVERY  must stay UNDER 5.
+     *
+     * Break the rule and the wave starts flooding: it spawns real flowing water that
+     * nothing is tracking, so it is still there long after the wave has gone. That is
+     * exactly what happened when the wave was slowed to a step every two ticks while
+     * still four slices deep — eight ticks of life against a five tick fuse.
+     */
+    private static final int BODY_DEPTH = 2;
 
     /** Half the width, so the wave is nine blocks across. */
     private static final int HALF_WIDTH = 4;

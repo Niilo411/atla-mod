@@ -351,7 +351,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Tsunami (CHARGED 3s, then a wall of water 9 across and 4 high rolls 20 blocks out,
     hitting everything once for 24.0 and carrying it along — enough to one-shot a
     zombie, and `indirect_magic` bypasses armour so a geared one dies the same. Moves
-    1 block every 2 ticks, so 20 blocks takes 2s. 750 chi, 25 xp, no cooldown)
+    1 block every 2 ticks, so 20 blocks takes 2s; the wall is 2 slices deep, which is
+    NOT arbitrary — see the flooding invariant below. 750 chi, 25 xp, no cooldown)
 - **Tsunami is Water Sphere in reverse and borrows its trick**: blocks are placed AND
   cleared with `Block.UPDATE_CLIENTS`, no neighbour updates. Dropping a wall of water in
   the ordinary way would have every block of it try to flow, and a wave that spread on
@@ -359,6 +360,13 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   four slices laid at the front, taken up at the back — so it travels rather than filling
   in behind. Only air is replaced, each column finds its own footing so it rides terrain,
   and each victim is struck once however many slices wash over it.
+- **Tsunami has a timing invariant that will flood the world if broken.** Placing a water
+  block schedules it to spread 5 ticks later, and `Block.UPDATE_CLIENTS` does NOT suppress
+  that — the block schedules its own tick, not a neighbour's. A slice is only safe while
+  it is taken up again before that fires, so `BODY_DEPTH * ADVANCE_EVERY` must stay UNDER
+  5. Break it and the wave spawns real flowing water that nothing is tracking, which stays
+  long after the wave has gone. Slowing the wave to a step every 2 ticks while still 4
+  slices deep did exactly that; depth is 2 now.
 - **Tsunami costs more chi than a new bender can hold**, like Fire Rain: `getMaxChi()` is
   `500 + level*100`, so 750 needs level 3. A gate, not a bug.
 - **water breathing answers Drown.** A bender who cannot run out of air cannot be
