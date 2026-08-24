@@ -353,9 +353,11 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   drain an ocean by walking across the bottom of it. Restoring skips anything no longer
   air, so building inside your own pocket survives. Closed on release, death, logout,
   level unload and dimension change.
-- The outward scan only runs when the bender has actually moved to a new block (plus a
-  forced rescan each second for water arriving some other way), because it is ~1300
-  block lookups and a bender standing still has nothing to open.
+- **Two separate passes, and they run at different rates.** The pocket already claimed
+  is re-cleared EVERY tick (~515 lookups) because water does creep back in and that is
+  what a bender actually sees. The expensive outward scan (~1300) only runs when they
+  move to a new block, plus a forced rescan each second. Doing only the outward scan on
+  a timer meant someone standing still watched the sea close on them and snap away again.
 - **Surfing lays an invisible platform ABOVE the water, not ice in it.** `SurfPlatformBlock`
   is one sixteenth of a block tall, renders nothing (`RenderShape.INVISIBLE`) and has no
   outline, and sits in the AIR block over a water source — so the water is untouched and

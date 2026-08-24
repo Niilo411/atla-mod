@@ -79,10 +79,16 @@ public final class WaterSpheres {
 
         fillBehind(sphere, player, radius);
 
-        // Opening the pocket outward is the expensive half — a thousand block lookups
-        // — and it only has anything to do when the bender has moved. The periodic
-        // rescan covers water arriving some other way: rain, another player, a chunk
-        // loading in alongside.
+        // Held EVERY tick. Water does find its way back in, and only re-checking on
+        // movement meant a bender standing still watched the sea close on them and
+        // then snap away again. Walking the blocks already taken is far cheaper than
+        // rescanning the whole sphere and covers exactly the ground that can be lost.
+        holdPocket(sphere, level);
+
+        // Opening the pocket OUTWARD is the expensive half — around thirteen hundred
+        // lookups — and it only has anything to find when the bender has moved into
+        // ground the pocket has not covered. The periodic rescan is for water arriving
+        // some other way: rain, another player, a chunk loading in alongside.
         BlockPos here = player.blockPosition();
         sphere.ticksSinceScan++;
 
@@ -108,6 +114,20 @@ public final class WaterSpheres {
 
             restore(sphere.level, pos);
             held.remove();
+        }
+    }
+
+    /**
+     * Pushes back out anything that has seeped into the pocket since last tick.
+     *
+     * Only the blocks already claimed are checked, so this is the cheap half — and it
+     * is the half that has to run constantly, because water creeping back in is what
+     * a bender would actually see and feel.
+     */
+    private static void holdPocket(Sphere sphere, ServerLevel level) {
+        for (BlockPos pos : sphere.emptied) {
+            if (!level.getFluidState(pos).is(FluidTags.WATER)) continue;
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), QUIET);
         }
     }
 
