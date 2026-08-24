@@ -337,17 +337,19 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Water Manipulation (look at a water SOURCE block and press the key to take hold of
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
     cooldown)
-  - Water Surf (channeled; lifts you to the surface and freezes it underfoot so you
+  - Water Surf (channeled; lifts you to the surface and lays INVISIBLE footing in the
+    air just above it so you
     can run across, with Speed I — Speed II via the "Swift Current" upgrade, 10 levels.
     10 chi/sec, 3 xp/sec, no cooldown. Must be started from in the water)
-- **Surfing freezes the water rather than pinning the player to it.** Vanilla solves
-  "walk on water" with Frost Walker's frosted ice, and the reason to follow it is that
-  the blocks really are solid, so the client walks normally. Holding the player at the
-  waterline every tick would have the server correcting the client constantly, which
-  rubber-bands — the same failure as Fire Rocket's old height cap. Vanilla's own melt
-  tick is scheduled per block, so the trail thaws behind with nothing tracking it.
-  Only full source blocks with room above are taken, so it can't glaze a pond it
-  happens to pass over.
+- **Surfing lays an invisible platform ABOVE the water, not ice in it.** `SurfPlatformBlock`
+  is one sixteenth of a block tall, renders nothing (`RenderShape.INVISIBLE`) and has no
+  outline, and sits in the AIR block over a water source — so the water is untouched and
+  still visible, and the bender appears to run on it. Frosted ice works and is how vanilla
+  does it, but it plainly looks like ice. Each platform removes itself on a scheduled tick.
+- Either way a REAL block carries the player, which is the important part: the client walks
+  on it normally. Pinning the player to the waterline every tick would have the server
+  correcting the client constantly — the rubber-band that made Fire Rocket's old height
+  cap feel bad.
 - **`abilities/HeldBlocks.java` is the block-moving system**, written element-agnostic
   because earthbending is expected to lean on it — nothing in it knows what the block
   is. The block is genuinely REMOVED on grab and put back on place, so it moves rather

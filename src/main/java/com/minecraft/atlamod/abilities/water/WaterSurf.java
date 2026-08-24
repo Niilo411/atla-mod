@@ -1,5 +1,6 @@
 package com.minecraft.atlamod.abilities.water;
 
+import com.minecraft.atlamod.Atlamod;
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.AbilityUpgrade;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
@@ -11,27 +12,28 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.shapes.CollisionContext;
 
 import java.util.List;
 
 /**
  * Balanced / Water. Rise to the surface and run across it.
  *
- * The surface is made to carry the bender by freezing it underfoot, which is how
- * vanilla's Frost Walker solves the same problem — and the reason to follow it is
- * that the blocks really are solid, so the client walks on them normally. Pinning
- * the player's position to the waterline every tick would instead have the server
- * correcting the client constantly, which rubber-bands rather than surfs.
+ * The footing is an invisible sliver laid in the AIR above the water rather than
+ * anything done to the water itself, so what the bender sees is the surface they
+ * were already swimming in. Freezing it instead does work — it is how vanilla's
+ * Frost Walker solves the same problem — but it plainly looks like ice.
  *
- * The ice melts on its own through the tick vanilla schedules for it, so nothing
- * here has to remember to clean up behind the bender.
+ * Either way the point is that a real block carries the player, so the client walks
+ * on it normally. Pinning the player's position to the waterline every tick would
+ * have the server correcting the client constantly, which rubber-bands rather than
+ * surfs — the same failure as Fire Rocket's old height cap.
+ *
+ * Each platform removes itself on a scheduled tick, so nothing here has to remember
+ * to clean up behind the bender.
  */
 public class WaterSurf implements ChanneledAbility {
 
@@ -45,12 +47,9 @@ public class WaterSurf implements ChanneledAbility {
     private static final int BASE_SPEED_LEVEL = 0;
     private static final int UPGRADED_SPEED_LEVEL = 1;
 
-    /** How far either side of the bender the surface freezes. */
-    private static final int FREEZE_RADIUS = 2;
+    /** How far either side of the bender footing is laid. */
+    private static final int FOOTING_RADIUS = 2;
 
-    /** Ticks before a frozen block melts, matching vanilla's range for frosted ice. */
-    private static final int MELT_MIN = 60;
-    private static final int MELT_MAX = 120;
 
     @Override
     public String getName() {
@@ -120,7 +119,7 @@ public class WaterSurf implements ChanneledAbility {
     public void onTick(ServerPlayer player, BendingData data) {
         if (!(player.level() instanceof ServerLevel level)) return;
 
-        freezeUnderfoot(player, level);
+        layFooting(player, level);
         applySpeed(player, data);
 
         // Spray thrown up either side, so it reads as riding the water rather than
@@ -133,30 +132,36 @@ public class WaterSurf implements ChanneledAbility {
     }
 
     /**
-     * Freezes the water directly under the bender so there is something to run on.
+     * Lays footing under the bender so there is something to run on.
      *
-     * Only full source blocks with room above them are taken, which is what stops the
-     * surf reaching down and glazing over a pond it is passing above. Vanilla's own
-     * melt tick is scheduled for each one, so the trail thaws behind without anything
-     * here tracking it.
+     * The platform goes in the AIR block ABOVE the water rather than replacing it.
+     * Freezing the surface works, but it plainly looks like ice; leaving the water
+     * untouched and standing on an invisible sliver above it looks like running on
+     * water, which is the point of the ability.
+     *
+     * Only full source blocks are built over, so the surf cannot lay a walkway across
+     * a pond it happens to be passing above.
      */
-    private static void freezeUnderfoot(ServerPlayer player, ServerLevel level) {
-        BlockState ice = Blocks.FROSTED_ICE.defaultBlockState();
+    private static void layFooting(ServerPlayer player, ServerLevel level) {
+        BlockState platform = Atlamod.SURF_PLATFORM.get().defaultBlockState();
         BlockPos feet = player.blockPosition();
 
-        for (BlockPos pos : BlockPos.betweenClosed(
-                feet.offset(-FREEZE_RADIUS, -1, -FREEZE_RADIUS),
-                feet.offset(FREEZE_RADIUS, -1, FREEZE_RADIUS))) {
+        for (BlockPos water : BlockPos.betweenClosed(
+                feet.offset(-FOOTING_RADIUS, -2, -FOOTING_RADIUS),
+                feet.offset(FOOTING_RADIUS, 0, FOOTING_RADIUS))) {
 
-            if (!level.getFluidState(pos).is(FluidTags.WATER)) continue;
-            if (!level.getFluidState(pos).isSource()) continue;
-            if (!ice.canSurvive(level, pos)) continue;
-            if (!level.isUnobstructed(ice, pos, CollisionContext.empty())) continue;
+            if (!level.getFluidState(water).is(FluidTags.WATER)) continue;
+            if (!level.getFluidState(water).isSource()) continue;
 
-            BlockPos immutable = pos.immutable();
-            level.setBlockAndUpdate(immutable, ice);
-            level.scheduleTick(immutable, Blocks.FROSTED_ICE,
-                    Mth.nextInt(level.getRandom(), MELT_MIN, MELT_MAX));
+            // Only where the water actually has a surface — a source with more water
+            // on top of it is somewhere below the waterline, not on it.
+            BlockPos above = water.above();
+            if (level.getFluidState(above).is(FluidTags.WATER)) continue;
+
+            BlockState existing = level.getBlockState(above);
+            if (!existing.isAir() && !existing.is(Atlamod.SURF_PLATFORM.get())) continue;
+
+            level.setBlockAndUpdate(above.immutable(), platform);
         }
     }
 
