@@ -144,10 +144,18 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Fire Spikes (2s hold to charge, then ~25 fire blocks scattered randomly out to
     15 blocks, even across the area rather than bunched near the player; burns at
     2x for 30s. 100 chi, 10 xp, no cooldown)
-  - Fire Rocket (channeled creative-style flight at 0.03 fly speed vs vanilla 0.05,
-    capped 10 blocks above ground, flame venting from the feet; 15 chi/sec, 5 xp/sec,
-    no cooldown. No fall damage while lit, plus 100 ticks of grace after it cuts out
-    so the descent it caused can't kill you)
+  - Fire Rocket (channeled flight at 0.03 fly speed vs vanilla creative's 0.05, no
+    height limit; flame venting from the feet; 15 chi/sec, 5 xp/sec, no cooldown.
+    No fall damage while lit, plus 100 ticks of grace after it cuts out so the
+    descent it caused can't kill you)
+- **Fire Rocket owns flight outright**: the keybind is the ONLY thing that starts or
+  ends it. Two vanilla behaviours fight that and are both undone in `onTick` —
+  double-tapping space is vanilla's flight toggle for anyone with `mayfly`, and the
+  client clears flight whenever the player is on the ground. `keepFlying()` re-asserts
+  the flag, and touching down also earns an upward kick, because re-asserting alone
+  would trade packets with the client every tick while grounded. The same kick fires
+  on start, or the player would be granted flight while still standing on the ground
+  and the client would switch it straight back off.
 - **Flight flags are persisted, so they need a safety net**: Fire Rocket grants
   flight via `player.getAbilities().mayfly/flying`, which `Abilities.addSaveData`
   writes to player NBT. Disconnecting or dying mid-flight means `onStop()` never
