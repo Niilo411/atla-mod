@@ -337,6 +337,17 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Water Manipulation (look at a water SOURCE block and press the key to take hold of
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
     cooldown)
+  - Water Surf (channeled; lifts you to the surface and freezes it underfoot so you
+    can run across, with Speed I — Speed II via the "Swift Current" upgrade, 10 levels.
+    10 chi/sec, 3 xp/sec, no cooldown. Must be started from in the water)
+- **Surfing freezes the water rather than pinning the player to it.** Vanilla solves
+  "walk on water" with Frost Walker's frosted ice, and the reason to follow it is that
+  the blocks really are solid, so the client walks normally. Holding the player at the
+  waterline every tick would have the server correcting the client constantly, which
+  rubber-bands — the same failure as Fire Rocket's old height cap. Vanilla's own melt
+  tick is scheduled per block, so the trail thaws behind with nothing tracking it.
+  Only full source blocks with room above are taken, so it can't glaze a pond it
+  happens to pass over.
 - **`abilities/HeldBlocks.java` is the block-moving system**, written element-agnostic
   because earthbending is expected to lean on it — nothing in it knows what the block
   is. The block is genuinely REMOVED on grab and put back on place, so it moves rather
