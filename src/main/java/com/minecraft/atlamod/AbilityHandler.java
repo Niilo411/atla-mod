@@ -76,6 +76,7 @@ public class AbilityHandler {
         if (ability instanceof TwoPhaseAbility twoPhase) {
             data.setActiveTwoPhaseAbility(ability.getKey());
             data.setTwoPhaseTicks(twoPhase.getArmedDurationTicks());
+            data.setTwoPhaseShots(twoPhase.getShots());
         }
 
         ability.execute(player, data);
@@ -95,14 +96,29 @@ public class AbilityHandler {
         String armedKey = data.getActiveTwoPhaseAbility();
         if (armedKey.isEmpty()) return;
 
-        // Clear immediately so the player can't spam left-click into multiple releases.
-        data.setActiveTwoPhaseAbility("");
-        data.setTwoPhaseTicks(0);
-
         Ability ability = AbilityRegistry.get(armedKey);
-        if (ability instanceof TwoPhaseAbility twoPhase) {
-            twoPhase.onRelease(player, data);
+        if (!(ability instanceof TwoPhaseAbility twoPhase)) {
+            // Unknown ability recorded — clear the stuck flag.
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
+            return;
+        }
 
+        twoPhase.onRelease(player, data);
+
+        // An ability may be good for several clicks (Water Bullets fires three). The
+        // slot stays armed until they are all spent, so a partly used one is still
+        // held rather than thrown away by its first shot.
+        int shotsLeft = data.getTwoPhaseShots() - 1;
+        data.setTwoPhaseShots(shotsLeft);
+
+        if (shotsLeft <= 0) {
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
+
+            // The cooldown waits for the last shot, not the first.
             if (ability.getCooldownTicks() > 0) {
                 data.setCooldown(ability.getKey(), ability.getCooldownTicks());
             }
@@ -397,13 +413,20 @@ public class AbilityHandler {
             Ability ability = AbilityRegistry.get(armed);
             String label = ability != null ? ability.getName() : armed;
 
-            // An ability with a window shows it draining; one that waits shows full.
+            // A window shows time draining; several shots show shots remaining; a
+            // single-shot ability just shows ready.
             int window = (ability instanceof TwoPhaseAbility twoPhase)
                     ? twoPhase.getArmedDurationTicks() : 0;
+            int shots = (ability instanceof TwoPhaseAbility twoPhase2)
+                    ? twoPhase2.getShots() : 1;
 
             if (window > 0) {
                 PacketDistributor.sendToPlayer(player,
                         new ChargeStatusPacket(label, data.getTwoPhaseTicks(), window, true));
+            } else if (shots > 1) {
+                PacketDistributor.sendToPlayer(player,
+                        new ChargeStatusPacket(label + " x" + data.getTwoPhaseShots(),
+                                data.getTwoPhaseShots(), shots, true));
             } else {
                 PacketDistributor.sendToPlayer(player, new ChargeStatusPacket(label, 1, 1, true));
             }
@@ -449,6 +472,7 @@ public class AbilityHandler {
             // Unknown ability recorded — clear the stuck flag.
             data.setActiveTwoPhaseAbility("");
             data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
             return;
         }
 
@@ -465,6 +489,7 @@ public class AbilityHandler {
         if (left <= 0) {
             data.setActiveTwoPhaseAbility("");
             data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
 
             if (ability.getCooldownTicks() > 0) {
                 data.setCooldown(ability.getKey(), ability.getCooldownTicks());

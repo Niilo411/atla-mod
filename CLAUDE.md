@@ -333,7 +333,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- Water Offensive path started:
+- Water Offensive path COMPLETE:
   - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
@@ -341,6 +341,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     holds it for a 3s window, then left click to throw for 8.0 damage. 100 chi, 8 xp,
     NO cooldown — the 3s window and the 100 chi are the whole limit. Chi is spent on
     the DRAW, so letting the window lapse costs the cast)
+  - Water Bullets (three bullets held ready, fired ONE PER CLICK at 8.0 damage each,
+    2.6 blocks/tick. No window — they keep until used. 100 chi, 10 xp, no cooldown)
+- **An armed ability can hold several shots**: `TwoPhaseAbility.getShots()` (default 1,
+  so Fireball, Water ball and Water stream are unchanged). The slot stays armed until
+  every shot is spent and the cooldown waits for the LAST one, so a partly used ability
+  is still held rather than thrown away by its first click. The HUD meter shows shots
+  remaining when there is more than one, time remaining when there is a window, and
+  simply "ready" otherwise.
 - **An armed two-phase ability can now expire**: `TwoPhaseAbility.getArmedDurationTicks()`
   (0 = waits indefinitely, which is Fireball and Water ball) plus `onArmedExpire()`.
   `AbilityHandler.tickArmedTwoPhase` runs the countdown, applies the cooldown on expiry

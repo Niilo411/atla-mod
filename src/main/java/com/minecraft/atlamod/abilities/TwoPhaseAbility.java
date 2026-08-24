@@ -39,6 +39,17 @@ public interface TwoPhaseAbility extends Ability {
         return 0;
     }
 
+    /**
+     * How many left clicks the armed state is good for. 1 is the ordinary case —
+     * Fireball and Water ball are spent by the throw.
+     *
+     * The slot stays armed until every shot is used, and the cooldown waits for the
+     * last one, so a partly spent ability is still held rather than lost.
+     */
+    default int getShots() {
+        return 1;
+    }
+
     /** Fired when the window ran out with the ability still unspent. */
     default void onArmedExpire(ServerPlayer player, BendingData data) {
     }

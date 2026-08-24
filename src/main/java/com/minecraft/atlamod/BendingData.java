@@ -365,4 +365,10 @@ public class BendingData {
 
     public int getTwoPhaseTicks() { return twoPhaseTicks; }
     public void setTwoPhaseTicks(int ticks) { this.twoPhaseTicks = Math.max(0, ticks); }
+
+    // Left clicks remaining on an armed two-phase ability (Water Bullets fires three).
+    private transient int twoPhaseShots = 0;
+
+    public int getTwoPhaseShots() { return twoPhaseShots; }
+    public void setTwoPhaseShots(int shots) { this.twoPhaseShots = Math.max(0, shots); }
 }
