@@ -178,14 +178,21 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     fire, lava, magma, burning, and every fire ability including their own blue
     fire. Also clears fire ticks each tick, since burning and being hurt by it are
     separate in Minecraft and cancelling only the damage leaves you visibly alight)
-  - Fire Rain (instant cast that then runs for 15s — a countdown on BendingData
+  - Fire Rain (instant cast that then runs for 30s — a countdown on BendingData
     ticked by `FireRain.tick`, the Fire Leap pattern, NOT a channel. Burning sky out
-    to a 50-block cylinder, 1 heart/sec to every living thing under it INCLUDING the
+    to a 50-block cylinder, 0.5 hearts/sec to every living thing under it INCLUDING the
     caster. 1000 chi, instant 20 xp, no cooldown)
 - **Fire Rain costs more chi than a new bender can hold.** `getMaxChi()` is
   `500 + level*100`, so its 1000 cost is uncastable until level 5 — deliberate for
   the last ability in the tree, but it is a gate, not a bug, if it ever looks like
   one. It also damages the caster, which pairs it with Fire immunity.
+- **Particle density is a packet-count problem, not a number to raise.** A directed
+  velocity requires `count = 0`, which is one particle per packet, so "more particles"
+  the obvious way costs 20 packets/sec each. Fire Rain gets its volume from batched
+  calls instead — `count = 70` buys a whole layer for one packet, at the cost of
+  random velocities, so those layers hang and flicker rather than fall. The rationed
+  directed ones supply the falling streaks on top. Same trick applies to any future
+  large-area effect.
 - **`ChargedAbility.firesOnRelease()`** (default false) makes an early release cast a
   weaker version instead of throwing the charge away, with `getMinimumChargeTicks()`
   as the floor below which a stray tap still costs nothing. Abilities scale off

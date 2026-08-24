@@ -14,7 +14,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Masterclass / Fire. The sky opens and burns everything below it for fifteen
+ * Masterclass / Fire. The sky opens and burns everything below it for thirty
  * seconds, out to fifty blocks.
  *
  * Cast once and then left running, so it is neither a channel nor a charge: it
@@ -26,8 +26,8 @@ import net.minecraft.world.phys.AABB;
  */
 public class FireRain implements Ability {
 
-    /** 15 seconds of rain. */
-    public static final int DURATION = 300;
+    /** 30 seconds of rain. */
+    public static final int DURATION = 600;
 
     /** How far the downpour reaches, measured horizontally. */
     private static final double RADIUS = 50.0;
@@ -35,14 +35,24 @@ public class FireRain implements Ability {
     /** How far above and below the caster the rain still catches things. */
     private static final double VERTICAL_REACH = 40.0;
 
-    /** 1 heart a second to everything underneath. */
-    private static final float DAMAGE_PER_SECOND = 2.0F;
+    /** Half a heart a second to everything underneath. */
+    private static final float DAMAGE_PER_SECOND = 1.0F;
 
     /** How high above the caster the flames appear before falling. */
     private static final double SKY_HEIGHT = 28.0;
 
-    /** Directed falling flames per tick. Each one is its own packet, so keep it lean. */
-    private static final int FALLING_PER_TICK = 8;
+    /**
+     * Batched layers filling the air column, cheapest way to get real density: one
+     * packet buys a whole layer, where a directed particle costs a packet each.
+     */
+    private static final int LAYERS = 5;
+    private static final int PER_LAYER = 70;
+
+    /** How far down the layers reach from SKY_HEIGHT. */
+    private static final double LAYER_DROP = 26.0;
+
+    /** Directed falling flames per tick. One packet each, so this is the expensive half. */
+    private static final int FALLING_PER_TICK = 22;
 
     @Override
     public String getName() {
@@ -85,7 +95,7 @@ public class FireRain implements Ability {
 
         drawRain(level, data, player);
 
-        // Damage lands once a second rather than every tick, so "1 heart a second"
+        // Damage lands once a second rather than every tick, so "half a heart a second"
         // is what it actually deals instead of what it averages.
         if (left % 20 == 0) {
             scorchEverything(player, level);
@@ -105,29 +115,42 @@ public class FireRain implements Ability {
         double cy = player.getY() + SKY_HEIGHT;
         double cz = player.getZ();
 
-        // One cheap batched call for the general glow up there. Batched particles get
-        // random velocities rather than a chosen one, so this layer hangs and fades
-        // instead of falling — it is the sky being alight, not the rain itself.
-        level.sendParticles(BendingFire.flame(data), cx, cy, cz,
-                40, RADIUS * 0.5, 4.0, RADIUS * 0.5, 0.0);
+        // Stacked layers of batched flame filling the air column. Batched particles
+        // take random velocities rather than a chosen one, so they hang and flicker
+        // instead of falling — but one packet buys seventy of them, which is the only
+        // affordable way to make a fifty block downpour actually look like one.
+        for (int layer = 0; layer < LAYERS; layer++) {
+            double layerY = cy - (LAYER_DROP * layer / (double) (LAYERS - 1));
 
-        // The falling part. A directed velocity needs count 0, which costs one packet
-        // each, so only a handful go out per tick and the downpour builds up over the
-        // fifteen seconds rather than arriving all at once.
+            // Tighter near the ground, so density builds where the player is looking
+            // rather than being thrown away out at the rim.
+            double spread = RADIUS * (0.5 - 0.15 * (layer / (double) (LAYERS - 1)));
+
+            level.sendParticles(BendingFire.flame(data), cx, layerY, cz,
+                    PER_LAYER, spread, 3.0, spread, 0.02);
+        }
+
+        // The falling part. A chosen velocity needs count 0, which costs a packet
+        // each, so these are rationed — they are the streaks that read as rain, on
+        // top of the volume the layers provide.
         for (int i = 0; i < FALLING_PER_TICK; i++) {
             double angle = random.nextDouble() * Math.PI * 2.0;
-            double distance = Math.sqrt(random.nextDouble()) * RADIUS;
+
+            // Deliberately NOT sqrt here. An even spread over the area puts most of
+            // the flames out at the rim where they are far away and barely visible;
+            // the raw roll biases them inward, towards the person watching.
+            double distance = random.nextDouble() * RADIUS;
 
             double x = cx + Math.cos(angle) * distance;
             double z = cz + Math.sin(angle) * distance;
-            double y = cy - random.nextDouble() * 6.0;
+            double y = cy - random.nextDouble() * 10.0;
 
-            level.sendParticles(BendingFire.flame(data), x, y, z, 0, 0.0, -1.0, 0.0, 0.6);
+            level.sendParticles(BendingFire.flame(data), x, y, z, 0, 0.0, -1.0, 0.0, 0.7);
         }
 
-        // A little smoke drifting under the front, for weight.
-        level.sendParticles(ParticleTypes.LARGE_SMOKE, cx, cy - 6.0, cz,
-                10, RADIUS * 0.4, 2.0, RADIUS * 0.4, 0.01);
+        // Smoke drifting under the front, for weight.
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, cx, cy - 10.0, cz,
+                20, RADIUS * 0.35, 3.0, RADIUS * 0.35, 0.01);
     }
 
     /** Burns everything caught under the rain, the caster included. */
