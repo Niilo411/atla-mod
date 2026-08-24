@@ -84,6 +84,14 @@ public class BendingData {
     public int getLastChargeTicks() { return lastChargeTicks; }
     public void setLastChargeTicks(int ticks) { this.lastChargeTicks = Math.max(0, ticks); }
 
+    // --- FIRE RAIN ---
+    // Ticks left of an active downpour. Cast once and left running, so it needs a
+    // countdown rather than the channel or charge machinery.
+    private transient int fireRainTicks = 0;
+
+    public int getFireRainTicks() { return fireRainTicks; }
+    public void setFireRainTicks(int ticks) { this.fireRainTicks = Math.max(0, ticks); }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {

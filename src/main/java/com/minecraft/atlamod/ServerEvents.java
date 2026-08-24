@@ -388,6 +388,13 @@ public class ServerEvents {
             if (data.isCharging()) {
                 AbilityHandler.tickCharging(player, data);
             }
+
+            // --- FIRE RAIN TICK ---
+            // Cast and left running, like Fire Leap: a countdown on the data rather
+            // than a channel, so nothing has to be held down for it to keep falling.
+            if (data.getFireRainTicks() > 0) {
+                com.minecraft.atlamod.abilities.fire.FireRain.tick(player, data);
+            }
         }
     }
 

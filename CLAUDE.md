@@ -164,7 +164,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   runs, which would leave permanent creative flight. `FireRocket.stopFlight()` is
   called from BOTH the login and respawn handlers in `ServerEvents`, and skips
   players actually in creative/spectator so it can't strip legitimate flight.
-- Fire Masterclass path started (gated behind the other three being COMPLETE):
+- Fire Masterclass path COMPLETE (gated behind the other three):
   - blue fire (PASSIVE — all ability fire and flame particles turn blue, and every
     fire ability deals double damage. Standing in blue fire burns for a flat 6.0
     (3 hearts) a hit instead of scaling off normal fire. No chi, no xp)
@@ -178,6 +178,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     fire, lava, magma, burning, and every fire ability including their own blue
     fire. Also clears fire ticks each tick, since burning and being hurt by it are
     separate in Minecraft and cancelling only the damage leaves you visibly alight)
+  - Fire Rain (instant cast that then runs for 15s — a countdown on BendingData
+    ticked by `FireRain.tick`, the Fire Leap pattern, NOT a channel. Burning sky out
+    to a 50-block cylinder, 1 heart/sec to every living thing under it INCLUDING the
+    caster. 1000 chi, instant 20 xp, no cooldown)
+- **Fire Rain costs more chi than a new bender can hold.** `getMaxChi()` is
+  `500 + level*100`, so its 1000 cost is uncastable until level 5 — deliberate for
+  the last ability in the tree, but it is a gate, not a bug, if it ever looks like
+  one. It also damages the caster, which pairs it with Fire immunity.
 - **`ChargedAbility.firesOnRelease()`** (default false) makes an early release cast a
   weaker version instead of throwing the charge away, with `getMinimumChargeTicks()`
   as the floor below which a stray tap still costs nothing. Abilities scale off
@@ -286,7 +294,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 42 more abilities left across Fire/Water/Air/Earth × 4 paths
+- **FIRE IS COMPLETE — all 16 abilities across all 4 paths.** 41 left across
+  Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
