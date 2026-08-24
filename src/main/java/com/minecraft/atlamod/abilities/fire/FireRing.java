@@ -4,12 +4,10 @@ import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.Ability;
 import com.minecraft.atlamod.abilities.BendingFire;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.level.block.Blocks;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -82,28 +80,8 @@ public class FireRing implements Ability {
         }
 
         for (BlockPos column : ringColumns) {
-            placeFire(level, column);
-        }
-    }
-
-    /**
-     * Drops one fire block at the first air space with solid ground under it,
-     * scanning a little up and down so the ring tracks terrain. Only ever replaces
-     * air, so casting this never destroys anything.
-     */
-    private static void placeFire(ServerLevel level, BlockPos target) {
-        for (int dy = UP_SCAN; dy >= -DOWN_SCAN; dy--) {
-            BlockPos pos = target.above(dy);
-
-            if (level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
-                level.setBlockAndUpdate(pos, Blocks.FIRE.defaultBlockState());
-                BendingFire.mark(level, pos, ENHANCED_LIFETIME, DAMAGE_MULTIPLIER);
-
-                level.sendParticles(ParticleTypes.FLAME,
-                        pos.getX() + 0.5, pos.getY() + 0.4, pos.getZ() + 0.5,
-                        8, 0.2, 0.3, 0.2, 0.02);
-                return;
-            }
+            BendingFire.placeGrounded(level, data, column,
+                    UP_SCAN, DOWN_SCAN, ENHANCED_LIFETIME, DAMAGE_MULTIPLIER);
         }
     }
 }

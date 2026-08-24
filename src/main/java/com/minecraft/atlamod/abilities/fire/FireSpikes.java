@@ -10,7 +10,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.Blocks;
 
 /**
  * Balanced / Fire. Two seconds of wind-up, then fire erupts at random points all
@@ -92,27 +91,8 @@ public class FireSpikes implements ChargedAbility {
             int x = (int) Math.floor(player.getX() + Math.cos(angle) * distance);
             int z = (int) Math.floor(player.getZ() + Math.sin(angle) * distance);
 
-            placeSpike(level, new BlockPos(x, centre.getY(), z));
-        }
-    }
-
-    /**
-     * Drops one fire block at the first air space with solid ground under it.
-     * Only ever replaces air, so this never destroys anything.
-     */
-    private static void placeSpike(ServerLevel level, BlockPos target) {
-        for (int dy = UP_SCAN; dy >= -DOWN_SCAN; dy--) {
-            BlockPos pos = target.above(dy);
-
-            if (level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
-                level.setBlockAndUpdate(pos, Blocks.FIRE.defaultBlockState());
-                BendingFire.mark(level, pos, ENHANCED_LIFETIME, DAMAGE_MULTIPLIER);
-
-                level.sendParticles(ParticleTypes.LAVA,
-                        pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5,
-                        2, 0.2, 0.1, 0.2, 0.0);
-                return;
-            }
+            BendingFire.placeGrounded(level, data, new BlockPos(x, centre.getY(), z),
+                    UP_SCAN, DOWN_SCAN, ENHANCED_LIFETIME, DAMAGE_MULTIPLIER);
         }
     }
 }

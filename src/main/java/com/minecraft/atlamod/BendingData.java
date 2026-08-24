@@ -93,8 +93,9 @@ public class BendingData {
             Codec.INT.optionalFieldOf("level", 0).forGetter(BendingData::getLevel),
             Codec.INT.optionalFieldOf("currentChi", 500).forGetter(BendingData::getCurrentChi),
             Codec.STRING.listOf().optionalFieldOf("unlockedAbilities", new ArrayList<>()).forGetter(BendingData::getUnlockedAbilities),
-            Codec.STRING.listOf().optionalFieldOf("equippedAbilities", new ArrayList<>()).forGetter(BendingData::getEquippedAbilities)
-    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped) -> {
+            Codec.STRING.listOf().optionalFieldOf("equippedAbilities", new ArrayList<>()).forGetter(BendingData::getEquippedAbilities),
+            Codec.STRING.listOf().optionalFieldOf("equippedPassives", new ArrayList<>()).forGetter(BendingData::getEquippedPassives)
+    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives) -> {
         BendingData data = new BendingData();
         data.mainElement = main != null ? main : "";
         data.activeElement = active != null ? active : "";
@@ -107,6 +108,7 @@ public class BendingData {
 
         // Bulletproof assignment
         data.setAllEquippedAbilities(equipped);
+        data.setAllEquippedPassives(passives);
 
         return data;
     }));
@@ -250,6 +252,52 @@ public class BendingData {
             return "EMPTY".equals(ab) ? "" : ab; // Translates back to empty for the UI!
         }
         return "";
+    }
+
+    // --- EQUIPPED PASSIVES ---
+    // Four slots. Passives have no keybind: being in a slot IS the activation, and
+    // whatever the passive affects asks whether it's equipped. Same "EMPTY" sentinel
+    // as the ability slots, so Minecraft can't quietly drop blank entries.
+    public static final int PASSIVE_SLOTS = 4;
+
+    private List<String> equippedPassives = new ArrayList<>(List.of("EMPTY", "EMPTY", "EMPTY", "EMPTY"));
+
+    public List<String> getEquippedPassives() {
+        if (equippedPassives == null) equippedPassives = new ArrayList<>();
+        while (equippedPassives.size() < PASSIVE_SLOTS) equippedPassives.add("EMPTY");
+        while (equippedPassives.size() > PASSIVE_SLOTS) equippedPassives.remove(equippedPassives.size() - 1);
+        return equippedPassives;
+    }
+
+    public void setAllEquippedPassives(List<String> newPassives) {
+        this.equippedPassives = new ArrayList<>();
+        if (newPassives != null) {
+            for (String passive : newPassives) {
+                this.equippedPassives.add((passive == null || passive.trim().isEmpty()) ? "EMPTY" : passive);
+            }
+        }
+        while (this.equippedPassives.size() < PASSIVE_SLOTS) this.equippedPassives.add("EMPTY");
+        while (this.equippedPassives.size() > PASSIVE_SLOTS) this.equippedPassives.remove(this.equippedPassives.size() - 1);
+    }
+
+    public void setEquippedPassive(int slot, String passive) {
+        if (slot < 0 || slot >= PASSIVE_SLOTS) return;
+        getEquippedPassives().set(slot, (passive == null || passive.trim().isEmpty()) ? "EMPTY" : passive);
+    }
+
+    public String getEquippedPassive(int slot) {
+        if (slot < 0 || slot >= PASSIVE_SLOTS) return "";
+        String passive = getEquippedPassives().get(slot);
+        return "EMPTY".equals(passive) ? "" : passive;
+    }
+
+    /** Whether a named passive is sitting in any slot, i.e. whether it's doing its job. */
+    public boolean hasPassiveEquipped(String passiveKey) {
+        if (passiveKey == null || passiveKey.isEmpty()) return false;
+        for (String equipped : getEquippedPassives()) {
+            if (passiveKey.equalsIgnoreCase(equipped)) return true;
+        }
+        return false;
     }
     private String activeTwoPhaseAbility = "";
 

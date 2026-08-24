@@ -14,8 +14,15 @@ public class UpgradeMenuScreen extends Screen {
     private final java.util.Map<Button, AbilityNode> nodeMap = new java.util.HashMap<>();
 
     // --- RESTORED VARIABLES & RECORD ---
-    private boolean isEquipTab = false;
+    // 0 = Skill Tree, 1 = Equip Abilities, 2 = Passives
+    private int activeTab = 0;
+
+    private static final int TAB_W = 90;
+    private static final int TAB_H = 20;
+    private static final int TAB_Y = 12;
+    private static final String[] TAB_NAMES = { "Skill Tree", "Equip Abilities", "Passives" };
     private String selectedAbilityToEquip = null;
+    private String selectedPassiveToEquip = null;
     private static final String[] SLOT_LABELS = { "Z", "X", "C", "V", "Shift + Z", "Shift + X", "Shift + C", "Shift + V" };
     private record AbilityNode(String name, String path, int index, int cost) {}
 
@@ -111,12 +118,14 @@ public class UpgradeMenuScreen extends Screen {
 
             for (var renderable : this.renderables) {
                 if (renderable instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
-                    widget.visible = !isEquipTab;
+                    widget.visible = (activeTab == 0);
                 }
             }
 
-            if (isEquipTab) {
+            if (activeTab == 1) {
                 renderEquipMenu(guiGraphics, mouseX, mouseY, data);
+            } else if (activeTab == 2) {
+                renderPassiveMenu(guiGraphics, mouseX, mouseY, data);
             } else {
                 String centerText = activeElement.isEmpty() ? "None" : activeElement.substring(0, 1).toUpperCase() + activeElement.substring(1);
                 guiGraphics.drawCenteredString(this.font, centerText, this.width / 2, this.height / 2 - 4, 0xFFFFFF);
@@ -179,14 +188,7 @@ public class UpgradeMenuScreen extends Screen {
                         }
                     }
                 }
-                int tabY = 12;
-                guiGraphics.fill(this.width / 2 - 110, tabY, this.width / 2 - 10, tabY + 20, !isEquipTab ? 0xFF448844 : 0xFF222222);
-                guiGraphics.renderOutline(this.width / 2 - 110, tabY, 100, 20, !isEquipTab ? 0xFF55FF55 : 0xFF555555);
-                guiGraphics.drawCenteredString(this.font, "Skill Tree", this.width / 2 - 60, tabY + 6, 0xFFFFFF);
-
-                guiGraphics.fill(this.width / 2 + 10, tabY, this.width / 2 + 110, tabY + 20, isEquipTab ? 0xFF448844 : 0xFF222222);
-                guiGraphics.renderOutline(this.width / 2 + 10, tabY, 100, 20, isEquipTab ? 0xFF55FF55 : 0xFF555555);
-                guiGraphics.drawCenteredString(this.font, "Equip Abilities", this.width / 2 + 60, tabY + 6, 0xFFFFFF);
+                drawTabs(guiGraphics);
             }
         }
     }
@@ -252,34 +254,20 @@ public class UpgradeMenuScreen extends Screen {
             graphics.renderOutline(ax, ay, 70, 20, 0xFF777777);
             graphics.drawCenteredString(this.font, ability, ax + 35, ay + 6, 0xFFFFFF);
         }
-        // --- DRAW TABS AT THE TOP ---
-        int tabY = 12;
-        int tabCenterX = this.width / 2;
-
-        // Skill Tree Tab (Left side)
-        graphics.fill(tabCenterX - 110, tabY, tabCenterX - 10, tabY + 20, !isEquipTab ? 0xFF448844 : 0xFF222222);
-        graphics.renderOutline(tabCenterX - 110, tabY, 100, 20, !isEquipTab ? 0xFF55FF55 : 0xFF555555);
-        graphics.drawCenteredString(this.font, "Skill Tree", tabCenterX - 60, tabY + 6, 0xFFFFFF);
-
-        // Equip Abilities Tab (Right side)
-        graphics.fill(tabCenterX + 10, tabY, tabCenterX + 110, tabY + 20, isEquipTab ? 0xFF448844 : 0xFF222222);
-        graphics.renderOutline(tabCenterX + 10, tabY, 100, 20, isEquipTab ? 0xFF55FF55 : 0xFF555555);
-        graphics.drawCenteredString(this.font, "Equip Abilities", tabCenterX + 60, tabY + 6, 0xFFFFFF);
+        drawTabs(graphics);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         // --- TAB CLICK DETECTION ---
-        int tabY = 12;
-        // 1. Skill Tree Tab Click
-        if (mouseX >= this.width / 2 - 110 && mouseX <= this.width / 2 - 10 && mouseY >= tabY && mouseY <= tabY + 20) {
-            isEquipTab = false;
-            return true;
-        }
-        // 2. Equip Abilities Tab Click
-        if (mouseX >= this.width / 2 + 10 && mouseX <= this.width / 2 + 110 && mouseY >= tabY && mouseY <= tabY + 20) {
-            isEquipTab = true;
-            return true;
+        for (int i = 0; i < TAB_NAMES.length; i++) {
+            int tx = tabX(i);
+            if (mouseX >= tx && mouseX <= tx + TAB_W && mouseY >= TAB_Y && mouseY <= TAB_Y + TAB_H) {
+                activeTab = i;
+                selectedAbilityToEquip = null;
+                selectedPassiveToEquip = null;
+                return true;
+            }
         }
         // ---------------------------
 
@@ -287,8 +275,15 @@ public class UpgradeMenuScreen extends Screen {
             return true;
         }
 
+
+        if (activeTab == 2 && this.minecraft != null && this.minecraft.player != null) {
+            var passiveData = this.minecraft.player.getData(ModAttachments.BENDING_DATA);
+            if (passiveTabClicked(mouseX, mouseY, button, passiveData)) {
+                return true;
+            }
+        }
         // ... (rest of your mouseClicked code below)
-        if (isEquipTab && this.minecraft != null && this.minecraft.player != null) {
+        if (activeTab == 1 && this.minecraft != null && this.minecraft.player != null) {
             var data = this.minecraft.player.getData(ModAttachments.BENDING_DATA);
             int centerX = this.width / 2;
 
@@ -471,5 +466,146 @@ public class UpgradeMenuScreen extends Screen {
             case "masterclass" -> mas;
             default -> new String[0];
         };
+    }
+
+    /** Left edge of tab {@code index}, laid out as one centred row. */
+    private int tabX(int index) {
+        int totalWidth = (TAB_W * TAB_NAMES.length) + (6 * (TAB_NAMES.length - 1));
+        return (this.width / 2) - (totalWidth / 2) + index * (TAB_W + 6);
+    }
+
+    private void drawTabs(GuiGraphics graphics) {
+        for (int i = 0; i < TAB_NAMES.length; i++) {
+            boolean selected = (activeTab == i);
+            int tx = tabX(i);
+
+            graphics.fill(tx, TAB_Y, tx + TAB_W, TAB_Y + TAB_H, selected ? 0xFF448844 : 0xFF222222);
+            graphics.renderOutline(tx, TAB_Y, TAB_W, TAB_H, selected ? 0xFF55FF55 : 0xFF555555);
+            graphics.drawCenteredString(this.font, TAB_NAMES[i], tx + (TAB_W / 2), TAB_Y + 6, 0xFFFFFF);
+        }
+    }
+
+    /** Unlocked abilities that are actually passives, i.e. what can go in a slot. */
+    private java.util.List<String> unlockedPassives(BendingData data) {
+        java.util.List<String> found = new java.util.ArrayList<>();
+        for (String name : data.getUnlockedAbilities()) {
+            if (name == null) continue;
+            if (com.minecraft.atlamod.abilities.AbilityRegistry.get(name)
+                    instanceof com.minecraft.atlamod.abilities.PassiveAbility) {
+                found.add(name);
+            }
+        }
+        return found;
+    }
+
+    private void renderPassiveMenu(GuiGraphics graphics, int mouseX, int mouseY, BendingData data) {
+        int centerX = this.width / 2;
+
+        graphics.drawCenteredString(this.font,
+                "Equipped passives work as soon as they are slotted", centerX, 44, 0xAAAAAA);
+
+        // The four slots.
+        for (int i = 0; i < com.minecraft.atlamod.BendingData.PASSIVE_SLOTS; i++) {
+            int sx = centerX - 150 + (i * 75);
+            int sy = 60;
+
+            String equipped = data.getEquippedPassive(i);
+            boolean filled = !equipped.isEmpty();
+
+            graphics.fill(sx, sy, sx + 70, sy + 40, filled ? 0xFF3A2A1A : 0xFF222222);
+            graphics.renderOutline(sx, sy, 70, 40, filled ? 0xFFFFAA33 : 0xFF555555);
+
+            graphics.drawCenteredString(this.font, "Slot " + (i + 1), sx + 35, sy + 5, 0xAAAAAA);
+            graphics.drawCenteredString(this.font, filled ? equipped : "- empty -",
+                    sx + 35, sy + 20, filled ? 0xFFCC66 : 0x666666);
+        }
+
+        graphics.drawCenteredString(this.font,
+                "Left click a slot to place the selected passive, right click to clear",
+                centerX, 108, 0x888888);
+
+        // The passives the player owns.
+        java.util.List<String> available = unlockedPassives(data);
+        if (available.isEmpty()) {
+            graphics.drawCenteredString(this.font,
+                    "No passive abilities unlocked yet", centerX, 140, 0x888888);
+            drawTabs(graphics);
+            return;
+        }
+
+        int startX = centerX - (Math.min(available.size(), 4) * 75) / 2;
+        for (int i = 0; i < available.size(); i++) {
+            String passive = available.get(i);
+            int col = i % 4;
+            int row = i / 4;
+            int ax = startX + (col * 75);
+            int ay = 140 + (row * 25);
+
+            boolean selected = passive.equals(selectedPassiveToEquip);
+            graphics.fill(ax, ay, ax + 70, ay + 20, selected ? 0xFF554400 : 0xFF222222);
+            graphics.renderOutline(ax, ay, 70, 20, selected ? 0xFFFFAA33 : 0xFF777777);
+            graphics.drawCenteredString(this.font, passive, ax + 35, ay + 6, 0xFFFFFF);
+
+            // Hovering shows what the passive actually does.
+            if (mouseX >= ax && mouseX <= ax + 70 && mouseY >= ay && mouseY <= ay + 20) {
+                var ability = com.minecraft.atlamod.abilities.AbilityRegistry.get(passive);
+                if (ability instanceof com.minecraft.atlamod.abilities.PassiveAbility p) {
+                    graphics.renderTooltip(this.font,
+                            net.minecraft.network.chat.Component.literal("§7" + p.getDescription()),
+                            mouseX, mouseY);
+                }
+            }
+        }
+
+        drawTabs(graphics);
+    }
+
+    /** Slot and list clicks for the passive tab. Returns true if the click was used. */
+    private boolean passiveTabClicked(double mouseX, double mouseY, int button, BendingData data) {
+        int centerX = this.width / 2;
+
+        for (int i = 0; i < com.minecraft.atlamod.BendingData.PASSIVE_SLOTS; i++) {
+            int sx = centerX - 150 + (i * 75);
+            int sy = 60;
+            if (mouseX < sx || mouseX > sx + 70 || mouseY < sy || mouseY > sy + 40) continue;
+
+            if (button == 1) {
+                applyPassive(i, "", data);
+                return true;
+            }
+            if (selectedPassiveToEquip != null && !selectedPassiveToEquip.isEmpty()) {
+                applyPassive(i, selectedPassiveToEquip, data);
+                selectedPassiveToEquip = null;
+                return true;
+            }
+            return true;
+        }
+
+        java.util.List<String> available = unlockedPassives(data);
+        int startX = centerX - (Math.min(available.size(), 4) * 75) / 2;
+        for (int i = 0; i < available.size(); i++) {
+            int col = i % 4;
+            int row = i / 4;
+            int ax = startX + (col * 75);
+            int ay = 140 + (row * 25);
+
+            if (mouseX >= ax && mouseX <= ax + 70 && mouseY >= ay && mouseY <= ay + 20) {
+                selectedPassiveToEquip = available.get(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Applies a passive slot change locally and tells the server. */
+    private void applyPassive(int slot, String passive, BendingData data) {
+        if (this.minecraft == null || this.minecraft.player == null) return;
+
+        data.setEquippedPassive(slot, passive);
+        this.minecraft.player.setData(ModAttachments.BENDING_DATA, data);
+
+        PacketDistributor.sendToServer(
+                new com.minecraft.atlamod.network.EquipPassivePacket(slot, passive));
     }
 }

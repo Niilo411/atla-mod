@@ -5,6 +5,7 @@ import com.minecraft.atlamod.abilities.AbilityRegistry;
 import com.minecraft.atlamod.abilities.AbilitySupport;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
 import com.minecraft.atlamod.abilities.ChargedAbility;
+import com.minecraft.atlamod.abilities.PassiveAbility;
 import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.network.chat.Component;
 import com.minecraft.atlamod.network.ChargeStatusPacket;
@@ -36,7 +37,9 @@ public class AbilityHandler {
         // would run the ability immediately, defeating a charge-up entirely, and for
         // a channel would stamp its cooldown while doing nothing visible — leaving
         // the ability looking dead and permanently cooling.
-        if (ability instanceof ChanneledAbility || ability instanceof ChargedAbility) return;
+        // Passives are never cast at all: being equipped is the whole activation.
+        if (ability instanceof ChanneledAbility || ability instanceof ChargedAbility
+                || ability instanceof PassiveAbility) return;
 
         performCast(player, data, ability);
     }

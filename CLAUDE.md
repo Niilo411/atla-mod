@@ -136,7 +136,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     so it cannot grief blocks)
   - Fire Ring (30-block continuous ring of fire at radius 4 around the player;
     100 chi, 2s cooldown, 8 xp. Its fire burns at 3x normal for 30s — see below)
-- Fire Balanced path in progress:
+- Fire Balanced path COMPLETE:
   - Ignite (lights whatever you look at up to 20 blocks;
     its fire burns at 2x for 30s. Aimed at a furnace/blast furnace/smoker it fuels
     that instead, burning 15s. 50 chi, 5 xp, no cooldown. `canStart` refuses the cast
@@ -147,6 +147,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Fire Rocket (channeled flight at 0.03 fly speed vs vanilla creative's 0.05, no
     height limit; flame venting from the feet; 15 chi/sec, 5 xp/sec, no cooldown.
     Fall damage applies normally — the height you gain is yours to survive)
+  - Taller fire (PASSIVE — equip it in the Passives tab; ability-laid fire becomes
+    2 blocks tall. Affects Firewall, Fire Ring, Fire Spikes, and Fire Blow when it
+    exists, since all of them go through BendingFire.placeGrounded)
 - **Fire Rocket owns flight outright**: the keybind is the ONLY thing that starts or
   ends it. Two vanilla behaviours fight that and are both undone in `onTick` —
   double-tapping space is vanilla's flight toggle for anyone with `mayfly`, and the
@@ -161,6 +164,28 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   runs, which would leave permanent creative flight. `FireRocket.stopFlight()` is
   called from BOTH the login and respawn handlers in `ServerEvents`, and skips
   players actually in creative/spectator so it can't strip legitimate flight.
+- **Passive abilities** (`abilities/PassiveAbility.java`): never cast — being in a
+  passive slot IS the activation, and whatever they affect asks
+  `data.hasPassiveEquipped(key)`. No chi, no XP: there is no moment of use to hang
+  either on. `AbilityHandler.executeAbility` refuses them alongside channels and
+  charges, so a passive in a keybind slot does nothing rather than burning chi.
+  4 slots, stored in `BendingData.equippedPassives` (persisted, `"EMPTY"` sentinel
+  like the 8 ability slots) and synced by `SyncPassivesPacket`. They are unlocked
+  through the ordinary skill tree, then slotted in the menu's **Passives** tab.
+  `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
+  `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
+- **Taller Fire needs a custom block.** The second block cannot be vanilla fire:
+  `FireBlock#canSurvive` needs a face-sturdy block below or a flammable neighbour,
+  and a fire block is neither, so stacked vanilla fire deletes itself on its first
+  scheduled tick. `TallFireBlock extends BaseFireBlock`, which does NOT override
+  `canSurvive` — so it survives anywhere. It burns and ignites like real fire, counts
+  as `IS_FIRE` so `BendingFire`'s multipliers still apply, doesn't spread, and
+  schedules a tick every 40 ticks to remove itself once the fire underneath is gone.
+  First block assets in the project: `blockstates/tall_fire.json` +
+  `models/block/tall_fire.json` (a `block/cross` model wearing vanilla's `fire_0`).
+- `BendingFire.placeGrounded()` is now the single fire-laying helper for Firewall,
+  Fire Ring and Fire Spikes — they had a copy each, and Taller Fire needed all three
+  to change together.
 - **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
   fire blocks an ability placed (dimension + pos -> expiry), and the
   `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything
@@ -206,7 +231,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 46 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 45 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

@@ -1,9 +1,13 @@
 package com.minecraft.atlamod.abilities;
 
+import com.minecraft.atlamod.Atlamod;
+import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.fire.TallerFire;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -74,6 +78,60 @@ public final class BendingFire {
         Iterator<Map.Entry<Key, Entry>> it = ENHANCED.entrySet().iterator();
         while (it.hasNext()) {
             if (now > it.next().getValue().expiry()) it.remove();
+        }
+    }
+
+    /**
+     * Lays one fire block at the first air space with solid ground beneath, scanning
+     * a little up and down so it follows terrain. Only ever replaces air, so an
+     * ability that calls this can never destroy anything.
+     *
+     * Shared by Firewall, Fire Ring and Fire Spikes — they had a copy each, and
+     * Taller Fire needs all of them to change together.
+     *
+     * @param multiplier how hard the fire burns; 1.0 means ordinary fire, untracked
+     * @return true if fire was placed
+     */
+    public static boolean placeGrounded(ServerLevel level, BendingData data, BlockPos target,
+                                        int upScan, int downScan, int lifetimeTicks, float multiplier) {
+        for (int dy = upScan; dy >= -downScan; dy--) {
+            BlockPos pos = target.above(dy);
+
+            if (!level.getBlockState(pos).isAir()) continue;
+            if (!level.getBlockState(pos.below()).isSolid()) continue;
+
+            level.setBlockAndUpdate(pos, Blocks.FIRE.defaultBlockState());
+            if (multiplier > 1.0F) {
+                mark(level, pos, lifetimeTicks, multiplier);
+            }
+
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                    pos.getX() + 0.5, pos.getY() + 0.3, pos.getZ() + 0.5,
+                    6, 0.2, 0.2, 0.2, 0.01);
+
+            placeTallHalf(level, data, pos, lifetimeTicks, multiplier);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The second block of Taller Fire, when the passive is equipped.
+     *
+     * It has to be ModBlocks TALL_FIRE rather than vanilla fire: FireBlock#canSurvive
+     * wants a face-sturdy block below or a flammable neighbour, and a fire block is
+     * neither, so a stacked vanilla fire would delete itself almost immediately.
+     */
+    private static void placeTallHalf(ServerLevel level, BendingData data, BlockPos base,
+                                      int lifetimeTicks, float multiplier) {
+        if (data == null || !data.hasPassiveEquipped(TallerFire.KEY)) return;
+
+        BlockPos above = base.above();
+        if (!level.getBlockState(above).isAir()) return;
+
+        level.setBlockAndUpdate(above, Atlamod.TALL_FIRE.get().defaultBlockState());
+        if (multiplier > 1.0F) {
+            mark(level, above, lifetimeTicks, multiplier);
         }
     }
 }

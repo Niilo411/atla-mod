@@ -2,13 +2,12 @@ package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.Ability;
+import com.minecraft.atlamod.abilities.BendingFire;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -76,26 +75,8 @@ public class Firewall implements Ability {
             double offset = i - (LENGTH - 1) / 2.0;
             Vec3 spot = origin.add(across.scale(offset));
 
-            placeFire(level, BlockPos.containing(spot));
-        }
-    }
-
-    /**
-     * Drops one fire block at the first air space with solid ground under it,
-     * scanning a little up and down from the target so the wall tracks terrain.
-     * Only ever replaces air, so casting this never destroys anything.
-     */
-    private static void placeFire(ServerLevel level, BlockPos target) {
-        for (int dy = UP_SCAN; dy >= -DOWN_SCAN; dy--) {
-            BlockPos pos = target.above(dy);
-
-            if (level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
-                level.setBlockAndUpdate(pos, Blocks.FIRE.defaultBlockState());
-                level.sendParticles(ParticleTypes.FLAME,
-                        pos.getX() + 0.5, pos.getY() + 0.3, pos.getZ() + 0.5,
-                        6, 0.2, 0.2, 0.2, 0.01);
-                return;
-            }
+            BendingFire.placeGrounded(level, data, BlockPos.containing(spot),
+                    UP_SCAN, DOWN_SCAN, 0, 1.0F);
         }
     }
 }

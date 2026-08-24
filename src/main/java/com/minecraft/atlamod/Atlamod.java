@@ -50,6 +50,18 @@ public class Atlamod {
     // Creates a new BlockItem with the id "atlamod:example_block", combining the namespace and path
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
+    // The upper half of Taller Fire. No BlockItem: nothing should ever hold one.
+    public static final DeferredBlock<Block> TALL_FIRE = BLOCKS.register("tall_fire",
+            () -> new TallFireBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.FIRE)
+                    .replaceable()
+                    .noCollission()
+                    .instabreak()
+                    .lightLevel(state -> 15)
+                    .sound(net.minecraft.world.level.block.SoundType.WOOL)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
+                    .noLootTable()));
+
     // Creates a new food item with the id "atlamod:example_id", nutrition 1 and saturation 2
     public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()
             .alwaysEdible().nutrition(1).saturationModifier(2f).build()));

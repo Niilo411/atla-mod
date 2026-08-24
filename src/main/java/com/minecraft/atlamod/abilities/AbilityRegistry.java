@@ -8,6 +8,7 @@ import com.minecraft.atlamod.abilities.fire.FireRocket;
 import com.minecraft.atlamod.abilities.fire.FireShield;
 import com.minecraft.atlamod.abilities.fire.FireSpikes;
 import com.minecraft.atlamod.abilities.fire.FireWhip;
+import com.minecraft.atlamod.abilities.fire.TallerFire;
 import com.minecraft.atlamod.abilities.fire.Ignite;
 import com.minecraft.atlamod.abilities.fire.Firewall;
 import com.minecraft.atlamod.abilities.fire.Fireball;
@@ -47,6 +48,7 @@ public final class AbilityRegistry {
         register(new Ignite());
         register(new FireSpikes());
         register(new FireRocket());
+        register(new TallerFire());
     }
 
     public static void register(Ability ability) {

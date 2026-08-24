@@ -124,6 +124,9 @@ public class ServerEvents {
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.ChargeStatusPacket("", 0, 0, false));
 
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
+
             // Safety net: Fire Rocket grants flight through the vanilla ability
             // flags, and those are saved to player NBT. If the player disconnected
             // mid-flight, onStop() never ran and they would return able to fly

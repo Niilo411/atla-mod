@@ -162,5 +162,28 @@ public class ModNetworking {
                             payload.ability(), payload.held(), payload.total(), payload.armed()));
                 }
         );
+
+        // --- EQUIP PASSIVE (Client -> Server) ---
+        registrar.playToServer(
+                EquipPassivePacket.TYPE,
+                EquipPassivePacket.STREAM_CODEC,
+                EquipPassivePacket::handle
+        );
+
+        // --- SYNC PASSIVES (Server -> Client) ---
+        registrar.playToClient(
+                SyncPassivesPacket.TYPE,
+                SyncPassivesPacket.STREAM_CODEC,
+                (SyncPassivesPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setAllEquippedPassives(payload.equippedPassives());
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+                        }
+                    });
+                }
+        );
     }
 }
