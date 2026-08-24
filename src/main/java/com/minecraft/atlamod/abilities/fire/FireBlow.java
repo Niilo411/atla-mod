@@ -37,8 +37,8 @@ public class FireBlow implements ChargedAbility {
     // Everything below scales from the first figure at no charge to the second at full.
     private static final double MIN_RANGE = 4.0;
     private static final double MAX_RANGE = 16.0;
-    private static final double MIN_HALF_WIDTH = 1.0;
-    private static final double MAX_HALF_WIDTH = 3.0;
+    private static final double MIN_HALF_WIDTH = 2.0;
+    private static final double MAX_HALF_WIDTH = 6.0;
     private static final float MIN_DAMAGE = 4.0F;
     private static final float MAX_DAMAGE = 20.0F;
     private static final int MIN_COLUMN_HEIGHT = 2;

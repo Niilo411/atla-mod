@@ -215,29 +215,8 @@ public class UpgradeMenuScreen extends Screen {
 
         graphics.drawCenteredString(this.font, "--- Unlocked Abilities (" + data.getActiveElement().toUpperCase() + ") ---", centerX, 145, 0xAAAAAA);
 
-        // 2. ROBUST CASE-INSENSITIVE FILTER FOR ACTIVE ELEMENT
-        String activeEl = data.getActiveElement() == null ? "" : data.getActiveElement().toLowerCase();
-        java.util.List<String> validAbilitiesForElement = new java.util.ArrayList<>();
-        validAbilitiesForElement.addAll(java.util.List.of(getOffensive(activeEl)));
-        validAbilitiesForElement.addAll(java.util.List.of(getDefensive(activeEl)));
-        validAbilitiesForElement.addAll(java.util.List.of(getBalanced(activeEl)));
-        validAbilitiesForElement.addAll(java.util.List.of(getMaster(activeEl)));
-
-        java.util.List<String> displayAbilities = new java.util.ArrayList<>();
-        for (String ab : data.getUnlockedAbilities()) {
-            if (ab == null) continue;
-            // Check case-insensitively so minor spelling/capitalization variations still pass
-            boolean matches = false;
-            for (String valid : validAbilitiesForElement) {
-                if (valid.equalsIgnoreCase(ab)) {
-                    matches = true;
-                    break;
-                }
-            }
-            if (matches) {
-                displayAbilities.add(ab);
-            }
-        }
+        // 2. Unlocked abilities for this element, passives excluded
+        java.util.List<String> displayAbilities = equippableAbilities(data);
 
         // 3. Draw the filtered list of clickable ability buttons
         int startX = centerX - (Math.min(displayAbilities.size(), 4) * 75) / 2;
@@ -322,23 +301,7 @@ public class UpgradeMenuScreen extends Screen {
             }
 
             // 2. Check if clicking a filtered unlocked ability button
-            String activeEl = data.getActiveElement() == null ? "" : data.getActiveElement().toLowerCase();
-            java.util.List<String> validAbilitiesForElement = new java.util.ArrayList<>();
-            validAbilitiesForElement.addAll(java.util.List.of(getOffensive(activeEl)));
-            validAbilitiesForElement.addAll(java.util.List.of(getDefensive(activeEl)));
-            validAbilitiesForElement.addAll(java.util.List.of(getBalanced(activeEl)));
-            validAbilitiesForElement.addAll(java.util.List.of(getMaster(activeEl)));
-
-            java.util.List<String> displayAbilities = new java.util.ArrayList<>();
-            for (String ab : data.getUnlockedAbilities()) {
-                if (ab == null) continue;
-                for (String valid : validAbilitiesForElement) {
-                    if (valid.equalsIgnoreCase(ab)) {
-                        displayAbilities.add(ab);
-                        break;
-                    }
-                }
-            }
+            java.util.List<String> displayAbilities = equippableAbilities(data);
 
             int startX = centerX - (Math.min(displayAbilities.size(), 4) * 75) / 2;
             int startY = 165;
@@ -483,6 +446,41 @@ public class UpgradeMenuScreen extends Screen {
             graphics.renderOutline(tx, TAB_Y, TAB_W, TAB_H, selected ? 0xFF55FF55 : 0xFF555555);
             graphics.drawCenteredString(this.font, TAB_NAMES[i], tx + (TAB_W / 2), TAB_Y + 6, 0xFFFFFF);
         }
+    }
+
+    /**
+     * Unlocked abilities that can go in a keybind slot: this element's abilities,
+     * minus passives. A passive has no keybind — being slotted in the Passives tab
+     * is its whole activation — so listing it here would offer a bind that does
+     * nothing, which is exactly what AbilityHandler refuses to cast.
+     */
+    private java.util.List<String> equippableAbilities(BendingData data) {
+        String activeEl = data.getActiveElement() == null ? "" : data.getActiveElement().toLowerCase();
+
+        java.util.List<String> validForElement = new java.util.ArrayList<>();
+        validForElement.addAll(java.util.List.of(getOffensive(activeEl)));
+        validForElement.addAll(java.util.List.of(getDefensive(activeEl)));
+        validForElement.addAll(java.util.List.of(getBalanced(activeEl)));
+        validForElement.addAll(java.util.List.of(getMaster(activeEl)));
+
+        java.util.List<String> found = new java.util.ArrayList<>();
+        for (String ability : data.getUnlockedAbilities()) {
+            if (ability == null) continue;
+
+            if (com.minecraft.atlamod.abilities.AbilityRegistry.get(ability)
+                    instanceof com.minecraft.atlamod.abilities.PassiveAbility) {
+                continue;
+            }
+
+            // Case-insensitive, so minor capitalisation differences still match.
+            for (String valid : validForElement) {
+                if (valid.equalsIgnoreCase(ability)) {
+                    found.add(ability);
+                    break;
+                }
+            }
+        }
+        return found;
     }
 
     /** Unlocked abilities that are actually passives, i.e. what can go in a slot. */

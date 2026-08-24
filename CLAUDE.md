@@ -170,7 +170,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     (3 hearts) a hit instead of scaling off normal fire. No chi, no xp)
   - Fire blow (CHARGED up to 10s, and unlike the others it FIRES ON RELEASE at
     whatever strength it reached. Erupts a fanning wall of flame ahead: reach 4->16
-    blocks, damage 4->20, flame columns 2->6 high, all scaling with charge. Lays
+    blocks, 4->12 blocks WIDE at the far end, damage 4->20, flame columns 2->6 high,
+    all scaling with charge. Lays
     fire through `BendingFire.placeGrounded`, so Taller Fire and blue fire both
     apply to it. 150 chi, 20 xp, 1s cooldown)
 - **`ChargedAbility.firesOnRelease()`** (default false) makes an early release cast a
@@ -207,6 +208,12 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
+- **Passives are excluded from the ability equip tab.** They sit in the same path
+  arrays as everything else, so the equip list picked them up until
+  `UpgradeMenuScreen.equippableAbilities()` started filtering them out — offering a
+  keybind for something `AbilityHandler` refuses to cast. That method also replaced
+  two identical copies of the element filter, one in the render pass and one in the
+  click handler.
 - **Passive slots need syncing at BOTH login and respawn.** `copyOnDeath` keeps them
   server-side so they keep working, but the client's copy is rebuilt on respawn — miss
   the packet there and the menu shows every slot empty while the passives are still
