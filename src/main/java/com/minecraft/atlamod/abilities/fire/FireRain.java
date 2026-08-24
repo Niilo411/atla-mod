@@ -69,6 +69,11 @@ public class FireRain implements Ability {
         return 20;
     }
 
+    @Override
+    public int getCooldownTicks() {
+        return 1200; // 60 seconds
+    }
+
     /** No stacking a second downpour on top of one already falling. */
     @Override
     public boolean canStart(ServerPlayer player, BendingData data) {

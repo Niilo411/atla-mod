@@ -181,7 +181,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Fire Rain (instant cast that then runs for 30s — a countdown on BendingData
     ticked by `FireRain.tick`, the Fire Leap pattern, NOT a channel. Burning sky out
     to a 50-block cylinder, 0.5 hearts/sec to every living thing under it INCLUDING the
-    caster. 1000 chi, instant 20 xp, no cooldown)
+    caster. 1000 chi, instant 20 xp, 60s cooldown)
 - **Fire Rain costs more chi than a new bender can hold.** `getMaxChi()` is
   `500 + level*100`, so its 1000 cost is uncastable until level 5 — deliberate for
   the last ability in the tree, but it is a gate, not a bug, if it ever looks like
@@ -227,6 +227,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
+- **Element icons**: `client/ElementIcons.java` maps an element to a PNG under
+  `assets/atlamod/textures/gui/elements/`. Only elements listed in its `ICONS` map
+  are drawn — anything else keeps the old "?" box, because a texture Minecraft can't
+  find renders as the magenta checkerboard, which looks far more broken than a
+  placeholder. Source PNGs are expected to be **256x256**; the icon is scaled through
+  the pose stack rather than by blit's arguments, since blit's width arguments set the
+  source region as well as the drawn size and so cannot resize on their own.
+  Adding an element = drop `<element>.png` in that folder + one line in `ICONS`.
 - **Passives are excluded from the ability equip tab.** They sit in the same path
   arrays as everything else, so the equip list picked them up until
   `UpgradeMenuScreen.equippableAbilities()` started filtering them out — offering a

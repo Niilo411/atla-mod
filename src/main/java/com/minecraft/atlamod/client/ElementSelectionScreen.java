@@ -85,10 +85,19 @@ public class ElementSelectionScreen extends Screen {
                 int bw = button.getWidth();
                 int bh = button.getHeight();
 
+                String elementName = elementButtonMap.getOrDefault(button, "");
+
                 // Draw dark background box and border
                 guiGraphics.fill(bx, by, bx + bw, by + bh, 0xFF222222);
                 guiGraphics.renderOutline(bx, by, bw, bh, 0xFF555555);
-                guiGraphics.drawCenteredString(this.font, "?", bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
+
+                if (ElementIcons.has(elementName)) {
+                    // Inset by a pixel so the emblem sits inside the border, not on it.
+                    ElementIcons.draw(guiGraphics, elementName, bx + 1, by + 1, bw - 2);
+                } else {
+                    guiGraphics.drawCenteredString(this.font, "?",
+                            bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
+                }
 
                 if (button.isHovered()) {
                     String elName = elementButtonMap.getOrDefault(button, "Unknown");
