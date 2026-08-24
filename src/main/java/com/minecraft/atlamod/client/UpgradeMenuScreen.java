@@ -445,7 +445,7 @@ public class UpgradeMenuScreen extends Screen {
         if (element == null) return new String[0];
         return switch (element.toLowerCase()) {
             case "fire" -> new String[]{"blue fire", "Fire blow", "Fire immunity", "Fire Rain"};
-            case "water" -> new String[]{"Water bubble", "water breathing", "Tsunami"};
+            case "water" -> new String[]{"Drown", "water breathing", "Tsunami"};
             case "air" -> new String[]{"breathless", "Tornado", "Flight", "Air beam"};
             case "earth" -> new String[]{"Earthquake", "Ravine", "Earth sink"};
             case "energy" -> new String[]{"Give and take"}; // Avatar special element

@@ -103,7 +103,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Defensive: Water shield-3s, Water push-10, Water heal-4s
 - Offensive: Water ball-5, Water stream-10, Water Bullets-15
 - Balanced: Water Manipulation-5, Water Surf-4s, Water Sphere-4s
-- Masterclass: Water bubble-20, water breathing-0, Tsunami-35
+- Masterclass: Drown-20 (was "Water bubble" in the design doc), water breathing-0, Tsunami-35
 
 ### Air path (from design doc)
 - Defensive: Airpush-10, Air jump-5, Air Aura, Wind
@@ -333,6 +333,20 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- Water Masterclass path started (gated behind the other three):
+  - Drown (renamed from the design doc's "Water bubble"; CHARGED up to 5s and fires on
+    release like Fire blow. Pops every air bubble and then keeps the victim without air
+    — 5s of drowning at a 1s charge, 15s at 5s, one heart a second throughout. 250 chi,
+    15 xp, 30s cooldown)
+- **Drowning is driven by `Drownings`, not left to vanilla.** Vanilla only drowns what is
+  underwater and refills its air the instant it is not, so emptying someone's lungs on dry
+  land would do nothing — the bubbles would be back next tick. The tracker holds air at
+  zero and deals the damage on vanilla's own one-heart-a-second beat, wherever the victim
+  is standing. A second cast on the same victim replaces the first rather than stacking.
+- Drown picks its victim by distance from the aim LINE rather than by a raycast, so a cast
+  does not have to be pixel-perfect on something that is moving; nearest along the line
+  wins. `canStart` runs both when the charge begins and again when it lands, so a target
+  breaking line of sight during the wind-up costs the bender nothing.
 - Water Balanced path COMPLETE:
   - Water Manipulation (look at a water SOURCE block and press the key to take hold of
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no

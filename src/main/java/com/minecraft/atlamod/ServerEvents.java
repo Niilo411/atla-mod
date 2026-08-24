@@ -28,6 +28,7 @@ public class ServerEvents {
     @SubscribeEvent
     public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
         com.minecraft.atlamod.abilities.water.WaterProjectiles.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.water.Drownings.tickAll(event.getServer());
     }
 
     /**
@@ -41,6 +42,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.water.WaterProjectiles.forgetLevel(level);
             com.minecraft.atlamod.abilities.HeldBlocks.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.WaterSpheres.forgetLevel(level);
+            com.minecraft.atlamod.abilities.water.Drownings.forgetLevel(level);
         }
     }
     @SubscribeEvent
