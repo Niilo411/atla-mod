@@ -39,6 +39,7 @@ public class ServerEvents {
     public static void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
             com.minecraft.atlamod.abilities.water.WaterProjectiles.forgetLevel(level);
+            com.minecraft.atlamod.abilities.HeldBlocks.forgetLevel(level);
         }
     }
     @SubscribeEvent
@@ -118,6 +119,24 @@ public class ServerEvents {
         );
     }
 
+
+    /**
+     * Puts down anything a player was carrying when they die or disconnect. The block
+     * is out of the world while held, so without this it would simply cease to exist.
+     */
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerDeath(net.neoforged.neoforge.event.entity.living.LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
+        }
+    }
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {

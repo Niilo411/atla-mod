@@ -333,6 +333,20 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- Water Balanced path started:
+  - Water Manipulation (look at a water SOURCE block and press the key to take hold of
+    it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
+    cooldown)
+- **`abilities/HeldBlocks.java` is the block-moving system**, written element-agnostic
+  because earthbending is expected to lean on it — nothing in it knows what the block
+  is. The block is genuinely REMOVED on grab and put back on place, so it moves rather
+  than being copied. Visual is a `FallingBlockEntity` with gravity off and its `time`
+  pinned at 0 (its own timer would otherwise drop it as an item); fluids have no model
+  to render so they fall back to particles.
+- **Every way a carry can end puts the block back**: place, no-room release, death,
+  disconnect, level unload, and changing dimension mid-carry. The block is out of the
+  world while held, so any missed path would silently destroy it — which is a far worse
+  failure than an awkward drop.
 - Water Offensive path COMPLETE:
   - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
@@ -342,7 +356,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     NO cooldown — the 3s window and the 100 chi are the whole limit. Chi is spent on
     the DRAW, so letting the window lapse costs the cast)
   - Water Bullets (three bullets held ready, fired ONE PER CLICK at 8.0 damage each,
-    2.6 blocks/tick. No window — they keep until used. 100 chi, 10 xp, no cooldown)
+    2.6 blocks/tick. No window — they keep until used. 100 chi, 10 xp, 2s cooldown
+    starting from the LAST of the three)
 - **An armed ability can hold several shots**: `TwoPhaseAbility.getShots()` (default 1,
   so Fireball, Water ball and Water stream are unchanged). The slot stays armed until
   every shot is spent and the cooldown waits for the LAST one, so a partly used ability

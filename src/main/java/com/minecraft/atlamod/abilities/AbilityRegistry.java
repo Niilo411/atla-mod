@@ -16,6 +16,7 @@ import com.minecraft.atlamod.abilities.fire.TallerFire;
 import com.minecraft.atlamod.abilities.water.WaterBall;
 import com.minecraft.atlamod.abilities.water.WaterBullets;
 import com.minecraft.atlamod.abilities.water.WaterHeal;
+import com.minecraft.atlamod.abilities.water.WaterManipulation;
 import com.minecraft.atlamod.abilities.water.WaterPush;
 import com.minecraft.atlamod.abilities.water.WaterShield;
 import com.minecraft.atlamod.abilities.water.WaterStream;
@@ -75,6 +76,9 @@ public final class AbilityRegistry {
         register(new WaterBall());
         register(new WaterStream());
         register(new WaterBullets());
+
+        // --- WATER : Balanced ---
+        register(new WaterManipulation());
     }
 
     public static void register(Ability ability) {

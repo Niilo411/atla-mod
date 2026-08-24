@@ -51,6 +51,11 @@ public class WaterBullets implements TwoPhaseAbility {
         return 10;
     }
 
+    @Override
+    public int getCooldownTicks() {
+        return 40; // 2 seconds, starting from the last of the three
+    }
+
     /** Three clicks, not one. */
     @Override
     public int getShots() {
