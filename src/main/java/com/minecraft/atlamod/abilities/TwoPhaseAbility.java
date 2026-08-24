@@ -27,4 +27,19 @@ public interface TwoPhaseAbility extends Ability {
      */
     default void onArmedTick(ServerPlayer player, BendingData data) {
     }
+
+    /**
+     * How long the armed state lasts before the ability is lost, in ticks.
+     * 0 means it waits indefinitely, which is what Fireball and Water ball do.
+     *
+     * Chi is spent when the ability is ARMED, not when it is released, so letting the
+     * window lapse costs the player the cast. That is the point of having one.
+     */
+    default int getArmedDurationTicks() {
+        return 0;
+    }
+
+    /** Fired when the window ran out with the ability still unspent. */
+    default void onArmedExpire(ServerPlayer player, BendingData data) {
+    }
 }

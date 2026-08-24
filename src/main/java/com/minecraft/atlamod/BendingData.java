@@ -358,4 +358,11 @@ public class BendingData {
     public void setActiveTwoPhaseAbility(String ability) {
         this.activeTwoPhaseAbility = ability;
     }
+
+    // Ticks left on an armed two-phase ability that has a time limit (Water stream).
+    // Zero when whatever is armed waits indefinitely.
+    private transient int twoPhaseTicks = 0;
+
+    public int getTwoPhaseTicks() { return twoPhaseTicks; }
+    public void setTwoPhaseTicks(int ticks) { this.twoPhaseTicks = Math.max(0, ticks); }
 }

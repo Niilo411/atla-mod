@@ -73,8 +73,9 @@ public class AbilityHandler {
         }
 
         // Two-phase abilities arm here and fire on the next left click.
-        if (ability instanceof TwoPhaseAbility) {
+        if (ability instanceof TwoPhaseAbility twoPhase) {
             data.setActiveTwoPhaseAbility(ability.getKey());
+            data.setTwoPhaseTicks(twoPhase.getArmedDurationTicks());
         }
 
         ability.execute(player, data);
@@ -96,6 +97,7 @@ public class AbilityHandler {
 
         // Clear immediately so the player can't spam left-click into multiple releases.
         data.setActiveTwoPhaseAbility("");
+        data.setTwoPhaseTicks(0);
 
         Ability ability = AbilityRegistry.get(armedKey);
         if (ability instanceof TwoPhaseAbility twoPhase) {
@@ -395,7 +397,16 @@ public class AbilityHandler {
             Ability ability = AbilityRegistry.get(armed);
             String label = ability != null ? ability.getName() : armed;
 
-            PacketDistributor.sendToPlayer(player, new ChargeStatusPacket(label, 1, 1, true));
+            // An ability with a window shows it draining; one that waits shows full.
+            int window = (ability instanceof TwoPhaseAbility twoPhase)
+                    ? twoPhase.getArmedDurationTicks() : 0;
+
+            if (window > 0) {
+                PacketDistributor.sendToPlayer(player,
+                        new ChargeStatusPacket(label, data.getTwoPhaseTicks(), window, true));
+            } else {
+                PacketDistributor.sendToPlayer(player, new ChargeStatusPacket(label, 1, 1, true));
+            }
             return;
         }
 
@@ -419,5 +430,49 @@ public class AbilityHandler {
         player.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
         // Players ignore server-side velocity unless it is explicitly pushed to them.
         player.hurtMarked = true;
+    }
+
+    /**
+     * Drives an armed two-phase ability each tick: lets it draw whatever it is
+     * holding, and runs down the window for those that have one.
+     *
+     * Expiry applies the cooldown, because the chi was already spent when the ability
+     * was armed — fumbling the window costs the cast, which is the whole reason a
+     * window exists.
+     */
+    public static void tickArmedTwoPhase(ServerPlayer player, BendingData data) {
+        String armedKey = data.getActiveTwoPhaseAbility();
+        if (armedKey.isEmpty()) return;
+
+        Ability ability = AbilityRegistry.get(armedKey);
+        if (!(ability instanceof TwoPhaseAbility twoPhase)) {
+            // Unknown ability recorded — clear the stuck flag.
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            return;
+        }
+
+        twoPhase.onArmedTick(player, data);
+
+        if (twoPhase.getArmedDurationTicks() <= 0) return; // waits indefinitely
+
+        int left = data.getTwoPhaseTicks() - 1;
+        data.setTwoPhaseTicks(left);
+
+        // Kept in step with the HUD meter, which drains as the window closes.
+        if (left % 2 == 0) syncChargeStatus(player, data);
+
+        if (left <= 0) {
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+
+            if (ability.getCooldownTicks() > 0) {
+                data.setCooldown(ability.getKey(), ability.getCooldownTicks());
+            }
+
+            twoPhase.onArmedExpire(player, data);
+            AbilitySupport.syncData(player, data);
+            syncChargeStatus(player, data);
+        }
     }
 }

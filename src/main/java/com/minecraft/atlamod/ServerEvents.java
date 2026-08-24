@@ -353,15 +353,11 @@ public class ServerEvents {
                 }
             }
 
-            // --- ARMED TWO-PHASE ABILITY VISUALS ---
-            // The ability draws whatever it is holding: this used to spawn flame for
-            // anything armed, which meant a gathered body of water was rendered as fire.
-            String armed = data.getActiveTwoPhaseAbility();
-            if (!armed.isEmpty()) {
-                var armedAbility = com.minecraft.atlamod.abilities.AbilityRegistry.get(armed);
-                if (armedAbility instanceof com.minecraft.atlamod.abilities.TwoPhaseAbility twoPhase) {
-                    twoPhase.onArmedTick(player, data);
-                }
+            // --- ARMED TWO-PHASE ABILITY ---
+            // Lets it draw what it is holding, and runs down the window for the ones
+            // that have a time limit.
+            if (!data.getActiveTwoPhaseAbility().isEmpty()) {
+                AbilityHandler.tickArmedTwoPhase(player, data);
             }
 
             // --- MEDITATING LOGIC ---

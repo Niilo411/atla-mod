@@ -337,6 +337,19 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
+  - Water stream (must be LOOKING at water within 20 blocks; tears a stream out and
+    holds it for a 3s window, then left click to throw for 8.0 damage. 75 chi, 8 xp,
+    3s cooldown. Chi is spent on the DRAW, so letting the window lapse costs the cast)
+- **An armed two-phase ability can now expire**: `TwoPhaseAbility.getArmedDurationTicks()`
+  (0 = waits indefinitely, which is Fireball and Water ball) plus `onArmedExpire()`.
+  `AbilityHandler.tickArmedTwoPhase` runs the countdown, applies the cooldown on expiry
+  — the chi was already spent at arm time — and drains the HUD meter as the window
+  closes, so the bar doubles as the timer.
+- Water stream does NOT remove the water block it draws from. Draining sources would
+  let a bender empty a pond a stream at a time, and with infinite sources it would only
+  refill, so the pull is drawn rather than performed. Like Water heal it also opts out
+  of `requiresWater()`: needing a body of water in SIGHT is stronger than the generic
+  15-block rule, so charging a canteen unit for water in plain view would be nonsense.
 - **An armed two-phase ability draws itself** via `TwoPhaseAbility.onArmedTick()`.
   `ServerEvents` used to draw flame for anything armed, which rendered a gathered body
   of water as fire — what is being held differs per ability, so the tick loop cannot

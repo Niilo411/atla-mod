@@ -17,6 +17,7 @@ import com.minecraft.atlamod.abilities.water.WaterBall;
 import com.minecraft.atlamod.abilities.water.WaterHeal;
 import com.minecraft.atlamod.abilities.water.WaterPush;
 import com.minecraft.atlamod.abilities.water.WaterShield;
+import com.minecraft.atlamod.abilities.water.WaterStream;
 import com.minecraft.atlamod.abilities.fire.Ignite;
 import com.minecraft.atlamod.abilities.fire.Firewall;
 import com.minecraft.atlamod.abilities.fire.Fireball;
@@ -71,6 +72,7 @@ public final class AbilityRegistry {
 
         // --- WATER : Offensive ---
         register(new WaterBall());
+        register(new WaterStream());
     }
 
     public static void register(Ability ability) {
