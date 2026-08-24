@@ -354,17 +354,13 @@ public class ServerEvents {
             }
 
             // --- ARMED TWO-PHASE ABILITY VISUALS ---
-            // Generic: any armed two-phase ability shows a ball of fire being held,
-            // so other players can see it coming rather than only the caster's HUD.
-            if (!data.getActiveTwoPhaseAbility().isEmpty()) {
-                if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                    net.minecraft.world.phys.Vec3 look = player.getLookAngle();
-                    double px = player.getX() + look.x * 2.0;
-                    double py = player.getY() + 1.2 + look.y * 2.0;
-                    double pz = player.getZ() + look.z * 2.0;
-
-                    serverLevel.sendParticles(com.minecraft.atlamod.abilities.BendingFire.flame(data),
-                            px, py, pz, 10, 0.3, 0.3, 0.3, 0.05);
+            // The ability draws whatever it is holding: this used to spawn flame for
+            // anything armed, which meant a gathered body of water was rendered as fire.
+            String armed = data.getActiveTwoPhaseAbility();
+            if (!armed.isEmpty()) {
+                var armedAbility = com.minecraft.atlamod.abilities.AbilityRegistry.get(armed);
+                if (armedAbility instanceof com.minecraft.atlamod.abilities.TwoPhaseAbility twoPhase) {
+                    twoPhase.onArmedTick(player, data);
                 }
             }
 

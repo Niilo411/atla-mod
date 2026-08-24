@@ -87,6 +87,19 @@ public class Fireball implements ChargedAbility, TwoPhaseAbility {
                 SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 1.6F);
     }
 
+
+    /** The ball of fire held ready, so others can see it coming and not just the HUD. */
+    @Override
+    public void onArmedTick(ServerPlayer player, BendingData data) {
+        if (!(player.level() instanceof ServerLevel level)) return;
+
+        Vec3 look = player.getLookAngle();
+        double px = player.getX() + look.x * 2.0;
+        double py = player.getY() + 1.2 + look.y * 2.0;
+        double pz = player.getZ() + look.z * 2.0;
+
+        level.sendParticles(BendingFire.flame(data), px, py, pz, 10, 0.3, 0.3, 0.3, 0.05);
+    }
     /** Left click, with a built fireball in hand. */
     @Override
     public void onRelease(ServerPlayer player, BendingData data) {

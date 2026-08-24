@@ -108,6 +108,21 @@ public class WaterBall implements ChargedAbility, TwoPhaseAbility {
                 SoundEvents.BUCKET_FILL, SoundSource.PLAYERS, 1.0F, 1.6F);
     }
 
+    /** The gathered water held ready, so others can see it coming and not just the HUD. */
+    @Override
+    public void onArmedTick(ServerPlayer player, BendingData data) {
+        if (!(player.level() instanceof ServerLevel level)) return;
+
+        Vec3 look = player.getLookAngle();
+        double px = player.getX() + look.x * 2.0;
+        double py = player.getY() + 1.2 + look.y * 2.0;
+        double pz = player.getZ() + look.z * 2.0;
+
+        level.sendParticles(ParticleTypes.SPLASH, px, py, pz, 8, 0.25, 0.25, 0.25, 0.02);
+        level.sendParticles(ParticleTypes.FALLING_WATER, px, py, pz, 3, 0.2, 0.25, 0.2, 0.0);
+        level.sendParticles(ParticleTypes.BUBBLE, px, py, pz, 3, 0.2, 0.2, 0.2, 0.01);
+    }
+
     /** Left click, with a gathered body of water in hand. */
     @Override
     public void onRelease(ServerPlayer player, BendingData data) {

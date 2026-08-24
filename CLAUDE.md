@@ -337,6 +337,10 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
+- **An armed two-phase ability draws itself** via `TwoPhaseAbility.onArmedTick()`.
+  `ServerEvents` used to draw flame for anything armed, which rendered a gathered body
+  of water as fire — what is being held differs per ability, so the tick loop cannot
+  get it right for all of them.
 - **Projectiles are tracked, not entities**: `WaterProjectiles` keeps shots in flight in
   a static list, advances them from `ServerTickEvent.Post`, and draws them purely with
   particles. A custom projectile entity would need its own `EntityType` and a client

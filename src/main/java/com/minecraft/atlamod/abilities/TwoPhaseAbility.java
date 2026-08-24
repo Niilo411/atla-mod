@@ -17,4 +17,14 @@ public interface TwoPhaseAbility extends Ability {
 
     /** Fired when the player left-clicks while this ability is armed. */
     void onRelease(ServerPlayer player, BendingData data);
+
+    /**
+     * Drawn every tick while this ability sits armed, waiting on the left click.
+     *
+     * Owned by the ability rather than by the tick loop, because what is being held
+     * differs per ability — a ball of fire and a body of water do not look alike, and
+     * a shared implementation can only ever be right for one of them.
+     */
+    default void onArmedTick(ServerPlayer player, BendingData data) {
+    }
 }
