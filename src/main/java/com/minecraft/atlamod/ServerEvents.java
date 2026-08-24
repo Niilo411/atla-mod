@@ -345,6 +345,15 @@ public class ServerEvents {
                     com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
                 player.clearFire();
             }
+
+            // --- WATER BREATHING PASSIVE ---
+            // Topped up rather than granted as a potion effect, so nothing can dispel
+            // it and no timer is ever shown.
+            if (player.getAirSupply() < player.getMaxAirSupply()
+                    && data.hasPassiveEquipped(
+                            com.minecraft.atlamod.abilities.water.WaterBreathing.KEY)) {
+                player.setAirSupply(player.getMaxAirSupply());
+            }
             player.setData(ModAttachments.BENDING_DATA, data);
 
             // --- CHI REGEN ---

@@ -15,6 +15,7 @@ import com.minecraft.atlamod.abilities.fire.FireWhip;
 import com.minecraft.atlamod.abilities.fire.TallerFire;
 import com.minecraft.atlamod.abilities.water.Drown;
 import com.minecraft.atlamod.abilities.water.WaterBall;
+import com.minecraft.atlamod.abilities.water.WaterBreathing;
 import com.minecraft.atlamod.abilities.water.WaterBullets;
 import com.minecraft.atlamod.abilities.water.WaterHeal;
 import com.minecraft.atlamod.abilities.water.WaterManipulation;
@@ -87,6 +88,7 @@ public final class AbilityRegistry {
 
         // --- WATER : Masterclass ---
         register(new Drown());
+        register(new WaterBreathing());
     }
 
     public static void register(Ability ability) {

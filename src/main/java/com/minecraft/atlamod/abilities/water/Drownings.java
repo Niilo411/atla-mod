@@ -77,6 +77,16 @@ public final class Drownings {
             return false;
         }
 
+        // A bender who cannot run out of air cannot be drowned. Dropped rather than
+        // merely ignored, so the two masterclass abilities do not spend the next
+        // fifteen seconds setting the same air value back and forth.
+        if (victim instanceof net.minecraft.server.level.ServerPlayer player) {
+            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+            if (data.hasPassiveEquipped(WaterBreathing.KEY)) {
+                return false;
+            }
+        }
+
         if (drowning.ticksLeft-- <= 0) {
             return false;
         }

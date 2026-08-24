@@ -345,6 +345,13 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     release like Fire blow. Pops every air bubble and then keeps the victim without air
     — 5s of drowning at a 1s charge, 15s at 5s, one heart a second throughout. 250 chi,
     15 xp, 30s cooldown)
+  - water breathing (PASSIVE — air is topped up every tick rather than granted as a
+    potion effect, so nothing can dispel it and no timer is ever shown. Also makes the
+    bender immune to Drown)
+- **water breathing answers Drown.** A bender who cannot run out of air cannot be
+  drowned, so `Drownings` DROPS a victim wearing it rather than ignoring them — otherwise
+  the two masterclass abilities would spend fifteen seconds setting the same air value
+  back and forth every tick, and the victim would watch their bubbles flicker.
 - **Drowning is driven by `Drownings`, not left to vanilla.** Vanilla only drowns what is
   underwater and refills its air the instant it is not, so emptying someone's lungs on dry
   land would do nothing — the bubbles would be back next tick. The tracker holds air at
