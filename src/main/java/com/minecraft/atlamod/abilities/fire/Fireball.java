@@ -1,7 +1,8 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
-import com.minecraft.atlamod.abilities.TwoPhaseAbility;
+import com.minecraft.atlamod.abilities.ChargedAbility;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -10,10 +11,12 @@ import net.minecraft.world.entity.projectile.LargeFireball;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Offensive / Fire. Two-phase: the slot key arms the fireball, the next
- * left click hurls it. The 2-second cooldown starts on release.
+ * Offensive / Fire. Held for two seconds to build up, then throws itself.
+ *
+ * Was previously two-phase — arm on a press, throw on a left click — and is now a
+ * charge, so the wind-up is a timer rather than a second input.
  */
-public class Fireball implements TwoPhaseAbility {
+public class Fireball implements ChargedAbility {
 
     @Override
     public String getName() {
@@ -32,24 +35,36 @@ public class Fireball implements TwoPhaseAbility {
 
     @Override
     public int getCooldownTicks() {
-        return 40;
+        return 40; // 2 seconds
     }
 
     @Override
-    public boolean canStart(ServerPlayer player, BendingData data) {
-        // Don't let them arm a second ability while one is already held.
-        return data.getActiveTwoPhaseAbility().isEmpty();
+    public int getChargeTicks() {
+        return 40; // 2 seconds of hold
     }
 
     @Override
-    public void execute(ServerPlayer player, BendingData data) {
-        // Arming is handled by AbilityHandler; this is just the ignition cue.
+    public void onChargeStart(ServerPlayer player, BendingData data) {
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 
     @Override
-    public void onRelease(ServerPlayer player, BendingData data) {
+    public void onChargeTick(ServerPlayer player, BendingData data, int ticksHeld) {
+        if (!(player.level() instanceof ServerLevel level)) return;
+
+        // A ball gathering in front of the player, tightening as it fills.
+        Vec3 look = player.getLookAngle();
+        double px = player.getX() + look.x * 2.0;
+        double py = player.getEyeY() + look.y * 2.0;
+        double pz = player.getZ() + look.z * 2.0;
+
+        double spread = 0.5 - (0.35 * ticksHeld / (double) getChargeTicks());
+        level.sendParticles(ParticleTypes.FLAME, px, py, pz, 4, spread, spread, spread, 0.01);
+    }
+
+    @Override
+    public void execute(ServerPlayer player, BendingData data) {
         ServerLevel level = (ServerLevel) player.level();
         Vec3 look = player.getLookAngle();
 

@@ -4,6 +4,7 @@ import com.minecraft.atlamod.abilities.Ability;
 import com.minecraft.atlamod.abilities.AbilityRegistry;
 import com.minecraft.atlamod.abilities.AbilitySupport;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
+import com.minecraft.atlamod.abilities.ChargedAbility;
 import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,15 +28,25 @@ public class AbilityHandler {
         Ability ability = AbilityRegistry.get(abilityName);
         if (ability == null) return;
 
-        // Channeled abilities do NOT start here — they come in through
-        // executeAbilityHold() -> startChannel(). The client can't tell the two
-        // shapes apart, so it fires UseAbilityPacket AND AbilityHoldPacket on the
-        // same key press. Without this guard the cast path would run a channeled
-        // ability's execute() (empty by default, so nothing visible happens) and
-        // then stamp its cooldown, which then blocks the hold path from ever
-        // starting the channel — the ability looks dead and permanently cooling.
-        if (ability instanceof ChanneledAbility) return;
+        // Held shapes do NOT start here — they come in through executeAbilityHold().
+        // The client can't tell the shapes apart, so it fires UseAbilityPacket AND
+        // AbilityHoldPacket on the same key press. Without this guard the cast path
+        // would run the ability immediately, defeating a charge-up entirely, and for
+        // a channel would stamp its cooldown while doing nothing visible — leaving
+        // the ability looking dead and permanently cooling.
+        if (ability instanceof ChanneledAbility || ability instanceof ChargedAbility) return;
 
+        performCast(player, data, ability);
+    }
+
+    /**
+     * The shared cast: cooldown gate, precondition, chi, XP, effect, cooldown, sync.
+     *
+     * Split out from executeAbility so a charge that finishes winding up lands on
+     * exactly the same path an instant cast does, rather than a parallel copy that
+     * could drift from it.
+     */
+    private static void performCast(ServerPlayer player, BendingData data, Ability ability) {
         if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
             player.displayClientMessage(
                     Component.literal("§c" + ability.getName() + " is on cooldown!"), true);
@@ -87,22 +98,99 @@ public class AbilityHandler {
     }
 
     // ==========================================
-    //  PHASE 3: channeled abilities (slot key held)
+    //  PHASE 3: held abilities — channels and charges (slot key held)
     // ==========================================
     public static void executeAbilityHold(ServerPlayer player, BendingData data, String abilityName, boolean isHeld) {
         Ability ability = AbilityRegistry.get(abilityName);
-        if (!(ability instanceof ChanneledAbility channeled)) return;
 
-        if (isHeld) {
-            startChannel(player, data, channeled);
-        } else {
-            stopChannel(player, data, channeled);
+        if (ability instanceof ChanneledAbility channeled) {
+            if (isHeld) {
+                startChannel(player, data, channeled);
+            } else {
+                stopChannel(player, data, channeled);
+            }
+            return;
+        }
+
+        if (ability instanceof ChargedAbility charged) {
+            if (isHeld) {
+                startCharge(player, data, charged);
+            } else {
+                cancelCharge(player, data, charged);
+            }
         }
     }
 
+    private static void startCharge(ServerPlayer player, BendingData data, ChargedAbility ability) {
+        // One held ability at a time, of either shape.
+        if (data.isCharging() || data.isChanneling()) return;
+
+        if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
+            int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
+            player.displayClientMessage(Component.literal(
+                    "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
+            return;
+        }
+
+        if (!ability.canStart(player, data)) return;
+
+        // Chi is only CHECKED here — it is spent when the cast actually lands, so
+        // winding up and letting go early costs the player nothing.
+        if (data.getCurrentChi() < ability.getChiCost()) {
+            player.displayClientMessage(Component.literal(
+                    "§cNot enough Chi! (Requires " + ability.getChiCost() + ")"), true);
+            return;
+        }
+
+        data.setActiveChargingAbility(ability.getKey());
+        data.setChargeTicks(0);
+        ability.onChargeStart(player, data);
+        AbilitySupport.syncData(player, data);
+    }
+
+    /** Key released before the charge finished: drop it, spend nothing. */
+    private static void cancelCharge(ServerPlayer player, BendingData data, ChargedAbility ability) {
+        // A charge that already fired cleared itself, so the eventual key release
+        // lands here and finds nothing — which is what stops it double-firing.
+        if (!data.getActiveChargingAbility().equals(ability.getKey())) return;
+
+        data.setActiveChargingAbility("");
+        data.setChargeTicks(0);
+        ability.onChargeCancel(player, data);
+        AbilitySupport.syncData(player, data);
+    }
+
+    /**
+     * Called every tick from ServerEvents while a charge is winding up. Fires the
+     * ability through the ordinary cast path the moment it is full.
+     */
+    public static void tickCharging(ServerPlayer player, BendingData data) {
+        Ability ability = AbilityRegistry.get(data.getActiveChargingAbility());
+        if (!(ability instanceof ChargedAbility charged)) {
+            // Unknown ability recorded — clear the stuck flag.
+            data.setActiveChargingAbility("");
+            data.setChargeTicks(0);
+            return;
+        }
+
+        int held = data.getChargeTicks() + 1;
+        data.setChargeTicks(held);
+
+        if (held < charged.getChargeTicks()) {
+            charged.onChargeTick(player, data, held);
+            return;
+        }
+
+        // Full. Clear the charge BEFORE casting, so the key release that follows
+        // finds nothing to cancel and the ability can't fire twice.
+        data.setActiveChargingAbility("");
+        data.setChargeTicks(0);
+        performCast(player, data, charged);
+    }
+
     private static void startChannel(ServerPlayer player, BendingData data, ChanneledAbility ability) {
-        // Only one channel at a time.
-        if (data.isChanneling()) return;
+        // One held ability at a time, of either shape.
+        if (data.isChanneling() || data.isCharging()) return;
 
         if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
             int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;

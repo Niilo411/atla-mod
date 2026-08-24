@@ -31,7 +31,7 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
 ## Ability System (registry pattern — use this for all new abilities)
 
 `AbilityHandler` is a thin dispatcher; ability effects live in one class each under
-`abilities/<element>/`. There are **three ability shapes**, all in `abilities/`:
+`abilities/<element>/`. There are **four ability shapes**, all in `abilities/`:
 
 - `Ability.java` — base interface: `getName()`, `getChiCost()`, `getXpReward()`,
   `execute(player, data)`, plus optional `getCooldownTicks()` and
@@ -39,7 +39,14 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
   as both the registry key and the cooldown key.
 - `ChanneledAbility.java` — held-key abilities (Fire Breath): `onStart()`, `onTick()`,
   `onStop()`, `getChiPerSecond()`, `getXpPerSecond()`.
-- `TwoPhaseAbility.java` — charge-then-left-click abilities (Fireball): `onRelease()`.
+- `ChargedAbility.java` — hold-to-wind-up abilities that fire themselves when full
+  (Fireball, Fire Spikes): `getChargeTicks()`, `onChargeStart/Tick/Cancel()`. The
+  payload is the ordinary `execute()`, run through the same `performCast()` path an
+  instant cast uses. Chi is only CHECKED at charge start and spent when the cast
+  lands, so letting go early is free.
+- `TwoPhaseAbility.java` — arm-then-left-click abilities: `onRelease()`. Currently
+  has NO implementors (Fireball moved to `ChargedAbility`); the interface and its
+  left-click plumbing are kept for a future ability that wants that shape.
 - `AbilityRegistry.java` — `Map<String, Ability>`, populated once via
   `AbilityRegistry.bootstrap()`, called from `Atlamod`'s constructor.
 - `AbilitySupport.java` — shared chi/XP/sync helpers (`consumeChiAndGiveXp`,
@@ -50,9 +57,13 @@ cooldown gating, the `canStart` precondition (checked *before* chi is spent, so 
 blocked cast is free), chi cost, XP reward, arming/clearing two-phase abilities,
 the channeling lifecycle, and syncing to the client.
 
-Two rules worth knowing:
+Rules worth knowing:
 - **Two-phase cooldowns start on release, not on cast** — otherwise the timer would
   run down while the player is still holding the charge.
+- **Only one held ability at a time**, across both held shapes: `startChannel` and
+  `startCharge` each refuse if either a channel or a charge is already running.
+- **A charge clears its state BEFORE casting**, so the key release that inevitably
+  follows finds nothing to cancel and the ability cannot fire twice.
 - **Channeled abilities are driven entirely by the dispatcher's tick**: it drains
   `getChiPerSecond()` (spread exactly across the 20 ticks, so rates like 25/sec
   that aren't whole numbers per tick neither drift nor stutter), trickles
@@ -104,7 +115,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 
 ## Current Status
 
-- Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball, Fire Breath
+- Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball (2s hold to charge,
+  then throws itself; 100 chi, 10 xp, 2s cooldown), Fire Breath
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
 - Fire Defensive path COMPLETE:
@@ -119,10 +131,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     so it cannot grief blocks)
   - Fire Ring (30-block continuous ring of fire at radius 4 around the player;
     100 chi, 2s cooldown, 8 xp. Its fire burns at 3x normal for 30s — see below)
-- Fire Balanced path started: Ignite (lights whatever you look at up to 20 blocks;
-  its fire burns at 2x for 30s. Aimed at a furnace/blast furnace/smoker it fuels
-  that instead, burning 15s. 50 chi, 5 xp, no cooldown. `canStart` refuses the cast
-  when nothing is in view, so looking at the sky costs nothing)
+- Fire Balanced path in progress:
+  - Ignite (lights whatever you look at up to 20 blocks;
+    its fire burns at 2x for 30s. Aimed at a furnace/blast furnace/smoker it fuels
+    that instead, burning 15s. 50 chi, 5 xp, no cooldown. `canStart` refuses the cast
+    when nothing is in view, so looking at the sky costs nothing)
+  - Fire Spikes (2s hold to charge, then ~25 fire blocks scattered randomly out to
+    15 blocks, even across the area rather than bunched near the player; burns at
+    2x for 30s. 100 chi, 10 xp, no cooldown)
 - **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
   fire blocks an ability placed (dimension + pos -> expiry), and the
   `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything
@@ -161,7 +177,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 48 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 47 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

@@ -247,22 +247,6 @@ public class ServerEvents {
                 }
             }
 
-            // --- TWO-PHASE ABILITY VISUALS (Everyone can see this!) ---
-            // Independent of Fire Whip - you can be holding a charged Fireball without whipping.
-            if (data.getActiveTwoPhaseAbility() != null && data.getActiveTwoPhaseAbility().equalsIgnoreCase("fireball")) {
-                if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                    net.minecraft.world.phys.Vec3 look = player.getLookAngle();
-
-                    // Push it a bit further out so it isn't inside your head
-                    double px = player.getX() + look.x * 2.0;
-                    double py = player.getY() + 1.2 + look.y * 2.0;
-                    double pz = player.getZ() + look.z * 2.0;
-
-                    // Cranked up to 10 particles with more spread so it looks like a ball of fire!
-                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, px, py, pz, 10, 0.3, 0.3, 0.3, 0.05);
-                }
-            }
-
             // --- MEDITATING LOGIC ---
             if (data.isMeditating()) {
                 data.setMeditateTickTimer(data.getMeditateTickTimer() + 1);
@@ -300,6 +284,12 @@ public class ServerEvents {
             // Generic: drives whichever channeled ability the player is holding.
             if (data.isChanneling()) {
                 AbilityHandler.tickChanneled(player, data);
+            }
+
+            // --- CHARGED ABILITY TICK ---
+            // Drives the wind-up and fires the ability when it fills.
+            if (data.isCharging()) {
+                AbilityHandler.tickCharging(player, data);
             }
         }
     }

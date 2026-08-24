@@ -50,6 +50,30 @@ public class BendingData {
         this.channelTicks = ticks;
     }
 
+    // --- CHARGED ABILITIES (hold to wind up, fires itself when full) ---
+    private transient String activeChargingAbility = "";
+    private transient int chargeTicks = 0;
+
+    public String getActiveChargingAbility() {
+        return activeChargingAbility == null ? "" : activeChargingAbility;
+    }
+
+    public void setActiveChargingAbility(String ability) {
+        this.activeChargingAbility = ability == null ? "" : ability;
+    }
+
+    public boolean isCharging() {
+        return !getActiveChargingAbility().isEmpty();
+    }
+
+    public int getChargeTicks() {
+        return chargeTicks;
+    }
+
+    public void setChargeTicks(int ticks) {
+        this.chargeTicks = ticks;
+    }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {
