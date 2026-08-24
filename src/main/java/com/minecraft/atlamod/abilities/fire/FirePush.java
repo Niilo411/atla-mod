@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.Ability;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -78,7 +79,7 @@ public class FirePush implements Ability {
         // Flame fan showing the arc that was pushed.
         for (int i = 1; i <= RANGE; i++) {
             Vec3 pos = eye.add(look.scale(i));
-            level.sendParticles(ParticleTypes.FLAME, pos.x, pos.y, pos.z,
+            level.sendParticles(BendingFire.flame(data), pos.x, pos.y, pos.z,
                     12, 0.35 * i, 0.35 * i, 0.35 * i, 0.02);
         }
 

@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -85,7 +86,7 @@ public class FireRocket implements ChanneledAbility {
         double fy = player.getY() + 0.1;
         double fz = player.getZ();
 
-        level.sendParticles(ParticleTypes.FLAME, fx, fy, fz, 6, 0.15, 0.05, 0.15, 0.03);
+        level.sendParticles(BendingFire.flame(data), fx, fy, fz, 6, 0.15, 0.05, 0.15, 0.03);
         level.sendParticles(ParticleTypes.LARGE_SMOKE, fx, fy, fz, 2, 0.1, 0.05, 0.1, 0.01);
     }
 

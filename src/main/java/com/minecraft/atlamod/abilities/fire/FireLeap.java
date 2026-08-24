@@ -2,6 +2,7 @@ package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.ModAttachments;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.Ability;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -60,7 +61,7 @@ public class FireLeap implements Ability {
      */
     public static void tick(ServerPlayer player, BendingData data) {
         if (player.level() instanceof ServerLevel serverLevel) {
-            serverLevel.sendParticles(ParticleTypes.FLAME,
+            serverLevel.sendParticles(BendingFire.flame(data),
                     player.getX(), player.getY() + 0.2, player.getZ(), 8, 0.25, 0.2, 0.25, 0.05);
             serverLevel.sendParticles(ParticleTypes.LAVA,
                     player.getX(), player.getY() + 0.2, player.getZ(), 2, 0.1, 0.1, 0.1, 0.01);

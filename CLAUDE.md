@@ -164,6 +164,24 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   runs, which would leave permanent creative flight. `FireRocket.stopFlight()` is
   called from BOTH the login and respawn handlers in `ServerEvents`, and skips
   players actually in creative/spectator so it can't strip legitimate flight.
+- Fire Masterclass path started (gated behind the other three being COMPLETE):
+  - blue fire (PASSIVE — all ability fire and flame particles turn blue, and every
+    fire ability deals double damage. No chi, no xp, as with all passives)
+- **Blue fire needs its own block too.** Vanilla `SOUL_FIRE` — the only blue fire in
+  the game — only survives on soul sand or soul soil, so it can't be laid anywhere
+  else. `BendingFireBlock` (which replaced `TallFireBlock`) carries two properties:
+  `BLUE` for colour and `STACKED` for role. A stacked block dies with the fire below
+  it; an unstacked one burns out on its own after 30s. Four blockstate variants map
+  to two models — vanilla's `fire_0` and `soul_fire_0` textures on a `block/cross`.
+- **One place decides the colour**: `BendingFire.flame(data)` returns FLAME or
+  SOUL_FIRE_FLAME, and every ability calls that instead of naming a particle. Plain
+  orange fire stays vanilla `Blocks.FIRE` so it keeps spreading as before; only blue
+  fire uses the custom block, which does NOT spread.
+- **Blue Fire's damage boost is keyed on the ATTACKER**, in the
+  `LivingIncomingDamageEvent` handler, and limited to `IS_FIRE` and `IS_EXPLOSION`
+  damage they caused — every fire ability damages through `damageSources().inFire()`
+  and Fireball lands as an explosion. Doubling everything a player deals would catch
+  sword swings too.
 - **Passive abilities** (`abilities/PassiveAbility.java`): never cast — being in a
   passive slot IS the activation, and whatever they affect asks
   `data.hasPassiveEquipped(key)`. No chi, no XP: there is no moment of use to hang
@@ -174,15 +192,15 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
-- **Taller Fire needs a custom block.** The second block cannot be vanilla fire:
+- **Taller Fire needs a custom block too.** The second block cannot be vanilla fire:
   `FireBlock#canSurvive` needs a face-sturdy block below or a flammable neighbour,
   and a fire block is neither, so stacked vanilla fire deletes itself on its first
-  scheduled tick. `TallFireBlock extends BaseFireBlock`, which does NOT override
+  scheduled tick. `BendingFireBlock extends BaseFireBlock`, which does NOT override
   `canSurvive` — so it survives anywhere. It burns and ignites like real fire, counts
   as `IS_FIRE` so `BendingFire`'s multipliers still apply, doesn't spread, and
   schedules a tick every 40 ticks to remove itself once the fire underneath is gone.
-  First block assets in the project: `blockstates/tall_fire.json` +
-  `models/block/tall_fire.json` (a `block/cross` model wearing vanilla's `fire_0`).
+  First block assets in the project: `blockstates/bending_fire.json` +
+  `models/block/bending_fire*.json` (`block/cross` wearing vanilla fire textures).
 - `BendingFire.placeGrounded()` is now the single fire-laying helper for Firewall,
   Fire Ring and Fire Spikes — they had a copy each, and Taller Fire needed all three
   to change together.
@@ -231,7 +249,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 45 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 44 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

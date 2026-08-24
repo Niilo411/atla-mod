@@ -65,7 +65,7 @@ public class FireSpikes implements ChargedAbility {
 
         // Heat gathering at the player's feet, thickening as the charge fills.
         int count = 2 + (6 * ticksHeld / getChargeTicks());
-        level.sendParticles(ParticleTypes.FLAME,
+        level.sendParticles(BendingFire.flame(data),
                 player.getX(), player.getY() + 0.2, player.getZ(),
                 count, 0.6, 0.1, 0.6, 0.02);
     }

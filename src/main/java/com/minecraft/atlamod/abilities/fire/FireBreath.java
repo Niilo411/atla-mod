@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -72,7 +73,7 @@ public class FireBreath implements ChanneledAbility {
         for (int i = 1; i <= RANGE; i++) {
             Vec3 pos = start.add(look.scale(i));
 
-            serverLevel.sendParticles(ParticleTypes.FLAME, pos.x, pos.y, pos.z, 4, 0.3, 0.3, 0.3, 0.03);
+            serverLevel.sendParticles(BendingFire.flame(data), pos.x, pos.y, pos.z, 4, 0.3, 0.3, 0.3, 0.03);
             serverLevel.sendParticles(ParticleTypes.LARGE_SMOKE, pos.x, pos.y, pos.z, 1, 0.2, 0.2, 0.2, 0.01);
 
             AABB hitbox = new AABB(pos.x - 0.75, pos.y - 0.75, pos.z - 0.75,

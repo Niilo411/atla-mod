@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.Ability;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -47,7 +48,7 @@ public class FireWhip implements Ability {
         for (int i = 1; i <= RANGE; i++) {
             Vec3 pos = start.add(look.scale(i));
 
-            serverLevel.sendParticles(ParticleTypes.FLAME, pos.x, pos.y, pos.z, 5, 0.2, 0.2, 0.2, 0.05);
+            serverLevel.sendParticles(BendingFire.flame(data), pos.x, pos.y, pos.z, 5, 0.2, 0.2, 0.2, 0.05);
 
             AABB hitbox = new AABB(pos.x - 0.5, pos.y - 0.5, pos.z - 0.5,
                     pos.x + 0.5, pos.y + 0.5, pos.z + 0.5);

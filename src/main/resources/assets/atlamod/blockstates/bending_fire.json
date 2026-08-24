@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "blue=false,stacked=false": { "model": "atlamod:block/bending_fire" },
+    "blue=false,stacked=true":  { "model": "atlamod:block/bending_fire" },
+    "blue=true,stacked=false":  { "model": "atlamod:block/bending_fire_blue" },
+    "blue=true,stacked=true":   { "model": "atlamod:block/bending_fire_blue" }
+  }
+}

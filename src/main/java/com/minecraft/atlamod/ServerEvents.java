@@ -212,6 +212,24 @@ public class ServerEvents {
             }
         }
 
+        // Blue Fire doubles what the bender's own fire abilities hit for.
+        //
+        // Keyed on the ATTACKER's passives, and limited to fire and explosion damage
+        // they caused: every fire ability here damages through damageSources().inFire(),
+        // and Fireball lands as an explosion. Doubling everything a player deals would
+        // catch sword swings too, which isn't what "all abilities" meant.
+        net.minecraft.world.entity.Entity attacker = event.getSource().getEntity();
+        if (attacker instanceof ServerPlayer attackingPlayer
+                && (event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)
+                    || event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION))) {
+
+            BendingData attackerData = attackingPlayer.getData(ModAttachments.BENDING_DATA);
+            if (attackerData.hasPassiveEquipped(com.minecraft.atlamod.abilities.fire.BlueFire.KEY)) {
+                event.setAmount(event.getAmount()
+                        * com.minecraft.atlamod.abilities.fire.BlueFire.DAMAGE_MULTIPLIER);
+            }
+        }
+
         if (!event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) return;
         if (!(event.getEntity().level() instanceof ServerLevel level)) return;
 

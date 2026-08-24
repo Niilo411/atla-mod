@@ -10,7 +10,7 @@ import com.minecraft.atlamod.abilities.PassiveAbility;
  * The second block can't be vanilla fire: FireBlock#canSurvive needs a face-sturdy
  * block underneath or something flammable alongside, and fire is neither, so a
  * stacked vanilla fire deletes itself on its first scheduled tick. The upper half
- * is ModBlocks.TALL_FIRE instead — see BendingFire#placeGrounded.
+ * is BendingFireBlock instead — see BendingFire#placeGrounded.
  */
 public class TallerFire implements PassiveAbility {
 

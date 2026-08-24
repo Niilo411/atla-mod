@@ -1,13 +1,17 @@
 package com.minecraft.atlamod.abilities;
 
-import com.minecraft.atlamod.Atlamod;
+import com.minecraft.atlamod.BendingFireBlock;
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.fire.BlueFire;
 import com.minecraft.atlamod.abilities.fire.TallerFire;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -100,12 +104,12 @@ public final class BendingFire {
             if (!level.getBlockState(pos).isAir()) continue;
             if (!level.getBlockState(pos.below()).isSolid()) continue;
 
-            level.setBlockAndUpdate(pos, Blocks.FIRE.defaultBlockState());
+            level.setBlockAndUpdate(pos, baseFireState(data));
             if (multiplier > 1.0F) {
                 mark(level, pos, lifetimeTicks, multiplier);
             }
 
-            level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+            level.sendParticles(flame(data),
                     pos.getX() + 0.5, pos.getY() + 0.3, pos.getZ() + 0.5,
                     6, 0.2, 0.2, 0.2, 0.01);
 
@@ -118,7 +122,7 @@ public final class BendingFire {
     /**
      * The second block of Taller Fire, when the passive is equipped.
      *
-     * It has to be ModBlocks TALL_FIRE rather than vanilla fire: FireBlock#canSurvive
+     * It has to be BendingFireBlock rather than vanilla fire: FireBlock#canSurvive
      * wants a face-sturdy block below or a flammable neighbour, and a fire block is
      * neither, so a stacked vanilla fire would delete itself almost immediately.
      */
@@ -129,9 +133,36 @@ public final class BendingFire {
         BlockPos above = base.above();
         if (!level.getBlockState(above).isAir()) return;
 
-        level.setBlockAndUpdate(above, Atlamod.TALL_FIRE.get().defaultBlockState());
+        level.setBlockAndUpdate(above, BendingFireBlock.stateFor(isBlue(data), true));
         if (multiplier > 1.0F) {
             mark(level, above, lifetimeTicks, multiplier);
         }
+    }
+
+    /**
+     * The flame particle to use for this player — blue while Blue Fire is equipped.
+     * Abilities call this instead of naming ParticleTypes.FLAME directly, so the
+     * passive recolours all of them from one place.
+     */
+    public static SimpleParticleType flame(BendingData data) {
+        return isBlue(data) ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME;
+    }
+
+    /** Whether this player's fire burns blue. */
+    public static boolean isBlue(BendingData data) {
+        return data != null && data.hasPassiveEquipped(BlueFire.KEY);
+    }
+
+    /**
+     * The block to lay for the base of a fire.
+     *
+     * Ordinary fire stays vanilla, so it keeps spreading the way the abilities
+     * were built around. Blue fire has to be our own block, because vanilla soul
+     * fire only survives on soul sand.
+     */
+    private static BlockState baseFireState(BendingData data) {
+        return isBlue(data)
+                ? BendingFireBlock.stateFor(true, false)
+                : Blocks.FIRE.defaultBlockState();
     }
 }

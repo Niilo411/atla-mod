@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -91,12 +92,12 @@ public class FireShield implements ChanneledAbility {
             double px = cx + Math.cos(angle) * RADIUS;
             double pz = cz + Math.sin(angle) * RADIUS;
 
-            level.sendParticles(ParticleTypes.FLAME, px, cy + 0.15, pz, 1, 0.0, 0.02, 0.0, 0.01);
-            level.sendParticles(ParticleTypes.FLAME, px, cy + 1.15, pz, 1, 0.0, 0.02, 0.0, 0.01);
+            level.sendParticles(BendingFire.flame(data), px, cy + 0.15, pz, 1, 0.0, 0.02, 0.0, 0.01);
+            level.sendParticles(BendingFire.flame(data), px, cy + 1.15, pz, 1, 0.0, 0.02, 0.0, 0.01);
         }
 
         // Ambient flicker filling the space between the rings.
-        level.sendParticles(ParticleTypes.FLAME, cx, cy + 1.0, cz, 4, 0.55, 0.7, 0.55, 0.01);
+        level.sendParticles(BendingFire.flame(data), cx, cy + 1.0, cz, 4, 0.55, 0.7, 0.55, 0.01);
         level.sendParticles(ParticleTypes.LAVA, cx, cy + 0.8, cz, 1, 0.4, 0.5, 0.4, 0.0);
     }
 

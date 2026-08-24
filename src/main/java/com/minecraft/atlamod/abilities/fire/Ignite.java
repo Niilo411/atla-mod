@@ -75,7 +75,7 @@ public class Ignite implements Ability {
         // Anything that smelts gets stoked instead of set alight.
         BlockEntity blockEntity = level.getBlockEntity(targetPos);
         if (blockEntity instanceof AbstractFurnaceBlockEntity furnace) {
-            stokeFurnace(level, targetPos, furnace);
+            stokeFurnace(level, data, targetPos, furnace);
             return;
         }
 
@@ -84,12 +84,14 @@ public class Ignite implements Ability {
         BlockState fire = Blocks.FIRE.defaultBlockState();
 
         if (level.getBlockState(firePos).isAir() && fire.canSurvive(level, firePos)) {
-            level.setBlockAndUpdate(firePos, fire);
+            level.setBlockAndUpdate(firePos, BendingFire.isBlue(data)
+                    ? com.minecraft.atlamod.BendingFireBlock.stateFor(true, false)
+                    : fire);
             BendingFire.mark(level, firePos, ENHANCED_LIFETIME, DAMAGE_MULTIPLIER);
 
             level.playSound(null, firePos, SoundEvents.FLINTANDSTEEL_USE,
                     SoundSource.BLOCKS, 1.0F, 1.2F);
-            level.sendParticles(ParticleTypes.FLAME,
+            level.sendParticles(BendingFire.flame(data),
                     firePos.getX() + 0.5, firePos.getY() + 0.4, firePos.getZ() + 0.5,
                     8, 0.2, 0.2, 0.2, 0.02);
         }
@@ -103,7 +105,7 @@ public class Ignite implements Ability {
      * own ticker syncs the LIT blockstate, but it is set here too so the furnace
      * lights up on the same tick as the cast instead of one later.
      */
-    private static void stokeFurnace(ServerLevel level, BlockPos pos, AbstractFurnaceBlockEntity furnace) {
+    private static void stokeFurnace(ServerLevel level, BendingData data, BlockPos pos, AbstractFurnaceBlockEntity furnace) {
         furnace.litTime = SMELT_TICKS;
         furnace.litDuration = SMELT_TICKS;
         furnace.setChanged();
@@ -114,7 +116,7 @@ public class Ignite implements Ability {
         }
 
         level.playSound(null, pos, SoundEvents.FIRECHARGE_USE, SoundSource.BLOCKS, 1.0F, 1.5F);
-        level.sendParticles(ParticleTypes.FLAME,
+        level.sendParticles(BendingFire.flame(data),
                 pos.getX() + 0.5, pos.getY() + 0.9, pos.getZ() + 0.5,
                 10, 0.25, 0.1, 0.25, 0.01);
     }

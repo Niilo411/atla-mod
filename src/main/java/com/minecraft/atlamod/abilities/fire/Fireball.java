@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities.fire;
 
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.BendingFire;
 import com.minecraft.atlamod.abilities.ChargedAbility;
 import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.core.particles.ParticleTypes;
@@ -73,7 +74,7 @@ public class Fireball implements ChargedAbility, TwoPhaseAbility {
         double pz = player.getZ() + look.z * 2.0;
 
         double spread = 0.5 - (0.35 * ticksHeld / (double) getChargeTicks());
-        level.sendParticles(ParticleTypes.FLAME, px, py, pz, 4, spread, spread, spread, 0.01);
+        level.sendParticles(BendingFire.flame(data), px, py, pz, 4, spread, spread, spread, 0.01);
     }
 
     /**
