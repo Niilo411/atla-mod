@@ -146,8 +146,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     2x for 30s. 100 chi, 10 xp, no cooldown)
   - Fire Rocket (channeled flight at 0.03 fly speed vs vanilla creative's 0.05, no
     height limit; flame venting from the feet; 15 chi/sec, 5 xp/sec, no cooldown.
-    No fall damage while lit, plus 100 ticks of grace after it cuts out so the
-    descent it caused can't kill you)
+    Fall damage applies normally — the height you gain is yours to survive)
 - **Fire Rocket owns flight outright**: the keybind is the ONLY thing that starts or
   ends it. Two vanilla behaviours fight that and are both undone in `onTick` —
   double-tapping space is vanilla's flight toggle for anyone with `mayfly`, and the
@@ -162,10 +161,6 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   runs, which would leave permanent creative flight. `FireRocket.stopFlight()` is
   called from BOTH the login and respawn handlers in `ServerEvents`, and skips
   players actually in creative/spectator so it can't strip legitimate flight.
-- **Fall damage is removed by zeroing `fallDistance`**, not by cancelling a damage
-  event — if the distance never accumulates, the damage is never calculated, so
-  there is nothing to intercept. `BendingData.fallImmunityTicks` counts the grace
-  window down in the tick loop.
 - **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
   fire blocks an ability placed (dimension + pos -> expiry), and the
   `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything

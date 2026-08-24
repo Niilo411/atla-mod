@@ -31,9 +31,6 @@ public class FireRocket implements ChanneledAbility {
     /** Upward kick used to break contact with the ground, about a jump's worth. */
     private static final double LIFT_OFF = 0.42;
 
-    /** Ticks of fall protection after the rocket cuts out, so the trip down is safe. */
-    public static final int LANDING_GRACE_TICKS = 100;
-
     @Override
     public String getName() {
         return "Fire Rocket";
@@ -79,9 +76,6 @@ public class FireRocket implements ChanneledAbility {
 
     @Override
     public void onTick(ServerPlayer player, BendingData data) {
-        // No fall damage can build up while the rocket is lit.
-        player.fallDistance = 0.0F;
-
         keepFlying(player);
 
         if (!(player.level() instanceof ServerLevel level)) return;
@@ -98,11 +92,6 @@ public class FireRocket implements ChanneledAbility {
     @Override
     public void onStop(ServerPlayer player, BendingData data) {
         stopFlight(player);
-
-        // The player is nearly always airborne when the rocket cuts out, so protect
-        // the trip down — otherwise the ability would routinely hurt whoever used it.
-        data.setFallImmunityTicks(LANDING_GRACE_TICKS);
-        player.fallDistance = 0.0F;
 
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.7F, 1.0F);

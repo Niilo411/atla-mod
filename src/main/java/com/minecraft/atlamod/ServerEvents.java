@@ -226,15 +226,6 @@ public class ServerEvents {
 
             // --- UNIVERSAL COOLDOWN TICKER (Must be at the very top!) ---
             data.tickCooldowns();
-
-            // --- FALL PROTECTION COUNTDOWN ---
-            // Granted by Fire Rocket on shutdown. Zeroing fallDistance means the
-            // damage is never calculated in the first place, so nothing has to be
-            // cancelled later.
-            if (data.getFallImmunityTicks() > 0) {
-                data.setFallImmunityTicks(data.getFallImmunityTicks() - 1);
-                player.fallDistance = 0.0F;
-            }
             player.setData(ModAttachments.BENDING_DATA, data);
 
             // --- CHI REGEN ---
