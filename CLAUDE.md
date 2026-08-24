@@ -240,7 +240,11 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   Aspect burn, a lit block, spilled lava — arrives with no attacker and never qualifies.
   Water abilities use `indirectMagic`/`drown`, so they are untouched.
   Explosions were briefly included to catch Fireball and were too broad: that doubled any
-  explosion the player caused, TNT included. Fireball's explosion is therefore NOT boosted.
+  explosion the player caused, TNT included. Fireball instead raises its OWN explosion
+  power (1 -> 2) at cast time when blue fire is equipped: the ability knows what it is
+  throwing, where the damage handler cannot tell one explosion from another. Note power
+  drives block destruction too, so a blue fireball digs a bigger hole where mob griefing
+  is on.
 - **Passive abilities** (`abilities/PassiveAbility.java`): never cast — being in a
   passive slot IS the activation, and whatever they affect asks
   `data.hasPassiveEquipped(key)`. No chi, no XP: there is no moment of use to hang

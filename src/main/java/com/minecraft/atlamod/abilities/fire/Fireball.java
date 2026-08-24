@@ -22,6 +22,17 @@ import net.minecraft.world.phys.Vec3;
  */
 public class Fireball implements ChargedAbility, TwoPhaseAbility {
 
+    /**
+     * Explosion power. A ghast's is 1, TNT is 4, so the ordinary throw is deliberately
+     * modest and the blue one is still well short of a charge of TNT.
+     *
+     * Worth knowing: power drives block destruction as well as damage, so a blue
+     * fireball digs a bigger hole too — though only where mob griefing is on, since
+     * that is what decides whether a fireball breaks anything at all.
+     */
+    private static final int EXPLOSION_POWER = 1;
+    private static final int BLUE_EXPLOSION_POWER = 2;
+
     @Override
     public String getName() {
         return "Fireball";
@@ -87,7 +98,6 @@ public class Fireball implements ChargedAbility, TwoPhaseAbility {
                 SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 1.6F);
     }
 
-
     /** The ball of fire held ready, so others can see it coming and not just the HUD. */
     @Override
     public void onArmedTick(ServerPlayer player, BendingData data) {
@@ -100,15 +110,22 @@ public class Fireball implements ChargedAbility, TwoPhaseAbility {
 
         level.sendParticles(BendingFire.flame(data), px, py, pz, 10, 0.3, 0.3, 0.3, 0.05);
     }
+
     /** Left click, with a built fireball in hand. */
     @Override
     public void onRelease(ServerPlayer player, BendingData data) {
         ServerLevel level = (ServerLevel) player.level();
         Vec3 look = player.getLookAngle();
 
-        // Nerfed Large Fireball (explosion power 1).
+        // Blue Fire's damage boost is applied HERE rather than in the damage handler.
+        // A fireball hurts through explosion damage, and by the time that lands there
+        // is nothing to tell it apart from any other explosion — the handler's IS_FIRE
+        // rule would have to take in TNT as well to include it. The ability knows what
+        // it is throwing, so it simply throws a bigger one.
+        int power = BendingFire.isBlue(data) ? BLUE_EXPLOSION_POWER : EXPLOSION_POWER;
+
         Vec3 movement = new Vec3(look.x * 0.1, look.y * 0.1, look.z * 0.1);
-        LargeFireball bigFireball = new LargeFireball(level, player, movement, 1);
+        LargeFireball bigFireball = new LargeFireball(level, player, movement, power);
 
         bigFireball.setPos(player.getX() + look.x, player.getEyeY(), player.getZ() + look.z);
         level.addFreshEntity(bigFireball);
