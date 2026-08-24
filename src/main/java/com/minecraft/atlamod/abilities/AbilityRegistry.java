@@ -13,6 +13,8 @@ import com.minecraft.atlamod.abilities.fire.FireShield;
 import com.minecraft.atlamod.abilities.fire.FireSpikes;
 import com.minecraft.atlamod.abilities.fire.FireWhip;
 import com.minecraft.atlamod.abilities.fire.TallerFire;
+import com.minecraft.atlamod.abilities.water.WaterHeal;
+import com.minecraft.atlamod.abilities.water.WaterPush;
 import com.minecraft.atlamod.abilities.water.WaterShield;
 import com.minecraft.atlamod.abilities.fire.Ignite;
 import com.minecraft.atlamod.abilities.fire.Firewall;
@@ -63,6 +65,8 @@ public final class AbilityRegistry {
 
         // --- WATER : Defensive ---
         register(new WaterShield());
+        register(new WaterPush());
+        register(new WaterHeal());
     }
 
     public static void register(Ability ability) {

@@ -300,6 +300,12 @@ public class AbilityHandler {
             return;
         }
 
+        // A condition the channel depends on can lapse while the key is still held.
+        if (!channeled.canContinue(player, data)) {
+            stopChannel(player, data, channeled);
+            return;
+        }
+
         int chiThisTick = chiCostForTick(channeled, player.tickCount);
         if (data.getCurrentChi() < chiThisTick) {
             stopChannel(player, data, channeled);

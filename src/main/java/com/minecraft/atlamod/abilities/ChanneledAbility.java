@@ -77,6 +77,17 @@ public interface ChanneledAbility extends Ability {
         return false;
     }
 
+    /**
+     * Checked every tick: return false and the channel stops itself.
+     *
+     * For conditions that can lapse while the key is still held — Water Heal only
+     * works while standing in water, and should end when the bender walks out of it
+     * rather than carrying on for free.
+     */
+    default boolean canContinue(ServerPlayer player, BendingData data) {
+        return true;
+    }
+
     /** XP trickled once per second while channeling. 0 for none. */
     default int getXpPerSecond() {
         return 0;
