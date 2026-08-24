@@ -43,6 +43,14 @@ public interface Ability {
         return false;
     }
 
+    /**
+     * Improvements that can be bought for this ability, shown by right clicking its
+     * node in the skill tree. Empty for anything that has none.
+     */
+    default java.util.List<AbilityUpgrade> getUpgrades() {
+        return java.util.List.of();
+    }
+
     /** The actual effect. Chi has already been consumed and XP already granted by this point. */
     void execute(ServerPlayer player, BendingData data);
 

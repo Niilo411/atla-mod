@@ -340,7 +340,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     2.2 blocks gets Slowness II)
   - Water push (60-degree forward cone reaching 8 blocks, ~6 block knockback plus 1s of
     Slowness I. NO damage — pure control. 100 chi, 10 xp, 2s cooldown)
-  - Water heal (channeled; Regeneration I while standing IN water. 15 chi/sec, 7 xp/sec,
+  - Water heal (channeled; Regeneration I while standing IN water, II with the "Potent
+    Healing" upgrade. 15 chi/sec, 7 xp/sec,
     no cooldown. Refuses to start on dry land and ends the moment you wade out)
 - **`ChanneledAbility.canContinue()`** (default true) is checked every tick and stops the
   channel when it returns false — for conditions that lapse while the key is still held,
@@ -352,6 +353,23 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   instance is exactly one Regen I beat, so this reproduces vanilla's rate exactly and
   leaves a stronger potion regen alone. Applies to any future
   effect-granting ability.
+- **Ability upgrades**: abilities declare their own via `Ability.getUpgrades()`
+  returning `AbilityUpgrade(key, name, description, cost)` — so an upgrade lives beside
+  the code that reads it rather than in a table that has to be kept in step. Bought
+  with levels, stored in `BendingData.unlockedUpgrades` (persisted + synced by
+  `SyncUpgradesPacket`), checked with `data.hasUpgrade(key)`.
+- **Right click an ability node** in the skill tree to pop its upgrades out beside it;
+  right click again, or off a node, to close. The panel's left clicks are taken BEFORE
+  `super.mouseClicked`, or the node buttons underneath would swallow them. Vanilla
+  `Button` only accepts button 0, so right clicks reach the screen handler untouched.
+- `BuyUpgradePacket` re-checks everything the menu checked — ability unlocked, upgrade
+  real and belonging to that ability, not already owned, levels affordable. The client
+  applies the purchase locally for an immediate response, but is not trusted.
+- **Water heal has the first one**: "Potent Healing" (10 levels) raises it to
+  Regeneration II. The effect DURATION is derived from the amplifier (`50 >> amplifier`),
+  because regeneration's heal interval halves at II — a fixed duration would have left
+  the upgrade claiming to heal twice as fast without doing so. Verified at exactly 50
+  ticks per heal at I and 25 at II.
 - **Rooting**: `ChanneledAbility.rootsPlayer()` (both shields) pins the player. Done on
   BOTH sides — the server zeroes horizontal motion (leaving downward alone, so a shield
   is not also a hover), and `RootedPacket` tells the client to stop taking movement

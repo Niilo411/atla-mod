@@ -20,19 +20,39 @@ import net.minecraft.world.effect.MobEffects;
  */
 public class WaterHeal implements ChanneledAbility {
 
-    /** Regeneration I. */
-    private static final int REGEN_LEVEL = 0;
+    /** Key for the upgrade that raises the healing to Regeneration II. */
+    public static final String POTENT_HEALING = "water_heal_potent";
+
+    /** Regeneration I by default, II once the upgrade is bought. */
+    private static final int BASE_REGEN_LEVEL = 0;
+    private static final int UPGRADED_REGEN_LEVEL = 1;
+
+    /** What the upgrade costs, in levels. */
+    private static final int POTENT_HEALING_COST = 10;
 
     /**
-     * Exactly one heal beat. Regeneration I heals on ticks where its remaining
-     * duration divides by 50, and the check runs before the duration is decremented,
-     * so an instance created at 50 heals immediately and then expires cleanly.
+     * One heal beat, which is NOT a fixed number of ticks: regeneration heals on
+     * ticks where its remaining duration divides by {@code 50 >> amplifier}, so the
+     * interval halves at Regeneration II. Deriving the duration from the level keeps
+     * the upgrade healing twice as often rather than merely claiming to.
      *
-     * Re-applying only once the previous instance has gone therefore reproduces
-     * vanilla's rate exactly, and leaves at most 2.5 seconds of regeneration running
-     * on after the channel stops.
+     * The vanilla check runs before the duration is decremented, so an instance
+     * created at exactly one interval heals immediately and then expires cleanly —
+     * which is why re-applying only once the previous one has gone reproduces
+     * vanilla's rate instead of shifting the beat.
      */
-    private static final int REGEN_DURATION = 50;
+    private static int regenDuration(int amplifier) {
+        return Math.max(1, 50 >> amplifier);
+    }
+
+    @Override
+    public java.util.List<com.minecraft.atlamod.abilities.AbilityUpgrade> getUpgrades() {
+        return java.util.List.of(new com.minecraft.atlamod.abilities.AbilityUpgrade(
+                POTENT_HEALING,
+                "Potent Healing",
+                "Regeneration II instead of I - heals twice as fast",
+                POTENT_HEALING_COST));
+    }
 
     @Override
     public String getName() {
@@ -99,9 +119,11 @@ public class WaterHeal implements ChanneledAbility {
         //
         // It also means a stronger regeneration the player already has — from a potion,
         // say — is left alone rather than being replaced with ours.
+        int amplifier = data.hasUpgrade(POTENT_HEALING) ? UPGRADED_REGEN_LEVEL : BASE_REGEN_LEVEL;
+
         if (player.getEffect(MobEffects.REGENERATION) == null) {
-            player.addEffect(new MobEffectInstance(
-                    MobEffects.REGENERATION, REGEN_DURATION, REGEN_LEVEL, false, true, true));
+            player.addEffect(new MobEffectInstance(MobEffects.REGENERATION,
+                    regenDuration(amplifier), amplifier, false, true, true));
         }
 
         if (!(player.level() instanceof ServerLevel level)) return;
@@ -122,6 +144,6 @@ public class WaterHeal implements ChanneledAbility {
     public void onStop(ServerPlayer player, BendingData data) {
         // Regeneration is left to run out on its own rather than being stripped: it
         // may not be ours to take away, and REGEN_DURATION is short enough that it
-        // fades on its own moments after the channel ends.
+        // fades on its own within a beat of the channel ending.
     }
 }

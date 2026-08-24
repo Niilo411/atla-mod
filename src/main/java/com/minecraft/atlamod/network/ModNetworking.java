@@ -195,5 +195,28 @@ public class ModNetworking {
                             com.minecraft.atlamod.client.ClientRootState.set(payload.rooted()));
                 }
         );
+
+        // --- BUY UPGRADE (Client -> Server) ---
+        registrar.playToServer(
+                BuyUpgradePacket.TYPE,
+                BuyUpgradePacket.STREAM_CODEC,
+                BuyUpgradePacket::handle
+        );
+
+        // --- SYNC UPGRADES (Server -> Client) ---
+        registrar.playToClient(
+                SyncUpgradesPacket.TYPE,
+                SyncUpgradesPacket.STREAM_CODEC,
+                (SyncUpgradesPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setAllUnlockedUpgrades(payload.unlockedUpgrades());
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+                        }
+                    });
+                }
+        );
     }
 }

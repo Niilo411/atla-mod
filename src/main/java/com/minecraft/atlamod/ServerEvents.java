@@ -128,6 +128,8 @@ public class ServerEvents {
 
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.SyncUpgradesPacket(data.getUnlockedUpgrades()));
 
             // Safety net: Fire Rocket grants flight through the vanilla ability
             // flags, and those are saved to player NBT. If the player disconnected
@@ -436,6 +438,8 @@ public class ServerEvents {
                 // but the menu shows every slot empty after a death.
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                         new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.SyncUpgradesPacket(data.getUnlockedUpgrades()));
 
                 // Dying mid-channel or mid-charge ends them server-side, but these two
                 // are client-side statics that survive it — leaving a stale charge bar

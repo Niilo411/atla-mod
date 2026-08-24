@@ -112,8 +112,9 @@ public class BendingData {
             Codec.INT.optionalFieldOf("currentChi", 500).forGetter(BendingData::getCurrentChi),
             Codec.STRING.listOf().optionalFieldOf("unlockedAbilities", new ArrayList<>()).forGetter(BendingData::getUnlockedAbilities),
             Codec.STRING.listOf().optionalFieldOf("equippedAbilities", new ArrayList<>()).forGetter(BendingData::getEquippedAbilities),
-            Codec.STRING.listOf().optionalFieldOf("equippedPassives", new ArrayList<>()).forGetter(BendingData::getEquippedPassives)
-    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives) -> {
+            Codec.STRING.listOf().optionalFieldOf("equippedPassives", new ArrayList<>()).forGetter(BendingData::getEquippedPassives),
+            Codec.STRING.listOf().optionalFieldOf("unlockedUpgrades", new ArrayList<>()).forGetter(BendingData::getUnlockedUpgrades)
+    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives, upgrades) -> {
         BendingData data = new BendingData();
         data.mainElement = main != null ? main : "";
         data.activeElement = active != null ? active : "";
@@ -127,6 +128,7 @@ public class BendingData {
         // Bulletproof assignment
         data.setAllEquippedAbilities(equipped);
         data.setAllEquippedPassives(passives);
+        data.setAllUnlockedUpgrades(upgrades);
 
         return data;
     }));
@@ -316,6 +318,36 @@ public class BendingData {
             if (passiveKey.equalsIgnoreCase(equipped)) return true;
         }
         return false;
+    }
+
+    // --- ABILITY UPGRADES ---
+    // Purchased improvements to individual abilities, keyed by AbilityUpgrade.key.
+    // Persisted and synced, since the abilities that read them run on the server but
+    // the menu that sells them runs on the client.
+    private List<String> unlockedUpgrades = new ArrayList<>();
+
+    public List<String> getUnlockedUpgrades() {
+        if (unlockedUpgrades == null) unlockedUpgrades = new ArrayList<>();
+        return unlockedUpgrades;
+    }
+
+    public void setAllUnlockedUpgrades(List<String> upgrades) {
+        this.unlockedUpgrades = new ArrayList<>();
+        if (upgrades != null) {
+            for (String upgrade : upgrades) {
+                if (upgrade != null && !upgrade.trim().isEmpty()) this.unlockedUpgrades.add(upgrade);
+            }
+        }
+    }
+
+    public void unlockUpgrade(String upgradeKey) {
+        if (upgradeKey == null || upgradeKey.isEmpty()) return;
+        if (!getUnlockedUpgrades().contains(upgradeKey)) getUnlockedUpgrades().add(upgradeKey);
+    }
+
+    /** Whether this improvement has been bought. */
+    public boolean hasUpgrade(String upgradeKey) {
+        return upgradeKey != null && getUnlockedUpgrades().contains(upgradeKey);
     }
     private String activeTwoPhaseAbility = "";
 

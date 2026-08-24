@@ -189,6 +189,7 @@ public class UpgradeMenuScreen extends Screen {
                     }
                 }
                 drawTabs(guiGraphics);
+                renderUpgradePanel(guiGraphics, mouseX, mouseY, data);
             }
         }
     }
@@ -245,10 +246,41 @@ public class UpgradeMenuScreen extends Screen {
                 activeTab = i;
                 selectedAbilityToEquip = null;
                 selectedPassiveToEquip = null;
+                openUpgradesFor = null;
                 return true;
             }
         }
         // ---------------------------
+
+        // --- ABILITY UPGRADE PANEL (skill tree only) ---
+        if (activeTab == 0 && this.minecraft != null && this.minecraft.player != null) {
+            var treeData = this.minecraft.player.getData(ModAttachments.BENDING_DATA);
+
+            // Left clicks inside an open panel belong to it, and must be taken before
+            // super() hands the click to the node buttons underneath.
+            if (button == 0 && upgradePanelClicked(mouseX, mouseY, treeData)) {
+                return true;
+            }
+
+            // Right click a node to pop its upgrades out, or to close them again.
+            if (button == 1) {
+                for (var entry : nodeMap.entrySet()) {
+                    var nodeButton = entry.getKey();
+                    if (mouseX < nodeButton.getX() || mouseX > nodeButton.getX() + nodeButton.getWidth()
+                            || mouseY < nodeButton.getY() || mouseY > nodeButton.getY() + nodeButton.getHeight()) {
+                        continue;
+                    }
+
+                    String name = entry.getValue().name();
+                    openUpgradesFor = name.equals(openUpgradesFor) ? null : name;
+                    return true;
+                }
+
+                // Right clicking off a node closes whatever was open.
+                openUpgradesFor = null;
+                return true;
+            }
+        }
 
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
@@ -605,5 +637,130 @@ public class UpgradeMenuScreen extends Screen {
 
         PacketDistributor.sendToServer(
                 new com.minecraft.atlamod.network.EquipPassivePacket(slot, passive));
+    }
+
+    // --- ABILITY UPGRADE PANEL ---
+    // Which ability's upgrades are popped out beside its node, or null for none.
+    private String openUpgradesFor = null;
+
+    private static final int UPGRADE_PANEL_W = 150;
+    private static final int UPGRADE_ROW_H = 30;
+
+    /** Where the popped-out panel sits: beside the node, flipped inward near the edge. */
+    private int upgradePanelX(net.minecraft.client.gui.components.Button node) {
+        int right = node.getX() + node.getWidth() + 6;
+        if (right + UPGRADE_PANEL_W <= this.width) return right;
+        return node.getX() - UPGRADE_PANEL_W - 6;
+    }
+
+    /** The node button whose upgrades are open, or null. */
+    private net.minecraft.client.gui.components.Button openUpgradeButton() {
+        if (openUpgradesFor == null) return null;
+
+        for (var entry : nodeMap.entrySet()) {
+            if (entry.getValue().name().equals(openUpgradesFor)) return entry.getKey();
+        }
+        return null;
+    }
+
+    private static java.util.List<com.minecraft.atlamod.abilities.AbilityUpgrade> upgradesOf(String abilityName) {
+        var ability = com.minecraft.atlamod.abilities.AbilityRegistry.get(abilityName);
+        return ability == null ? java.util.List.of() : ability.getUpgrades();
+    }
+
+    /** Draws the popped-out upgrade list. Called last, so it sits over the tree. */
+    private void renderUpgradePanel(GuiGraphics graphics, int mouseX, int mouseY, BendingData data) {
+        net.minecraft.client.gui.components.Button node = openUpgradeButton();
+        if (node == null) return;
+
+        var upgrades = upgradesOf(openUpgradesFor);
+        int px = upgradePanelX(node);
+        int py = node.getY();
+        int height = 22 + Math.max(1, upgrades.size()) * UPGRADE_ROW_H;
+
+        graphics.fill(px, py, px + UPGRADE_PANEL_W, py + height, 0xF0101010);
+        graphics.renderOutline(px, py, UPGRADE_PANEL_W, height, 0xFF6688AA);
+        graphics.drawCenteredString(this.font, "§bUpgrades",
+                px + UPGRADE_PANEL_W / 2, py + 6, 0xFFFFFF);
+
+        if (upgrades.isEmpty()) {
+            graphics.drawCenteredString(this.font, "§7None",
+                    px + UPGRADE_PANEL_W / 2, py + 26, 0xFFFFFF);
+            return;
+        }
+
+        for (int i = 0; i < upgrades.size(); i++) {
+            var upgrade = upgrades.get(i);
+            int ry = py + 22 + (i * UPGRADE_ROW_H);
+
+            boolean owned = data.hasUpgrade(upgrade.key());
+            boolean abilityOwned = data.getUnlockedAbilities().contains(openUpgradesFor);
+            boolean affordable = abilityOwned && data.getLevel() >= upgrade.cost();
+            boolean hovered = mouseX >= px + 4 && mouseX <= px + UPGRADE_PANEL_W - 4
+                    && mouseY >= ry && mouseY <= ry + UPGRADE_ROW_H - 4;
+
+            int fill = owned ? 0xFF224422 : (hovered && affordable ? 0xFF335577 : 0xFF222222);
+            int border = owned ? 0xFF55FF55 : (affordable ? 0xFF6688AA : 0xFF663333);
+
+            graphics.fill(px + 4, ry, px + UPGRADE_PANEL_W - 4, ry + UPGRADE_ROW_H - 4, fill);
+            graphics.renderOutline(px + 4, ry, UPGRADE_PANEL_W - 8, UPGRADE_ROW_H - 4, border);
+
+            graphics.drawString(this.font, upgrade.name(), px + 9, ry + 4, 0xFFFFFF);
+
+            String status = owned ? "§aOwned"
+                    : !abilityOwned ? "§8Unlock the ability first"
+                    : (affordable ? "§6Click - Lvl " + upgrade.cost()
+                                  : "§cRequires Lvl " + upgrade.cost());
+            graphics.drawString(this.font, status, px + 9, ry + 15, 0xFFFFFF);
+
+            if (hovered) {
+                graphics.renderTooltip(this.font,
+                        net.minecraft.network.chat.Component.literal("§7" + upgrade.description()),
+                        mouseX, mouseY);
+            }
+        }
+    }
+
+    /** Clicks inside the popped-out panel. Returns true if the click was used. */
+    private boolean upgradePanelClicked(double mouseX, double mouseY, BendingData data) {
+        net.minecraft.client.gui.components.Button node = openUpgradeButton();
+        if (node == null) return false;
+
+        var upgrades = upgradesOf(openUpgradesFor);
+        int px = upgradePanelX(node);
+        int py = node.getY();
+
+        for (int i = 0; i < upgrades.size(); i++) {
+            var upgrade = upgrades.get(i);
+            int ry = py + 22 + (i * UPGRADE_ROW_H);
+
+            if (mouseX < px + 4 || mouseX > px + UPGRADE_PANEL_W - 4
+                    || mouseY < ry || mouseY > ry + UPGRADE_ROW_H - 4) {
+                continue;
+            }
+
+            boolean abilityOwned = data.getUnlockedAbilities().contains(openUpgradesFor);
+            if (!abilityOwned || data.hasUpgrade(upgrade.key()) || data.getLevel() < upgrade.cost()) {
+                return true; // inside the panel, just not buyable — swallow it either way
+            }
+
+            // Applied locally for an immediate response; the server re-checks all of it.
+            data.setLevel(data.getLevel() - upgrade.cost());
+            data.unlockUpgrade(upgrade.key());
+            if (this.minecraft != null && this.minecraft.player != null) {
+                this.minecraft.player.setData(ModAttachments.BENDING_DATA, data);
+                this.minecraft.player.playSound(
+                        net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, 1.0F, 1.4F);
+            }
+
+            PacketDistributor.sendToServer(
+                    new com.minecraft.atlamod.network.BuyUpgradePacket(openUpgradesFor, upgrade.key()));
+            return true;
+        }
+
+        // A click anywhere else in the panel body still belongs to the panel.
+        int height = 22 + Math.max(1, upgrades.size()) * UPGRADE_ROW_H;
+        return mouseX >= px && mouseX <= px + UPGRADE_PANEL_W
+                && mouseY >= py && mouseY <= py + height;
     }
 }
