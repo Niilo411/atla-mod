@@ -16,6 +16,9 @@ public class BlueFire implements PassiveAbility {
     /** Registry key, also what sits in the passive slot. */
     public static final String KEY = "blue fire";
 
+    /** Flat damage anything standing in blue fire takes, per hit (3 hearts). */
+    public static final float CONTACT_DAMAGE = 6.0F;
+
     /** How much harder every fire ability hits while this is equipped. */
     public static final float DAMAGE_MULTIPLIER = 2.0F;
 

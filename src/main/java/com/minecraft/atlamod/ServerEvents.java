@@ -160,6 +160,11 @@ public class ServerEvents {
         newData.getEquippedAbilities().clear();
         newData.getEquippedAbilities().addAll(oldData.getEquippedAbilities());
 
+        // Passives too. copyOnDeath already carries these through a death, but this
+        // event also fires when changing dimension, where it does not — without this
+        // walking into the Nether would silently unequip every passive.
+        newData.setAllEquippedPassives(oldData.getEquippedPassives());
+
         event.getEntity().setData(ModAttachments.BENDING_DATA, newData);
     }
 
@@ -232,6 +237,27 @@ public class ServerEvents {
 
         if (!event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) return;
         if (!(event.getEntity().level() instanceof ServerLevel level)) return;
+
+        // From here down is damage from STANDING IN fire, not from being hit by an
+        // ability that happens to burn. Fire block contact has no causing entity,
+        // where ability damage carries the bender. Without this check, hitting a mob
+        // that is standing in bending fire would have the ability's own damage
+        // overwritten by the block's.
+        if (event.getSource().getEntity() != null) return;
+
+        // Blue fire burns at a flat rate rather than a multiple of ordinary fire:
+        // 3 hearts a hit, and fire lands roughly once a second through the victim's
+        // invulnerability frames. Checked off the block itself rather than off
+        // BendingFire's tracking, so it holds for blue fire from any source —
+        // including Firewall's, which is laid untracked at plain damage.
+        net.minecraft.world.level.block.state.BlockState standingIn =
+                level.getBlockState(event.getEntity().blockPosition());
+
+        if (standingIn.getBlock() instanceof BendingFireBlock
+                && standingIn.getValue(BendingFireBlock.BLUE)) {
+            event.setAmount(com.minecraft.atlamod.abilities.fire.BlueFire.CONTACT_DAMAGE);
+            return;
+        }
 
         float multiplier = com.minecraft.atlamod.abilities.BendingFire.getMultiplier(
                 level, event.getEntity().blockPosition());
@@ -374,6 +400,13 @@ public class ServerEvents {
                         data.getLevel(),
                         data.getCurrentChi()
                 ));
+
+                // The passive slots need their own packet: SyncBendingDataPacket is
+                // already at six fields, which is as many as StreamCodec.composite
+                // takes. Without this the server still applies the player's passives
+                // but the menu shows every slot empty after a death.
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                        new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
             }));
         }
     }

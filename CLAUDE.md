@@ -166,7 +166,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   players actually in creative/spectator so it can't strip legitimate flight.
 - Fire Masterclass path started (gated behind the other three being COMPLETE):
   - blue fire (PASSIVE — all ability fire and flame particles turn blue, and every
-    fire ability deals double damage. No chi, no xp, as with all passives)
+    fire ability deals double damage. Standing in blue fire burns for a flat 6.0
+    (3 hearts) a hit instead of scaling off normal fire. No chi, no xp)
 - **Blue fire needs its own block too.** Vanilla `SOUL_FIRE` — the only blue fire in
   the game — only survives on soul sand or soul soil, so it can't be laid anywhere
   else. `BendingFireBlock` (which replaced `TallFireBlock`) carries two properties:
@@ -192,6 +193,17 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
+- **Passive slots need syncing at BOTH login and respawn.** `copyOnDeath` keeps them
+  server-side so they keep working, but the client's copy is rebuilt on respawn — miss
+  the packet there and the menu shows every slot empty while the passives are still
+  running. `PlayerEvent.Clone` also has to copy them by hand: that event fires on
+  dimension change too, where `copyOnDeath` does not apply.
+- **The damage handler has an order that matters** (`ServerEvents.onIncomingDamage`):
+  shield cancel -> Blue Fire's attacker-side doubling -> then, ONLY for damage with
+  no causing entity, the block-contact rules (blue fire's flat 6.0, then
+  `BendingFire`'s per-position multipliers). The no-entity guard is what stops a Fire
+  Whip hit on a mob that happens to be standing in bending fire having the ability's
+  own damage overwritten by the block's.
 - **Taller Fire needs a custom block too.** The second block cannot be vanilla fire:
   `FireBlock#canSurvive` needs a face-sturdy block below or a flammable neighbour,
   and a fire block is neither, so stacked vanilla fire deletes itself on its first
