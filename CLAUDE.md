@@ -233,11 +233,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   orange under Blue Fire. Plain
   orange fire stays vanilla `Blocks.FIRE` so it keeps spreading as before; only blue
   fire uses the custom block, which does NOT spread.
-- **Blue Fire's damage boost is keyed on the ATTACKER**, in the
-  `LivingIncomingDamageEvent` handler, and limited to `IS_FIRE` and `IS_EXPLOSION`
-  damage they caused — every fire ability damages through `damageSources().inFire()`
-  and Fireball lands as an explosion. Doubling everything a player deals would catch
-  sword swings too.
+- **Blue Fire's damage boost is keyed on the ATTACKER** and limited to `IS_FIRE` only,
+  in the `LivingIncomingDamageEvent` handler. That tag with a player behind it is a close
+  match for "a fire ability": all five damaging fire abilities go through
+  `damageSources().inFire()`, while the fire a player can cause without bending — a Fire
+  Aspect burn, a lit block, spilled lava — arrives with no attacker and never qualifies.
+  Water abilities use `indirectMagic`/`drown`, so they are untouched.
+  Explosions were briefly included to catch Fireball and were too broad: that doubled any
+  explosion the player caused, TNT included. Fireball's explosion is therefore NOT boosted.
 - **Passive abilities** (`abilities/PassiveAbility.java`): never cast — being in a
   passive slot IS the activation, and whatever they affect asks
   `data.hasPassiveEquipped(key)`. No chi, no XP: there is no moment of use to hang

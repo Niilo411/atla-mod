@@ -276,16 +276,20 @@ public class ServerEvents {
             }
         }
 
-        // Blue Fire doubles what the bender's own fire abilities hit for.
+        // Blue Fire doubles what the bender's own FIRE abilities hit for, and nothing
+        // else.
         //
-        // Keyed on the ATTACKER's passives, and limited to fire and explosion damage
-        // they caused: every fire ability here damages through damageSources().inFire(),
-        // and Fireball lands as an explosion. Doubling everything a player deals would
-        // catch sword swings too, which isn't what "all abilities" meant.
+        // IS_FIRE with a player behind it is a close match for exactly that: every fire
+        // ability in the mod damages through damageSources().inFire(), while the fire
+        // sources a player can cause without bending — a Fire Aspect burn, a lit block,
+        // spilled lava — all arrive with no attacker attached and so never qualify.
+        //
+        // Explosions used to be included as well, to catch Fireball. That was too broad:
+        // it doubled any explosion the player caused, TNT included, which is not a fire
+        // ability by any reading.
         net.minecraft.world.entity.Entity attacker = event.getSource().getEntity();
         if (attacker instanceof ServerPlayer attackingPlayer
-                && (event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)
-                    || event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION))) {
+                && event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) {
 
             BendingData attackerData = attackingPlayer.getData(ModAttachments.BENDING_DATA);
             if (attackerData.hasPassiveEquipped(com.minecraft.atlamod.abilities.fire.BlueFire.KEY)) {
