@@ -21,6 +21,26 @@ import static com.mojang.brigadier.arguments.StringArgumentType.word;
 @EventBusSubscriber(modid = Atlamod.MODID)
 public class ServerEvents {
 
+    /**
+     * Advances water in flight. These are tracked in a static list rather than being
+     * real entities, so nothing else ticks them.
+     */
+    @SubscribeEvent
+    public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        com.minecraft.atlamod.abilities.water.WaterProjectiles.tickAll(event.getServer());
+    }
+
+    /**
+     * Drops shots belonging to a level that is going away. Nothing else holds them, so
+     * without this a shot fired into an unloading dimension would keep a dead
+     * ServerLevel alive for as long as the server ran.
+     */
+    @SubscribeEvent
+    public static void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
+        if (event.getLevel() instanceof ServerLevel level) {
+            com.minecraft.atlamod.abilities.water.WaterProjectiles.forgetLevel(level);
+        }
+    }
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("bend")

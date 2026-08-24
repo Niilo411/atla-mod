@@ -333,6 +333,18 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- Water Offensive path started:
+  - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
+    ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
+    hit. 50 chi, 5 xp, 2s cooldown from the throw)
+- **Projectiles are tracked, not entities**: `WaterProjectiles` keeps shots in flight in
+  a static list, advances them from `ServerTickEvent.Post`, and draws them purely with
+  particles. A custom projectile entity would need its own `EntityType` and a client
+  renderer — and an entity spawning without a renderer takes the client down, which is
+  a bad thing to ship untested. A mass of water is better drawn as particles than as
+  any model anyway. Should serve Water Bullets and Air Cannon unchanged.
+  `LevelEvent.Unload` drops that level's shots, since nothing else holds them and a
+  static list would otherwise keep a dead `ServerLevel` alive for the whole session.
 - Water Defensive path COMPLETE:
   - Water shield (channeled; same shape and cost as Fire Shield — 25 chi/sec, 1 xp/sec,
     no cooldown, no cap, 200 chi to start — and gets its invulnerability from the same
