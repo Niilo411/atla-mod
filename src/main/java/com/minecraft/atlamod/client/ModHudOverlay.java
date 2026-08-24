@@ -29,10 +29,17 @@ public class ModHudOverlay {
             int x = 20;
             int y = screenHeight - 45; // Shifted up slightly to make room for the icon
 
-            // --- DRAW ICON PLACEHOLDER ---
+            // --- DRAW ELEMENT ICON ---
             guiGraphics.fill(x, y, x + iconSize, y + iconSize, 0xFF222222);
             guiGraphics.renderOutline(x, y, iconSize, iconSize, 0xFF555555);
-            guiGraphics.drawCenteredString(mc.font, "?", x + (iconSize / 2), y + (iconSize / 2) - 4, 0x888888);
+
+            if (ElementIcons.has(activeElement)) {
+                // Inset by a pixel so the emblem sits inside the border, not on it.
+                ElementIcons.draw(guiGraphics, activeElement, x + 1, y + 1, iconSize - 2);
+            } else {
+                guiGraphics.drawCenteredString(mc.font, "?",
+                        x + (iconSize / 2), y + (iconSize / 2) - 4, 0x888888);
+            }
 
             // --- DRAW TEXT NEXT TO THE ICON ---
             int textStartX = x + iconSize + 8;

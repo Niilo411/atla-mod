@@ -24,7 +24,7 @@ public final class ElementIcons {
     private static final int SOURCE_SIZE = 256;
 
     private static final Map<String, ResourceLocation> ICONS = Map.of(
-            "fire", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/fire.png")
+            "fire", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/fire_icon.png")
     );
 
     private ElementIcons() {

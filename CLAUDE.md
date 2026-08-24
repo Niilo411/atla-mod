@@ -229,12 +229,15 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
 - **Element icons**: `client/ElementIcons.java` maps an element to a PNG under
   `assets/atlamod/textures/gui/elements/`. Only elements listed in its `ICONS` map
-  are drawn — anything else keeps the old "?" box, because a texture Minecraft can't
+  are drawn — anything else keeps the old "?" box, because a texture Minecraft cannot
   find renders as the magenta checkerboard, which looks far more broken than a
   placeholder. Source PNGs are expected to be **256x256**; the icon is scaled through
   the pose stack rather than by blit's arguments, since blit's width arguments set the
   source region as well as the drawn size and so cannot resize on their own.
-  Adding an element = drop `<element>.png` in that folder + one line in `ICONS`.
+  Used by BOTH the element selection screen and the HUD badge.
+  Adding an element = drop the PNG in that folder + one line in `ICONS`.
+  NOTE: source art must be a REAL PNG. The fire emblem arrived as a JPEG carrying a
+  `.png` extension and was re-encoded (JDK `ImageIO`) to a genuine 256x256 ARGB PNG.
 - **Passives are excluded from the ability equip tab.** They sit in the same path
   arrays as everything else, so the equip list picked them up until
   `UpgradeMenuScreen.equippableAbilities()` started filtering them out — offering a
