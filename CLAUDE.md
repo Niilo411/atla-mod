@@ -168,6 +168,17 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - blue fire (PASSIVE — all ability fire and flame particles turn blue, and every
     fire ability deals double damage. Standing in blue fire burns for a flat 6.0
     (3 hearts) a hit instead of scaling off normal fire. No chi, no xp)
+  - Fire blow (CHARGED up to 10s, and unlike the others it FIRES ON RELEASE at
+    whatever strength it reached. Erupts a fanning wall of flame ahead: reach 4->16
+    blocks, damage 4->20, flame columns 2->6 high, all scaling with charge. Lays
+    fire through `BendingFire.placeGrounded`, so Taller Fire and blue fire both
+    apply to it. 150 chi, 20 xp, 1s cooldown)
+- **`ChargedAbility.firesOnRelease()`** (default false) makes an early release cast a
+  weaker version instead of throwing the charge away, with `getMinimumChargeTicks()`
+  as the floor below which a stray tap still costs nothing. Abilities scale off
+  `BendingData.getLastChargeTicks()`, recorded by the dispatcher immediately before
+  the cast — the live counter has to be cleared first so the key release that follows
+  cannot fire the ability a second time.
 - **Blue fire needs its own block too.** Vanilla `SOUL_FIRE` — the only blue fire in
   the game — only survives on soul sand or soul soil, so it can't be laid anywhere
   else. `BendingFireBlock` (which replaced `TallFireBlock`) carries two properties:
@@ -264,7 +275,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- 44 more abilities left across Fire/Water/Air/Earth × 4 paths
+- 43 more abilities left across Fire/Water/Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

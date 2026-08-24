@@ -156,13 +156,27 @@ public class AbilityHandler {
     }
 
     /** Key released before the charge finished: drop it, spend nothing. */
+    /**
+     * Key released. Normally that throws the charge away, but an ability that fires
+     * on release goes off at whatever strength it reached.
+     */
     private static void cancelCharge(ServerPlayer player, BendingData data, ChargedAbility ability) {
         // A charge that already fired cleared itself, so the eventual key release
         // lands here and finds nothing — which is what stops it double-firing.
         if (!data.getActiveChargingAbility().equals(ability.getKey())) return;
 
+        int charged = data.getChargeTicks();
+
         data.setActiveChargingAbility("");
         data.setChargeTicks(0);
+
+        if (ability.firesOnRelease() && charged >= ability.getMinimumChargeTicks()) {
+            data.setLastChargeTicks(charged);
+            performCast(player, data, ability);
+            syncChargeStatus(player, data);
+            return;
+        }
+
         ability.onChargeCancel(player, data);
         syncChargeStatus(player, data);
         AbilitySupport.syncData(player, data);
@@ -195,6 +209,7 @@ public class AbilityHandler {
         // finds nothing to cancel and the ability can't fire twice.
         data.setActiveChargingAbility("");
         data.setChargeTicks(0);
+        data.setLastChargeTicks(held);
         performCast(player, data, charged);
         syncChargeStatus(player, data);
     }

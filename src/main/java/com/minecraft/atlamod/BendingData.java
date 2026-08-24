@@ -74,6 +74,16 @@ public class BendingData {
         this.chargeTicks = ticks;
     }
 
+    /**
+     * How far the last charge got, in ticks, recorded just before the cast runs.
+     * Abilities that scale with charge read this — the live counter is cleared
+     * before casting so the key release can't fire them a second time.
+     */
+    private transient int lastChargeTicks = 0;
+
+    public int getLastChargeTicks() { return lastChargeTicks; }
+    public void setLastChargeTicks(int ticks) { this.lastChargeTicks = Math.max(0, ticks); }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {

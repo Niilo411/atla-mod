@@ -36,4 +36,25 @@ public interface ChargedAbility extends Ability {
     /** Fired when the key is released before the charge completed. */
     default void onChargeCancel(ServerPlayer player, BendingData data) {
     }
+
+    /**
+     * Whether letting go early fires a weaker version instead of throwing the charge
+     * away (Fire Blow). The default is the plainer behaviour: an unfinished charge
+     * does nothing and costs nothing.
+     *
+     * Abilities that fire on release read how far they got from
+     * BendingData#getLastChargeTicks and scale themselves by it.
+     */
+    default boolean firesOnRelease() {
+        return false;
+    }
+
+    /**
+     * Shortest charge that counts, for abilities that fire on release. Letting go
+     * below this cancels for free, so a stray tap of the key doesn't spend the
+     * ability's whole chi cost on a blow that barely exists.
+     */
+    default int getMinimumChargeTicks() {
+        return 0;
+    }
 }
