@@ -2,21 +2,25 @@ package com.minecraft.atlamod.abilities.water;
 
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.Level;
 
 /**
  * Defensive / Water. Held while standing in water to knit yourself back together.
  *
  * Strictly a water ability in the literal sense: it will not start on dry land, and
  * it ends the moment the bender wades out, rather than carrying on for free once the
- * condition that justified it has gone.
+ * condition that justified it has gone. Potent Healing widens "water" to include
+ * snow, which is the only way to heal in a snowfield with no lake in reach.
  */
 public class WaterHeal implements ChanneledAbility {
 
@@ -50,8 +54,27 @@ public class WaterHeal implements ChanneledAbility {
         return java.util.List.of(new com.minecraft.atlamod.abilities.AbilityUpgrade(
                 POTENT_HEALING,
                 "Potent Healing",
-                "Regeneration II instead of I - heals twice as fast",
+                "Regeneration II, and you can heal on snow",
                 POTENT_HEALING_COST));
+    }
+
+    /**
+     * Whether there is water here to draw on.
+     *
+     * Standing in water always counts. Potent Healing adds snow — snow layers, snow
+     * blocks and powder snow, whether the bender is standing in it or on top of it,
+     * since a thin layer occupies the block at their feet while a full block sits
+     * beneath them.
+     */
+    private static boolean canDrawFrom(ServerPlayer player, BendingData data) {
+        if (player.isInWater()) return true;
+        if (!data.hasUpgrade(POTENT_HEALING)) return false;
+
+        Level level = player.level();
+        BlockPos feet = player.blockPosition();
+
+        return level.getBlockState(feet).is(BlockTags.SNOW)
+                || level.getBlockState(feet.below()).is(BlockTags.SNOW);
     }
 
     @Override
@@ -81,26 +104,36 @@ public class WaterHeal implements ChanneledAbility {
         return 7;
     }
 
-    /** Waterbending: standing in water means the supply check passes for free. */
+    /**
+     * Deliberately NOT gated on the canteen.
+     *
+     * The generic supply rule asks for water within 15 blocks; this ability asks the
+     * bender to be standing in it, which is strictly stronger, so the check would
+     * never do anything on its own. It would only bite in the one case the upgrade
+     * exists to allow — healing from snow in a snowfield with no water for miles —
+     * where charging a canteen unit for water the bender is literally standing on
+     * would be nonsense.
+     */
     @Override
     public boolean requiresWater() {
-        return true;
+        return false;
     }
 
     /** No healing on dry land. */
     @Override
     public boolean canStart(ServerPlayer player, BendingData data) {
-        if (player.isInWater()) return true;
+        if (canDrawFrom(player, data)) return true;
 
-        player.displayClientMessage(
-                Component.literal("§bYou must be in water to heal!"), true);
+        player.displayClientMessage(Component.literal(data.hasUpgrade(POTENT_HEALING)
+                ? "§bYou must be in water or on snow to heal!"
+                : "§bYou must be in water to heal!"), true);
         return false;
     }
 
-    /** Wading out ends it, rather than leaving it running on land. */
+    /** Leaving the water — or the snow — ends it, rather than running on over dry land. */
     @Override
     public boolean canContinue(ServerPlayer player, BendingData data) {
-        return player.isInWater();
+        return canDrawFrom(player, data);
     }
 
     @Override
@@ -143,7 +176,7 @@ public class WaterHeal implements ChanneledAbility {
     @Override
     public void onStop(ServerPlayer player, BendingData data) {
         // Regeneration is left to run out on its own rather than being stripped: it
-        // may not be ours to take away, and REGEN_DURATION is short enough that it
+        // may not be ours to take away, and one beat is short enough that it
         // fades on its own within a beat of the channel ending.
     }
 }

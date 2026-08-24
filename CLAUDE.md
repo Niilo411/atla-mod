@@ -366,10 +366,16 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   real and belonging to that ability, not already owned, levels affordable. The client
   applies the purchase locally for an immediate response, but is not trusted.
 - **Water heal has the first one**: "Potent Healing" (10 levels) raises it to
-  Regeneration II. The effect DURATION is derived from the amplifier (`50 >> amplifier`),
+  Regeneration II AND lets the bender heal on snow (`BlockTags.SNOW` — layers, blocks
+  and powder snow, underfoot or stood in).
+  The effect DURATION is derived from the amplifier (`50 >> amplifier`),
   because regeneration's heal interval halves at II — a fixed duration would have left
   the upgrade claiming to heal twice as fast without doing so. Verified at exactly 50
   ticks per heal at I and 25 at II.
+  Water heal itself sets `requiresWater()` FALSE: its own "must be standing in it" test
+  is strictly stronger than the generic 15-block rule, so the canteen check would only
+  ever bite in the case the snow upgrade exists to allow — charging a unit for water
+  the bender is stood on.
 - **Rooting**: `ChanneledAbility.rootsPlayer()` (both shields) pins the player. Done on
   BOTH sides — the server zeroes horizontal motion (leaving downward alone, so a shield
   is not also a hover), and `RootedPacket` tells the client to stop taking movement
