@@ -20,6 +20,7 @@ import com.minecraft.atlamod.abilities.water.WaterManipulation;
 import com.minecraft.atlamod.abilities.water.WaterPush;
 import com.minecraft.atlamod.abilities.water.WaterShield;
 import com.minecraft.atlamod.abilities.water.WaterStream;
+import com.minecraft.atlamod.abilities.water.WaterSphere;
 import com.minecraft.atlamod.abilities.water.WaterSurf;
 import com.minecraft.atlamod.abilities.fire.Ignite;
 import com.minecraft.atlamod.abilities.fire.Firewall;
@@ -81,6 +82,7 @@ public final class AbilityRegistry {
         // --- WATER : Balanced ---
         register(new WaterManipulation());
         register(new WaterSurf());
+        register(new WaterSphere());
     }
 
     public static void register(Ability ability) {

@@ -40,6 +40,7 @@ public class ServerEvents {
         if (event.getLevel() instanceof ServerLevel level) {
             com.minecraft.atlamod.abilities.water.WaterProjectiles.forgetLevel(level);
             com.minecraft.atlamod.abilities.HeldBlocks.forgetLevel(level);
+            com.minecraft.atlamod.abilities.water.WaterSpheres.forgetLevel(level);
         }
     }
     @SubscribeEvent
@@ -128,6 +129,7 @@ public class ServerEvents {
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
         }
     }
 
@@ -135,6 +137,7 @@ public class ServerEvents {
     public static void onPlayerDeath(net.neoforged.neoforge.event.entity.living.LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
         }
     }
     @SubscribeEvent

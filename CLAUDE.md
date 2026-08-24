@@ -333,7 +333,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
-- Water Balanced path started:
+- Water Balanced path COMPLETE:
   - Water Manipulation (look at a water SOURCE block and press the key to take hold of
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
     cooldown)
@@ -341,6 +341,21 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     air just above it so you
     can run across, with Speed I — Speed II via the "Swift Current" upgrade, 10 levels.
     10 chi/sec, 3 xp/sec, no cooldown. Must be started from in the water)
+  - Water Sphere (channeled; holds the water back in a 5-block sphere so oceans can be
+    walked through. Water closes in behind as the bender moves and the whole pocket
+    fills in on release. 2 chi/sec, 2 xp/sec, no cooldown)
+- **The sphere changes blocks WITHOUT neighbour updates** (`Block.UPDATE_CLIENTS`), which
+  is load-bearing. Emptying a block mid-ocean the ordinary way tells every neighbouring
+  water block to reconsider itself and they flow straight back in — the pocket would
+  fight the sea every tick and churn its whole boundary. Suppressing the update leaves
+  the surrounding water believing nothing happened.
+- Every emptied block is remembered so it can be put back; otherwise a bender could
+  drain an ocean by walking across the bottom of it. Restoring skips anything no longer
+  air, so building inside your own pocket survives. Closed on release, death, logout,
+  level unload and dimension change.
+- The outward scan only runs when the bender has actually moved to a new block (plus a
+  forced rescan each second for water arriving some other way), because it is ~1300
+  block lookups and a bender standing still has nothing to open.
 - **Surfing lays an invisible platform ABOVE the water, not ice in it.** `SurfPlatformBlock`
   is one sixteenth of a block tall, renders nothing (`RenderShape.INVISIBLE`) and has no
   outline, and sits in the AIR block over a water source — so the water is untouched and
