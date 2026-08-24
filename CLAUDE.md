@@ -175,7 +175,10 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   it; an unstacked one burns out on its own after 30s. Four blockstate variants map
   to two models — vanilla's `fire_0` and `soul_fire_0` textures on a `block/cross`.
 - **One place decides the colour**: `BendingFire.flame(data)` returns FLAME or
-  SOUL_FIRE_FLAME, and every ability calls that instead of naming a particle. Plain
+  SOUL_FIRE_FLAME. NOTHING names a flame particle directly any more — not the
+  abilities, and not the two per-tick visual blocks in `ServerEvents` (the Fire Whip
+  trail and the armed two-phase ball), which were missed the first time and stayed
+  orange under Blue Fire. Plain
   orange fire stays vanilla `Blocks.FIRE` so it keeps spreading as before; only blue
   fire uses the custom block, which does NOT spread.
 - **Blue Fire's damage boost is keyed on the ATTACKER**, in the

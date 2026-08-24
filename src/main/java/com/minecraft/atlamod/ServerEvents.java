@@ -305,7 +305,7 @@ public class ServerEvents {
                     double py = player.getY() + 1.2 + look.y * 1.5;
                     double pz = player.getZ() + look.z * 1.5;
 
-                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, px, py, pz, 2, 0.1, 0.1, 0.1, 0.02);
+                    serverLevel.sendParticles(com.minecraft.atlamod.abilities.BendingFire.flame(data), px, py, pz, 2, 0.1, 0.1, 0.1, 0.02);
                 }
             }
 
@@ -319,7 +319,7 @@ public class ServerEvents {
                     double py = player.getY() + 1.2 + look.y * 2.0;
                     double pz = player.getZ() + look.z * 2.0;
 
-                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
+                    serverLevel.sendParticles(com.minecraft.atlamod.abilities.BendingFire.flame(data),
                             px, py, pz, 10, 0.3, 0.3, 0.3, 0.05);
                 }
             }
