@@ -13,6 +13,14 @@ import com.minecraft.atlamod.abilities.fire.FireShield;
 import com.minecraft.atlamod.abilities.fire.FireSpikes;
 import com.minecraft.atlamod.abilities.fire.FireWhip;
 import com.minecraft.atlamod.abilities.fire.TallerFire;
+import com.minecraft.atlamod.abilities.air.AirAura;
+import com.minecraft.atlamod.abilities.air.AirCannon;
+import com.minecraft.atlamod.abilities.air.AirSplinters;
+import com.minecraft.atlamod.abilities.air.Wind;
+import com.minecraft.atlamod.abilities.air.WindTunnel;
+import com.minecraft.atlamod.abilities.air.AirJump;
+import com.minecraft.atlamod.abilities.air.AirPull;
+import com.minecraft.atlamod.abilities.air.AirScooter;
 import com.minecraft.atlamod.abilities.water.Drown;
 import com.minecraft.atlamod.abilities.water.Tsunami;
 import com.minecraft.atlamod.abilities.water.WaterBall;
@@ -91,6 +99,20 @@ public final class AbilityRegistry {
         register(new Drown());
         register(new WaterBreathing());
         register(new Tsunami());
+
+        // --- AIR : Defensive ---
+        register(new AirPull());
+        register(new AirJump());
+        register(new AirAura());
+        register(new Wind());
+
+        // --- AIR : Offensive ---
+        register(new AirSplinters());
+        register(new AirCannon());
+        register(new WindTunnel());
+
+        // --- AIR : Balanced ---
+        register(new AirScooter());
     }
 
     public static void register(Ability ability) {

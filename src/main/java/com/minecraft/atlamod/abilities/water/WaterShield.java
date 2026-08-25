@@ -67,12 +67,12 @@ public class WaterShield implements ChanneledAbility {
 
     /** 50 chi every 2 seconds, the same as Fire Shield. */
     @Override
-    public int getChiPerSecond() {
+    public int getChiPerSecond(BendingData data) {
         return 25;
     }
 
     @Override
-    public int getXpPerSecond() {
+    public double getXpPerSecond() {
         return 1;
     }
 
@@ -81,7 +81,7 @@ public class WaterShield implements ChanneledAbility {
      * spent on starting.
      */
     @Override
-    public int getMinimumChiToStart() {
+    public int getMinimumChiToStart(BendingData data) {
         return 200;
     }
 
@@ -91,7 +91,7 @@ public class WaterShield implements ChanneledAbility {
     }
 
     @Override
-    public boolean rootsPlayer() {
+    public boolean rootsPlayer(BendingData data) {
         return true;
     }
 

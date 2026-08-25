@@ -149,4 +149,35 @@ public class ClientEvents {
                     }
                 }
             }
+
+    /**
+     * Disorientation (Air pull): the victim's movement keys are reversed.
+     *
+     * Movement input exists ONLY on the client — the server sees the resulting motion,
+     * not which key produced it — so this is the one place the reversal can happen.
+     * The effect itself is held on the entity server-side and vanilla syncs it to the
+     * owning player's client, which is why simply asking hasEffect() here is enough
+     * and no packet of our own is needed.
+     *
+     * Both the impulses and the direction booleans are flipped. The impulses are what
+     * actually move the player; the booleans are what vanilla reads for things like
+     * "is this player trying to sprint forward", so leaving them alone would give a
+     * player who walks backwards but still sprints in the direction they pressed.
+     */
+    @SubscribeEvent
+    public static void onMovementInput(net.neoforged.neoforge.client.event.MovementInputUpdateEvent event) {
+        if (!event.getEntity().hasEffect(com.minecraft.atlamod.ModEffects.DISORIENTATION)) return;
+
+        net.minecraft.client.player.Input input = event.getInput();
+
+        input.forwardImpulse = -input.forwardImpulse;
+        input.leftImpulse = -input.leftImpulse;
+
+        boolean up = input.up;
+        boolean left = input.left;
+        input.up = input.down;
+        input.down = up;
+        input.left = input.right;
+        input.right = left;
+    }
     }

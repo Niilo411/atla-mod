@@ -5,6 +5,8 @@
   "item.atlamod.water_canteen": "Water Canteen",
   "block.atlamod.bending_fire": "Bending Fire",
 
+  "effect.atlamod.disorientation": "Disorientation",
+
   "atlamod.configuration.title": "Atla mod Configs",
   "atlamod.configuration.section.atlamod.common.toml": "Atla mod Configs",
   "atlamod.configuration.section.atlamod.common.toml.title": "Atla mod Configs",

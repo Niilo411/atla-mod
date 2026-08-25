@@ -106,9 +106,10 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Masterclass: Drown-20 (was "Water bubble" in the design doc), water breathing-0, Tsunami-35
 
 ### Air path (from design doc)
-- Defensive: Airpush-10, Air jump-5, Air Aura, Wind
+- Defensive: Air pull-10, Air jump-5, Air Aura, Wind (the design doc had "Airpush" here;
+  it and Balanced's "Air pull" were SWAPPED, so the two names still both exist)
 - Offensive: Air splinters-10, Air cannon-10, wind tunnel-15
-- Balanced: Air scooter-3s, Air pull-10, Air spout-10
+- Balanced: Air scooter-3s, Airpush-10, Air spout-10
 - Masterclass: breathless-10, Tornado-15, Flight-5s, Air beam-5s
 
 ### Earth path (from design doc)
@@ -457,12 +458,13 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `ServerEvents` used to draw flame for anything armed, which rendered a gathered body
   of water as fire — what is being held differs per ability, so the tick loop cannot
   get it right for all of them.
-- **Projectiles are tracked, not entities**: `WaterProjectiles` keeps shots in flight in
+- **Projectiles are tracked, not entities**: `BendingProjectiles` keeps shots in flight in
   a static list, advances them from `ServerTickEvent.Post`, and draws them purely with
   particles. A custom projectile entity would need its own `EntityType` and a client
   renderer — and an entity spawning without a renderer takes the client down, which is
   a bad thing to ship untested. A mass of water is better drawn as particles than as
-  any model anyway. Should serve Water Bullets and Air Cannon unchanged.
+  any model anyway. Now serves Air splinters too — see the Spec/Style notes further
+  down, added when it was generalised out of the water package.
   `LevelEvent.Unload` drops that level's shots, since nothing else holds them and a
   static list would otherwise keep a dead `ServerLevel` alive for the whole session.
 - Water Defensive path COMPLETE:
@@ -522,8 +524,229 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - **Held abilities take canteen water once per activation, not per tick.** The check
   lives in `startChannel` as well as `performCast`; per-tick draw would empty a full
   canteen in one second.
+- Air Defensive path COMPLETE:
+  - Air pull (the design doc's Defensive "Airpush", renamed — its name was SWAPPED with
+    Balanced's "Air pull", so Balanced #2 is now "Airpush" and nothing was lost. Both
+    slots still exist, only the two names traded places). Water push and Fire push
+    reversed: a 60-degree forward cone reaching 12 blocks that DRAGS everything in it
+    towards the bender and leaves it Disoriented for 5s. No damage at all — pure
+    control, like Water push. 100 chi, 10 xp, 2s cooldown. Pull speed SCALES with
+    distance (`0.35 + 0.07 * d`, capped at 1.1) because knockback is an impulse
+    decaying under drag: one flat value tuned for a target 3 blocks away leaves one at
+    12 blocks barely stirring. Targets already within 1.5 blocks are only disoriented,
+    or they'd be yanked straight through the bender and out the far side.
+  - Air jump (CHARGED 2s and FIRES ON RELEASE, like Fire blow — the whole point is
+    picking a height, so a charge that only paid out when full would waste 19 of the
+    20 blocks. 5 blocks at the shortest press up to 20 at a full hold, and ZERO fall
+    damage on the way down. 100 chi, 10 xp, no cooldown)
+  - Air Aura (channeled; a shell of racing wind that turns PROJECTILES aside and
+    cancels fall damage, but NOT melee — getting close enough to swing is how you
+    beat it. 5 chi/sec, 1 xp/sec, no cooldown, no cap. Roots the bender, until its
+    one upgrade "Buffeting Wind" (10 levels) adds melee protection AND frees them to
+    walk while it is up, and doubles the rate to 10 chi/sec. XP stays at 1/sec)
+  - Wind (one enormous gust across everything the bender can SEE — 20 blocks, one
+    heart each and 20 SECONDS of Slowness I. Hits players as well as mobs. 150 chi,
+    15 xp, 30s cooldown. The damage is a scratch; twenty seconds of Slowness on a
+    whole screenful at once is the actual weapon)
+- Air Offensive path COMPLETE:
+  - Air splinters (CHARGE 2s to gather, then SIX splinters loosed one per left click.
+    1.5 hearts each, 1s of Slowness I on hit, and they fly at 3.2 blocks/tick — faster
+    than anything else the mod throws. 50 chi, 5 xp, 10s cooldown from the LAST of the
+    six. Both held shapes at once, the way Fireball is, but with `getShots()` = 6 so
+    the slot stays armed until they are all spent)
+  - Air cannon (CHARGE 4s, then ONE shot for 7 hearts on a left click. Wide hit
+    radius of 1.2 so a blast that took four seconds to build does not need pinpoint
+    aim, and a full block of knockback. 100 chi, 10 xp, 10s cooldown from the shot.
+    The opposite trade to Air splinters beside it: six quick cuts, or one blow that
+    ends most things)
+  - wind tunnel (CHANNELED funnel of wind: everything in a 12-block cone in front is
+    shoved back, held at 5s of Slowness I, and worn down at 1 heart a SECOND. 10
+    chi/sec, 2 xp/sec, no cooldown, no cap. The damage is the least of it — nothing
+    caught in it can close the distance while it runs)
+- Air Balanced path IN PROGRESS:
+  - Air scooter (CHANNELED; a ball of air under the feet carrying the bender half a
+    block off the ground and a little faster than sprint-jumping. 5 chi/sec,
+    0.5 xp/sec, no cooldown, no cap)
+- **Air scooter is built ENTIRELY out of mechanics the CLIENT simulates**, and that is
+  the whole design. Holding a player at a height by setting their position server-side
+  is the rubber band that made Fire Rocket's old height cap feel awful. Nothing in the
+  scooter corrects the player at all — instead it is four vanilla mechanics the client
+  already knows how to run:
+  - a REAL invisible platform half a block above the ground carries them,
+  - a **step height** attribute bonus (+0.6, so 1.2 total) glides them up over a rise —
+    vanilla's own step-up is a smooth climb, not a hop, so it looks like the scooter
+    riding over the lip,
+  - **Slow Falling** gives the gentle drop when the ground falls away (and, usefully,
+    no fall damage),
+  - **Speed II** makes the ride quicker than running: ~7.9 blocks/sec sprinting against
+    ~7.1 for sprint-jumping.
+- **The step-height modifier is TRANSIENT** (`addTransientModifier`), so it is never
+  written to player NBT. A permanent one would need the same login-and-respawn safety
+  net Fire Rocket's flight flags do; this one cannot outlive the session however the
+  channel ends. Worth preferring for any future attribute an ability grants.
+- **The ground scan is deliberately SHALLOW** (4 blocks down). Ride off a cliff and
+  there is simply no footing to lay, so the bender drifts down under Slow Falling until
+  the ground is back within reach — which IS the slow descent the ability wants. A deep
+  scan would build a floor in mid-air over the drop instead.
+- **The scan skips the scooter's own platforms when looking for ground**, or each tick
+  would build on the last and walk the bender steadily up into the sky.
+- **`SurfPlatformBlock` now carries a `HEIGHT` property** (1 sixteenth for Water Surf's
+  waterline, 8 for the scooter's half block) rather than being duplicated into a second
+  invisible block. Same class, same `surf_platform` id — the name is now a little
+  narrower than what it does.
+- **`getXpPerSecond()` is a `double`, and XP is spread per tick like chi.** 0.5/sec is
+  not expressible as an int, so the dispatcher now differences a running total against
+  the CHANNEL's tick count (`xpForTick`) exactly the way `chiCostForTick` does — one XP
+  on the 40th tick of the channel and nothing on the 39 before it. Whole rates are
+  unchanged in total; they are simply trickled through the second instead of landing in
+  a lump on the 20th tick.
+- **Wind tunnel SETS the push velocity each tick, it does not add to it.** A force
+  added every tick accelerates without limit; a wind has a speed it pushes things at.
+  It falls off with distance (0.65 blocks/tick at the mouth down to 0.15 at 12), and
+  vertical motion is left ALONE — setting y every tick would hold the target hovering.
+  A target on the ground gets a skim of lift instead so it slides rather than grinds.
+- **Only players get `hurtMarked` after a shove.** A player's client owns their
+  movement and ignores server-side velocity unless it is pushed to them; a mob is
+  simulated on the server, so marking it just sends a motion packet every tick for
+  nothing. Worth copying for any future per-tick push over a whole cone.
+- **Its damage lands on an explicit one-second beat** (`getChannelTicks() % 20`), not
+  every tick. Per-tick hits would be spaced out by vanilla's invulnerability frames
+  anyway, but that is working by accident — and the accident stops holding the moment
+  another source of damage resets those frames.
+- **Slowness is topped up, not re-applied every tick.** Every `addEffect` sends an
+  update packet, so refreshing a whole cone of targets 20 times a second is pure noise
+  on the wire; wind tunnel only re-applies once the instance has dropped below 80 of
+  its 100 ticks. (For counter-driven effects, re-applying is worse than noisy — it
+  breaks them outright. See Water heal.)
+- **Air cannon takes the aim AFTER the wind-up**, like Fireball and Water ball, rather
+  than firing itself the moment the charge fills the way Fire spikes does. Four seconds
+  is a long time to hold a line on something that is moving, and the ability is a
+  single shot with nothing to show for a miss.
+- **An air shot's burst scales off its `hitRadius`.** That figure is already the mod's
+  measure of how big the thing is, so a splinter pops and a cannon round bursts without
+  needing a second Style or a separate size field. Water was left on its fixed figures
+  rather than being retuned for the sake of it.
+- **`WaterProjectiles` is now `abilities/BendingProjectiles`** — moved out of the water
+  package and made element-agnostic like `HeldBlocks`, since Air splinters, Air cannon
+  and wind tunnel all need it. Nothing in it knows what it is carrying.
+- **A shot is described by a `Spec` record**, declared once per ability as a constant,
+  rather than by eight positional arguments at the call site. It carries speed,
+  lifetime, damage, hit radius, knockback, a `Style` (WATER or AIR, which is the only
+  thing that differs in how it is drawn) and an optional on-hit effect.
+- **The on-hit effect is a `Supplier<MobEffectInstance>`, not an instance.** A
+  MobEffectInstance carries its own countdown once applied, so one shared between six
+  hits would be six references to the same ticking object.
+- **Shots now sweep their path instead of only testing the far end.** A tick's
+  movement is walked in steps of at most 0.9 blocks, checking blocks and entities at
+  each. Air splinters cross over 3 blocks a tick, which under the old single test at
+  the destination would step clean through a wall — and past anything standing in
+  front of it — without either ever being tested. This also fixes the same latent hole
+  in Water Bullets, which travel 2.6.
+- **"On your screen" is implemented as a view cone PLUS a line-of-sight check.**
+  The cone is `dot >= 0.4`, about 66 degrees — deliberately WIDER than the real view
+  frustum (Minecraft's default 70-degree vertical FOV is ~106 across on a widescreen,
+  so ~53 degrees half angle), because something at the very edge of the screen should
+  be caught rather than feel unfairly missed, and the player's FOV slider is a client
+  preference the server cannot see. `player.hasLineOfSight` is what stops the gust
+  going through terrain and hitting things in the cave below.
+- **Wind uses `indirectMagic`, not the vanilla `wind_charge` damage type**, tempting
+  as the latter was. `wind_charge` is in the `is_projectile` tag, which would make
+  Wind reducible by Projectile Protection and blockable by our own Air Aura.
+  `indirectMagic` also bypasses armour, so its flat one heart is one heart on a geared
+  target, and it stays clear of the tags other abilities key off.
+- **`ChanneledAbility.blocks(data, source)` is the finer-grained `grantsInvulnerability`.**
+  The old all-or-nothing boolean could not express "arrows yes, swords no, and yes to
+  fall damage as well", so `AbilityHandler.blocksDamage` now asks the ability per
+  damage source. The DEFAULT reproduces the old behaviour exactly — everything except
+  `IS_FALL` — so Fire Shield and Water Shield are untouched and still only override
+  `grantsInvulnerability()`. `BYPASSES_INVULNERABILITY` (the void, `/kill`) is still
+  handled by the dispatcher and no ability gets a say in it.
+- **`getChiPerSecond()` now takes the player's `BendingData`**, along with the two
+  figures derived from it (`getMaxChiPerTick`, `getMinimumChiToStart`), because a
+  channel's rate can depend on what the player owns: Air Aura costs 5 chi/sec, and 10
+  once Buffeting Wind is bought. Every other channel just ignores the argument. Done
+  as a signature change rather than an overload with a default, so there is only ever
+  one answer to "what does this cost" and no pair of methods that can disagree.
+- **`rootsPlayer()` now takes the player's `BendingData`**, because rooting can be
+  conditional: Air Aura pins the bender until Buffeting Wind is bought and then lets
+  them move. The two shields just ignore the argument.
+- **Air Aura's upgrade TRADES the hole in the defence for mobility rather than only
+  adding to it.** A defence that stopped everything AND let you walk AND cost 5 chi a
+  second would have nothing left to pay; dropping the root is what the melee coverage
+  is bought with, and the rate doubles on top of that.
+- **Melee is "has an attacker behind it and did not fly there"** — an attacker entity,
+  not `IS_PROJECTILE`, not `IS_EXPLOSION`. That covers swords, zombie fists and thorns
+  while leaving TNT out, since sheltering from an arrow is no reason to shelter from a
+  blast. Everything with no attacker at all (fire, lava, drowning, poison, suffocation)
+  lands normally: the aura is a shell against things aimed at you, not a bubble.
+- **A blocked projectile still ARRIVES** — the damage event is cancelled, so the arrow
+  deals nothing and imparts no knockback, but it still flies to the player and sticks.
+  Actually deflecting projectiles would mean catching them as entities in `onTick`,
+  which is a separate job from cancelling their damage.
+- Air Aura is deliberately cheap (5 chi/sec against the shields' 25) and has no
+  duration cap, so a 500-chi bender holds the base version for about 100 seconds — chi
+  regen is re-delayed every tick by the channel, so it drains at the full rate
+  throughout and never refills while up. The doubled rate is what stops the upgraded
+  version being a free walking immunity: 10/sec halves that to ~50 seconds at level 0,
+  and it is the ONLY brake, since there is still no cooldown and no cap. If it ever
+  needs another, `getMaxDurationTicks()` is the remaining lever.
+- **Air jump solves for its launch velocity instead of lerping it.** Height is not
+  proportional to launch speed — drag means doubling the speed more than doubles the
+  climb (0.42 -> 1.25 blocks, 1.0 -> 5.9, 2.0 -> 20.0) — so lerping the VELOCITY
+  between two hand-picked values would land "half charged" well short of half height.
+  It lerps the HEIGHT and binary-searches `peakOf()`, which just runs vanilla's own
+  `v = (v - 0.08) * 0.98` step, for the speed that reaches it. That is what makes the
+  block count it shows on the action bar while charging true.
+- **The charge scale is measured from `getMinimumChargeTicks()`, not from zero.**
+  Anything below the minimum never fires, so scaling from zero would make the smallest
+  jump the ability can actually produce come out ABOVE its stated 5-block floor.
+- **Air jump's fall protection is TWO guards, and the fallDistance one is the real
+  one.** Cancelling `LivingFallEvent` alone was not enough in practice: it only works
+  if the protection window is still open at the exact moment the landing is processed,
+  and that is a tick-ordering question — `serverlevel.tick()` (where `AirJump.tick`
+  runs, via `PlayerTickEvent.Post`) happens BEFORE `getConnection().tick()`, which is
+  where a player's movement and therefore their landing and fall damage are handled.
+  Holding `player.fallDistance` at zero every tick of the flight needs no such
+  assumption: fall damage is computed from that banked distance, so there is nothing
+  to convert into damage whichever tick notices the landing. The event cancel stays
+  as the second guard, because it is also what suppresses the landing thud and dust.
+- **The window closes on "has actually left the ground", not on a grace period.**
+  `BendingData.airJumpLeftGround` is set the first tick the server sees the player
+  airborne, and only then can touching down close the window. A timer-based grace was
+  guessing at how long the client takes to apply the launch; this waits for it. A jump
+  that never gets airborne at all (cast under a low ceiling) is dropped after
+  `LAUNCH_TIMEOUT`, so it can't sit on free fall protection either.
+- **`AIR_TIME` (400 ticks) is the backstop** — if a landing is somehow never seen at
+  all, the protection expires by itself rather than lasting the session. The flags are
+  transient, so a relog clears them regardless.
+- Air jump can be cast in MID-AIR, which chains: nothing checks for ground. Chi is the
+  only limit (100 a jump against `500 + level*100`), and it is very much an airbender
+  thing to do — but it is a deliberate choice, not an oversight, and one `canStart`
+  returning `player.onGround()` would close it.
+- **Disorientation is the mod's first real MobEffect** (`ModEffects` +
+  `DisorientationEffect`, a `DeferredRegister<MobEffect>` on `Registries.MOB_EFFECT`
+  registered from the Atlamod constructor). Nothing in vanilla reverses a player's
+  controls, so it could not be a repurposed vanilla effect — and registering it
+  properly buys the whole status-effect UI for free: inventory icon, timer, particles,
+  and automatic syncing to the affected player's client.
+- **The effect class itself holds NO behaviour, deliberately.** Movement input exists
+  only on the CLIENT — the server sees the resulting motion, not which key produced it
+  — so the reversal is done in `ClientEvents.onMovementInput`
+  (`MovementInputUpdateEvent`, NeoForge game bus, client only), which just asks
+  `hasEffect(DISORIENTATION)`. Vanilla already syncs the effect to the owning client,
+  so no packet of our own is needed. Any future "changes how the player controls"
+  effect should follow the same split.
+- **Both the impulses AND the direction booleans are flipped.** `forwardImpulse` /
+  `leftImpulse` are what actually move the player, but `Input.up/down/left/right` are
+  what vanilla reads for things like sprint detection — flipping only the impulses
+  gives a player who walks backwards while still sprinting the way they pressed.
+- **Mobs receive Disorientation but are unaffected by it** — they have no keys to
+  reverse. Air pull applies it to everything it catches anyway, so the effect shows on
+  them and future logic can key off it.
+- A registered MobEffect needs `assets/atlamod/textures/mob_effect/<name>.png` (18x18)
+  or the inventory shows the magenta checkerboard — same trap as the element icons.
 - **FIRE IS COMPLETE — all 16 abilities across all 4 paths.**
-- **WATER IS COMPLETE — all 12 abilities across all 4 paths.** 26 left across
+- **WATER IS COMPLETE — all 12 abilities across all 4 paths.** 18 left across
   Air/Earth × 4 paths
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size

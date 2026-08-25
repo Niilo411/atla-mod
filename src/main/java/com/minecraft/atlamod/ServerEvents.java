@@ -22,12 +22,12 @@ import static com.mojang.brigadier.arguments.StringArgumentType.word;
 public class ServerEvents {
 
     /**
-     * Advances water in flight. These are tracked in a static list rather than being
-     * real entities, so nothing else ticks them.
+     * Advances everything in flight. These are tracked in a static list rather than
+     * being real entities, so nothing else ticks them.
      */
     @SubscribeEvent
     public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
-        com.minecraft.atlamod.abilities.water.WaterProjectiles.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.BendingProjectiles.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Drownings.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Tsunamis.tickAll(event.getServer());
     }
@@ -40,7 +40,7 @@ public class ServerEvents {
     @SubscribeEvent
     public static void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
-            com.minecraft.atlamod.abilities.water.WaterProjectiles.forgetLevel(level);
+            com.minecraft.atlamod.abilities.BendingProjectiles.forgetLevel(level);
             com.minecraft.atlamod.abilities.HeldBlocks.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.WaterSpheres.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.Drownings.forgetLevel(level);
@@ -238,6 +238,30 @@ public class ServerEvents {
                     data.getLevel(),
                     data.getCurrentChi()
             ));
+        }
+    }
+
+    /**
+     * Air Jump: no fall damage while its window is open.
+     *
+     * Cancelled at LivingFallEvent rather than at the damage event, because
+     * cancelling here also suppresses the landing sound and the puff of dust —
+     * a bender who steps out of a 20 block drop should not thud like a sack.
+     *
+     * This is the second of two guards, and deliberately not the only one. It relies
+     * on the window still being open at the exact moment the landing is processed,
+     * and that depends on tick ordering: the world ticks (where AirJump.tick runs)
+     * BEFORE the connection tick (where a player's movement, and so their landing, is
+     * handled). AirJump.tick also holds the player's fallDistance at zero for the
+     * whole flight, which needs no such assumption.
+     */
+    @SubscribeEvent
+    public static void onLivingFall(net.neoforged.neoforge.event.entity.living.LivingFallEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        BendingData data = player.getData(ModAttachments.BENDING_DATA);
+        if (data.getAirJumpTicks() > 0) {
+            event.setCanceled(true);
         }
     }
 
@@ -449,6 +473,13 @@ public class ServerEvents {
             // than a channel, so nothing has to be held down for it to keep falling.
             if (data.getFireRainTicks() > 0) {
                 com.minecraft.atlamod.abilities.fire.FireRain.tick(player, data);
+            }
+
+            // --- AIR JUMP TICK ---
+            // Runs the fall-protection window and ends it on landing. Same shape as
+            // Fire Leap and Fire Rain: cast once, then a countdown on the data.
+            if (data.getAirJumpTicks() > 0) {
+                com.minecraft.atlamod.abilities.air.AirJump.tick(player, data);
             }
         }
     }

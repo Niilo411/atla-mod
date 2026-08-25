@@ -41,12 +41,12 @@ public class WaterSphere implements ChanneledAbility {
     }
 
     @Override
-    public int getChiPerSecond() {
+    public int getChiPerSecond(BendingData data) {
         return 2;
     }
 
     @Override
-    public int getXpPerSecond() {
+    public double getXpPerSecond() {
         return 2;
     }
 

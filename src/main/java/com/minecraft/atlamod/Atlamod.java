@@ -95,6 +95,7 @@ public class Atlamod {
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
     public Atlamod(IEventBus modEventBus, ModContainer modContainer) {
         ModAttachments.register(modEventBus);
+        ModEffects.register(modEventBus);
 
         // Populate the ability registry once, before any packet can dispatch a cast.
         com.minecraft.atlamod.abilities.AbilityRegistry.bootstrap();

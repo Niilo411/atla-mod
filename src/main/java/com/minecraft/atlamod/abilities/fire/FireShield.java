@@ -47,7 +47,7 @@ public class FireShield implements ChanneledAbility {
 
     /** 50 chi every 2 seconds. */
     @Override
-    public int getChiPerSecond() {
+    public int getChiPerSecond(BendingData data) {
         return 25;
     }
 
@@ -56,12 +56,12 @@ public class FireShield implements ChanneledAbility {
      * spent on starting. Below that the shield simply refuses.
      */
     @Override
-    public int getMinimumChiToStart() {
+    public int getMinimumChiToStart(BendingData data) {
         return 200;
     }
 
     @Override
-    public int getXpPerSecond() {
+    public double getXpPerSecond() {
         return 1;
     }
 
@@ -72,7 +72,7 @@ public class FireShield implements ChanneledAbility {
 
     /** Holds the bender in place: a shield is a stance, not something you walk with. */
     @Override
-    public boolean rootsPlayer() {
+    public boolean rootsPlayer(BendingData data) {
         return true;
     }
 

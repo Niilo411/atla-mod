@@ -36,6 +36,12 @@ public class WaterBullets implements TwoPhaseAbility {
     private static final double HIT_RADIUS = 0.8;
     private static final double KNOCKBACK = 0.35;
 
+    /** One shot of this ability, as the shared projectile system wants it. */
+    private static final com.minecraft.atlamod.abilities.BendingProjectiles.Spec SHOT =
+            new com.minecraft.atlamod.abilities.BendingProjectiles.Spec(
+                    SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK,
+                    com.minecraft.atlamod.abilities.BendingProjectiles.Style.WATER);
+
     @Override
     public String getName() {
         return "Water Bullets";
@@ -113,7 +119,7 @@ public class WaterBullets implements TwoPhaseAbility {
         Vec3 look = player.getLookAngle();
         Vec3 from = player.getEyePosition().add(look.scale(0.8));
 
-        WaterProjectiles.launch(player, from, look, SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK);
+        com.minecraft.atlamod.abilities.BendingProjectiles.launch(player, from, look, SHOT);
 
         // Pitch climbs as the ammunition runs down, so the last shot is audibly the last.
         float pitch = 1.0F + (0.2F * (SHOTS - data.getTwoPhaseShots()));

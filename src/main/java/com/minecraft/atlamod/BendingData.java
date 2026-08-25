@@ -92,6 +92,29 @@ public class BendingData {
     public int getFireRainTicks() { return fireRainTicks; }
     public void setFireRainTicks(int ticks) { this.fireRainTicks = Math.max(0, ticks); }
 
+    // --- AIR JUMP ---
+    // Ticks left of the window in which the bender is protected from fall damage.
+    // A countdown rather than a plain boolean for two reasons: the flag has to
+    // survive the few ticks between the server applying the launch velocity and the
+    // client reporting that it has left the ground, and if a landing is somehow
+    // never seen, the protection expires on its own instead of lasting forever.
+    private transient int airJumpTicks = 0;
+
+    /**
+     * Whether the jump has actually got the player off the ground yet. The server
+     * applies the launch velocity, but the CLIENT is what moves the player and
+     * reports back, so for the first few ticks the server still sees them standing
+     * where they were — and a window that closed on "touching the ground" would
+     * close on the launch itself before the jump had begun.
+     */
+    private transient boolean airJumpLeftGround = false;
+
+    public int getAirJumpTicks() { return airJumpTicks; }
+    public void setAirJumpTicks(int ticks) { this.airJumpTicks = Math.max(0, ticks); }
+
+    public boolean hasAirJumpLeftGround() { return airJumpLeftGround; }
+    public void setAirJumpLeftGround(boolean left) { this.airJumpLeftGround = left; }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {

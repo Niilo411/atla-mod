@@ -36,6 +36,12 @@ public class WaterBall implements ChargedAbility, TwoPhaseAbility {
     /** Enough of a shove to break someone off, well short of Water push. */
     private static final double KNOCKBACK = 0.55;
 
+    /** One shot of this ability, as the shared projectile system wants it. */
+    private static final com.minecraft.atlamod.abilities.BendingProjectiles.Spec SHOT =
+            new com.minecraft.atlamod.abilities.BendingProjectiles.Spec(
+                    SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK,
+                    com.minecraft.atlamod.abilities.BendingProjectiles.Style.WATER);
+
     @Override
     public String getName() {
         return "Water ball";
@@ -131,7 +137,7 @@ public class WaterBall implements ChargedAbility, TwoPhaseAbility {
         // Launched a little ahead of the eyes so it does not clip the caster.
         Vec3 from = player.getEyePosition().add(look.scale(0.8));
 
-        WaterProjectiles.launch(player, from, look, SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK);
+        com.minecraft.atlamod.abilities.BendingProjectiles.launch(player, from, look, SHOT);
 
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.2F, 0.9F);

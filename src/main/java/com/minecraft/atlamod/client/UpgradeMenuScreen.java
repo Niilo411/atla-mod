@@ -424,7 +424,7 @@ public class UpgradeMenuScreen extends Screen {
         return switch (element.toLowerCase()) {
             case "fire" -> new String[]{"Fire push", "Fire shield", "Firewall", "Fire ring"};
             case "water" -> new String[]{"Water shield", "Water push", "Water heal"};
-            case "air" -> new String[]{"Airpush", "Air jump", "Air Aura", "Wind"};
+            case "air" -> new String[]{"Air pull", "Air jump", "Air Aura", "Wind"};
             case "earth" -> new String[]{"Earth wall", "Earth pillar", "Earth armor"};
             default -> new String[0];
         };
@@ -435,7 +435,7 @@ public class UpgradeMenuScreen extends Screen {
         return switch (element.toLowerCase()) {
             case "fire" -> new String[]{"Ignite", "Fire spikes", "Fire rocket", "Taller fire"};
             case "water" -> new String[]{"Water Manipulation", "Water Surf", "Water Sphere"};
-            case "air" -> new String[]{"Air scooter", "Air pull", "Air spout"};
+            case "air" -> new String[]{"Air scooter", "Airpush", "Air spout"};
             case "earth" -> new String[]{"Mine", "Earth dig", "Earth grab"};
             default -> new String[0];
         };

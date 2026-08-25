@@ -46,6 +46,12 @@ public class WaterStream implements TwoPhaseAbility {
     private static final double HIT_RADIUS = 1.1;
     private static final double KNOCKBACK = 0.4;
 
+    /** One shot of this ability, as the shared projectile system wants it. */
+    private static final com.minecraft.atlamod.abilities.BendingProjectiles.Spec SHOT =
+            new com.minecraft.atlamod.abilities.BendingProjectiles.Spec(
+                    SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK,
+                    com.minecraft.atlamod.abilities.BendingProjectiles.Style.WATER);
+
     @Override
     public String getName() {
         return "Water stream";
@@ -138,7 +144,7 @@ public class WaterStream implements TwoPhaseAbility {
         Vec3 look = player.getLookAngle();
         Vec3 from = player.getEyePosition().add(look.scale(0.8));
 
-        WaterProjectiles.launch(player, from, look, SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK);
+        com.minecraft.atlamod.abilities.BendingProjectiles.launch(player, from, look, SHOT);
 
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.4F, 1.2F);

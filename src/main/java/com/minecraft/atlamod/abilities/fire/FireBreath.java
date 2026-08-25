@@ -36,7 +36,7 @@ public class FireBreath implements ChanneledAbility {
     }
 
     @Override
-    public int getChiPerSecond() {
+    public int getChiPerSecond(BendingData data) {
         return 25;
     }
 
@@ -53,7 +53,7 @@ public class FireBreath implements ChanneledAbility {
     }
 
     @Override
-    public int getXpPerSecond() {
+    public double getXpPerSecond() {
         return 2;
     }
 

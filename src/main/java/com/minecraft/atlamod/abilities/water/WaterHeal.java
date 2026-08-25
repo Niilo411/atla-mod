@@ -95,12 +95,12 @@ public class WaterHeal implements ChanneledAbility {
     }
 
     @Override
-    public int getChiPerSecond() {
+    public int getChiPerSecond(BendingData data) {
         return 15;
     }
 
     @Override
-    public int getXpPerSecond() {
+    public double getXpPerSecond() {
         return 7;
     }
 

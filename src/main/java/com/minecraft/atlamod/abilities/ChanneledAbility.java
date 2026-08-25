@@ -20,11 +20,11 @@ public interface ChanneledAbility extends Ability {
      * = 1.25/tick) still drain smoothly and add up exactly over each second.
      * Channeling stops when the player can't afford the next tick.
      */
-    int getChiPerSecond();
+    int getChiPerSecond(BendingData data);
 
     /** Most chi a single tick of this channel can cost. The default start floor. */
-    default int getMaxChiPerTick() {
-        return (getChiPerSecond() + 19) / 20;
+    default int getMaxChiPerTick(BendingData data) {
+        return (getChiPerSecond(data) + 19) / 20;
     }
 
     /**
@@ -34,8 +34,8 @@ public interface ChanneledAbility extends Ability {
      * running the channel keeps going below this figure until chi actually runs
      * out. Defaults to a single tick's worth, i.e. "enough to run at all".
      */
-    default int getMinimumChiToStart() {
-        return getMaxChiPerTick();
+    default int getMinimumChiToStart(BendingData data) {
+        return getMaxChiPerTick(data);
     }
 
     /**
@@ -66,14 +66,34 @@ public interface ChanneledAbility extends Ability {
     }
 
     /**
+     * Whether this particular damage should be cancelled while the channel runs.
+     *
+     * The finer-grained form of grantsInvulnerability, for shields that stop some
+     * things and not others — Air Aura turns arrows aside but lets a sword through
+     * until its upgrade is bought. The default is the blanket behaviour the two
+     * full shields want: everything except fall damage, which is the ground rather
+     * than something coming AT the player.
+     *
+     * Damage tagged BYPASSES_INVULNERABILITY (the void, /kill) never reaches here —
+     * AbilityHandler#blocksDamage lets that through whatever an ability says.
+     */
+    default boolean blocks(BendingData data, net.minecraft.world.damagesource.DamageSource source) {
+        if (!grantsInvulnerability()) return false;
+        return !source.is(net.minecraft.tags.DamageTypeTags.IS_FALL);
+    }
+
+    /**
      * Whether the player is held in place while this channel runs (both shields).
      *
      * Rooting is done on the server AND on the client. Zeroing motion server-side
      * alone would leave the client still trying to walk and being corrected every
      * tick, which rubber-bands; the client is told to stop taking movement input so
      * the two agree.
+     *
+     * Takes the player's data because rooting can be conditional: Air Aura pins the
+     * bender until its melee upgrade is bought, and then lets them walk.
      */
-    default boolean rootsPlayer() {
+    default boolean rootsPlayer(BendingData data) {
         return false;
     }
 
@@ -89,7 +109,7 @@ public interface ChanneledAbility extends Ability {
     }
 
     /** XP trickled once per second while channeling. 0 for none. */
-    default int getXpPerSecond() {
+    default double getXpPerSecond() {
         return 0;
     }
 

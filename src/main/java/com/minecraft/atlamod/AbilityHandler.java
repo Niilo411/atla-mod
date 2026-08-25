@@ -252,7 +252,7 @@ public class AbilityHandler {
 
         // A gate, not a cost: nothing is deducted for meeting it, and the channel
         // keeps running below this figure once it is up.
-        int requiredChi = ability.getMinimumChiToStart();
+        int requiredChi = ability.getMinimumChiToStart(data);
         if (data.getCurrentChi() < requiredChi) {
             player.displayClientMessage(Component.literal(
                     "§cNot enough Chi! (Requires " + requiredChi + ")"), true);
@@ -269,7 +269,7 @@ public class AbilityHandler {
         data.setActiveChanneledAbility(ability.getKey());
         data.setChannelTicks(0);
         ability.onStart(player, data);
-        setRooted(player, ability.rootsPlayer());
+        setRooted(player, ability.rootsPlayer(data));
         AbilitySupport.syncData(player, data);
     }
 
@@ -324,7 +324,7 @@ public class AbilityHandler {
             return;
         }
 
-        int chiThisTick = chiCostForTick(channeled, player.tickCount);
+        int chiThisTick = chiCostForTick(channeled, data, player.tickCount);
         if (data.getCurrentChi() < chiThisTick) {
             stopChannel(player, data, channeled);
             return;
@@ -332,12 +332,9 @@ public class AbilityHandler {
 
         data.consumeChi(chiThisTick);
 
-        // Trickle XP once per second, same cadence as Meditate.
-        if (player.tickCount % 20 == 0) {
-            AbilitySupport.grantXp(data, channeled.getXpPerSecond());
-        }
+        AbilitySupport.grantXp(data, xpForTick(channeled, data));
 
-        if (channeled.rootsPlayer()) holdStill(player);
+        if (channeled.rootsPlayer(data)) holdStill(player);
         channeled.onTick(player, data);
         data.setChannelTicks(data.getChannelTicks() + 1);
 
@@ -357,10 +354,28 @@ public class AbilityHandler {
      * getChiPerSecond(), while individual ticks alternate (25/sec spends 1 chi on
      * fifteen ticks and 2 chi on five). The chi bar still drains smoothly.
      */
-    private static int chiCostForTick(ChanneledAbility ability, int tick) {
-        long rate = ability.getChiPerSecond();
+    private static int chiCostForTick(ChanneledAbility ability, BendingData data, int tick) {
+        long rate = ability.getChiPerSecond(data);
         long t = Math.max(0, tick);
         return (int) ((rate * (t + 1)) / 20L - (rate * t) / 20L);
+    }
+
+    /**
+     * How much XP this particular tick of a channel earns.
+     *
+     * The same differencing trick as chi, and for the same reason: rates are authored
+     * per second but paid per tick. It runs off the CHANNEL's own tick count rather
+     * than the player's, which is what lets a rate below 1 work at all — Air scooter
+     * earns 0.5 a second, meaning one XP on the 40th tick of the channel and nothing
+     * on the 39 before it. A rate of 2 still totals 2 over any second; it is simply
+     * trickled through the second now instead of landing in a lump.
+     */
+    private static int xpForTick(ChanneledAbility ability, BendingData data) {
+        double rate = ability.getXpPerSecond();
+        if (rate <= 0.0) return 0;
+
+        long t = Math.max(0, data.getChannelTicks());
+        return (int) (Math.floor(rate * (t + 1) / 20.0) - Math.floor(rate * t / 20.0));
     }
 
     /**
@@ -368,26 +383,23 @@ public class AbilityHandler {
      * Consulted by the LivingIncomingDamageEvent handler in ServerEvents.
      *
      * Kept here rather than in ServerEvents so the answer stays driven by the
-     * registry: any future channel (Water Shield, Earth Armor) gets this for free
-     * by overriding grantsInvulnerability().
+     * registry: any future channel (Earth Armor) gets this for free by overriding
+     * grantsInvulnerability, or ChanneledAbility#blocks when it needs to be choosier
+     * about what it stops.
      */
     public static boolean blocksDamage(BendingData data, DamageSource source) {
         if (!data.isChanneling()) return false;
 
         Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
-        if (!(ability instanceof ChanneledAbility channeled) || !channeled.grantsInvulnerability()) {
-            return false;
-        }
+        if (!(ability instanceof ChanneledAbility channeled)) return false;
 
-        // A bending shield stops what's coming AT the player. It is not a reason to
-        // survive the ground or the bottom of the world, so these always land:
-        //   IS_FALL                  — fall damage (and stalagmites)
-        //   BYPASSES_INVULNERABILITY — the void, and /kill, which should still work
-        //                              on a shielded player
-        if (source.is(DamageTypeTags.IS_FALL)) return false;
+        // The one thing no shield gets a say in. BYPASSES_INVULNERABILITY is the void
+        // and /kill, which should still work on a player holding anything at all.
         if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
 
-        return true;
+        // Everything else is the ability's own call. The default still lets fall
+        // damage through, so the two full shields are unchanged.
+        return channeled.blocks(data, source);
     }
 
     /**

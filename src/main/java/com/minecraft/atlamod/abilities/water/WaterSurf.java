@@ -69,12 +69,12 @@ public class WaterSurf implements ChanneledAbility {
     }
 
     @Override
-    public int getChiPerSecond() {
+    public int getChiPerSecond(BendingData data) {
         return 10;
     }
 
     @Override
-    public int getXpPerSecond() {
+    public double getXpPerSecond() {
         return 3;
     }
 
@@ -143,7 +143,9 @@ public class WaterSurf implements ChanneledAbility {
      * a pond it happens to be passing above.
      */
     private static void layFooting(ServerPlayer player, ServerLevel level) {
-        BlockState platform = Atlamod.SURF_PLATFORM.get().defaultBlockState();
+        BlockState platform = Atlamod.SURF_PLATFORM.get().defaultBlockState()
+                .setValue(com.minecraft.atlamod.SurfPlatformBlock.HEIGHT,
+                        com.minecraft.atlamod.SurfPlatformBlock.SURF_HEIGHT);
         BlockPos feet = player.blockPosition();
 
         for (BlockPos water : BlockPos.betweenClosed(
