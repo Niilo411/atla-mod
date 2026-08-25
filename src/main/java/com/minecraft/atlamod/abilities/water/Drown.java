@@ -8,9 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -146,41 +144,8 @@ public class Drown implements ChargedAbility {
         }
     }
 
-    /**
-     * The living thing nearest the bender's line of sight.
-     *
-     * Picked by distance from the aim line rather than by a raycast, so a cast does
-     * not need to be pixel-perfect on something that is moving.
-     */
+    /** The nearest living thing along the bender's line of sight. See Aiming. */
     private static LivingEntity findVictim(ServerPlayer player) {
-        if (!(player.level() instanceof ServerLevel level)) return null;
-
-        Vec3 eye = player.getEyePosition();
-        Vec3 look = player.getLookAngle();
-
-        AABB search = new AABB(eye, eye).inflate(REACH);
-        LivingEntity best = null;
-        double bestAlong = Double.MAX_VALUE;
-
-        for (Entity candidate : level.getEntities(player, search)) {
-            if (!(candidate instanceof LivingEntity living) || !living.isAlive()) continue;
-
-            Vec3 toTarget = living.position().add(0.0, living.getBbHeight() * 0.5, 0.0).subtract(eye);
-
-            double along = toTarget.dot(look);
-            if (along <= 0.0 || along > REACH) continue;
-
-            double offLine = toTarget.subtract(look.scale(along)).length();
-            if (offLine > AIM_TOLERANCE) continue;
-
-            // Nearest one on the line wins, so a bender hits what is in front rather
-            // than something behind it that happens to be better aligned.
-            if (along < bestAlong) {
-                bestAlong = along;
-                best = living;
-            }
-        }
-
-        return best;
+        return com.minecraft.atlamod.abilities.Aiming.nearestAlongLook(player, REACH, AIM_TOLERANCE);
     }
 }

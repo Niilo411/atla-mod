@@ -8,52 +8,37 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Invisible footing, laid under a bender for as long as they need it and gone
- * straight after.
+ * The invisible footing under a surfing waterbender.
  *
- * Written for Water Surf, where freezing the water would work but plainly looks like
- * ice: this sits in the AIR block above the surface instead, so the water underneath
- * stays exactly as it was and visible. Air Scooter uses the same block for the same
- * underlying reason — a REAL block carries the player, so the client walks on it
- * normally and there is nothing for the server to correct.
+ * Freezing the water would work, but it looks like ice rather than like running on
+ * water. Instead this sits in the AIR block directly above the surface, so the water
+ * underneath stays exactly as it was and visible — nothing is replaced, and there is
+ * no ice to see.
  *
- * The two want different heights, which is what {@link #HEIGHT} is for: a sliver for
- * surfing, which puts the walking surface within a couple of pixels of the waterline,
- * and half a block for the scooter, which is exactly the height it hovers at. It
- * renders nothing either way, and removes itself on a scheduled tick so a bender
- * leaves no trail behind them.
+ * It is only a sliver tall, which puts the walking surface within a couple of pixels
+ * of the waterline, and it renders nothing at all. It removes itself on a scheduled
+ * tick, so a bender leaves no trail behind them.
  */
 public class SurfPlatformBlock extends Block {
 
-    /** Height in sixteenths. Only the two values the abilities actually use exist. */
-    public static final IntegerProperty HEIGHT = IntegerProperty.create("height", 1, 8);
-
-    /** One sixteenth: Water Surf, riding the waterline. */
-    public static final int SURF_HEIGHT = 1;
-
-    /** Eight sixteenths: Air Scooter, hovering half a block up. */
-    public static final int SCOOTER_HEIGHT = 8;
+    /**
+     * One sixteenth of a block. Standing on it puts the bender fractionally above the
+     * waterline, which is far less noticeable than standing a whole block up would be.
+     */
+    private static final VoxelShape SHAPE = Block.box(0.0, 0.0, 0.0, 16.0, 1.0, 16.0);
 
     /** Ticks before it goes. Long enough to run on, short enough to feel like a wake. */
     private static final int LIFETIME = 20;
 
     public SurfPlatformBlock(Properties properties) {
         super(properties);
-        this.registerDefaultState(this.stateDefinition.any().setValue(HEIGHT, SURF_HEIGHT));
     }
 
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(HEIGHT);
-    }
-
-    /** Never drawn: the point is that the player sees water or air, not a platform. */
+    /** Never drawn: the point is that the player sees water, not a platform. */
     @Override
     protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.INVISIBLE;
@@ -61,7 +46,7 @@ public class SurfPlatformBlock extends Block {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return Block.box(0.0, 0.0, 0.0, 16.0, state.getValue(HEIGHT), 16.0);
+        return SHAPE;
     }
 
     /** No outline either, or an invisible block would still light up when looked at. */

@@ -41,7 +41,23 @@ public class AbilityHandler {
         if (ability instanceof ChanneledAbility || ability instanceof ChargedAbility
                 || ability instanceof PassiveAbility) return;
 
+        dismountScooter(player, ability);
         performCast(player, data, ability);
+    }
+
+    /**
+     * Casting anything else gets you off the Air Scooter first.
+     *
+     * Chosen over refusing the cast: bending from a scooter would mean bending while
+     * seated on a moving entity the server is steering, which is a lot of surface for
+     * odd interactions (rooting channels that cannot root a passenger, flight abilities
+     * fighting the seat), while blocking abilities outright risks a player who feels
+     * stuck and cannot work out why nothing fires. Stepping off is unambiguous, and
+     * the scooter is free to get back onto.
+     */
+    private static void dismountScooter(ServerPlayer player, Ability ability) {
+        if (ability instanceof com.minecraft.atlamod.abilities.air.AirScooter) return;
+        com.minecraft.atlamod.abilities.air.AirScooters.stop(player);
     }
 
     /**
@@ -52,6 +68,17 @@ public class AbilityHandler {
      * could drift from it.
      */
     private static void performCast(ServerPlayer player, BendingData data, Ability ability) {
+        // Switching a toggle off is not a cast, and is handled before ANY of the
+        // gates below. A toggle that outlasts its own cooldown — Tornado runs 30
+        // seconds behind a 10 second one — would otherwise be uncancellable for as
+        // long as the cooldown had left to run, and nobody should pay chi to stop
+        // doing something.
+        if (ability.isActive(player, data)) {
+            ability.deactivate(player, data);
+            AbilitySupport.syncData(player, data);
+            return;
+        }
+
         if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
             player.displayClientMessage(
                     Component.literal("§c" + ability.getName() + " is on cooldown!"), true);
@@ -133,6 +160,13 @@ public class AbilityHandler {
     // ==========================================
     public static void executeAbilityHold(ServerPlayer player, BendingData data, String abilityName, boolean isHeld) {
         Ability ability = AbilityRegistry.get(abilityName);
+
+        // Only when a held ability is STARTING. A key release must never dismount —
+        // it arrives for every ability the player lets go of, including the scooter's
+        // own key, which would turn the toggle back off the instant it was pressed.
+        if (isHeld && ability != null) {
+            dismountScooter(player, ability);
+        }
 
         if (ability instanceof ChanneledAbility channeled) {
             if (isHeld) {

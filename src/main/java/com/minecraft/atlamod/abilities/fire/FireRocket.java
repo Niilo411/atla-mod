@@ -25,6 +25,9 @@ import net.minecraft.sounds.SoundSource;
  */
 public class FireRocket implements ChanneledAbility {
 
+    /** Registry key, used by anything that needs to know the rocket owns flight. */
+    public static final String KEY = "fire rocket";
+
     /** Vanilla creative flight is 0.05. */
     private static final float ROCKET_FLY_SPEED = 0.03F;
     private static final float DEFAULT_FLY_SPEED = 0.05F;

@@ -51,6 +51,27 @@ public interface Ability {
         return java.util.List.of();
     }
 
+    /**
+     * Whether this ability is a TOGGLE that is currently switched on.
+     *
+     * Returning true means the next press should turn it OFF rather than start it
+     * again, and the dispatcher treats that as a wholly separate thing from a cast:
+     * it happens BEFORE the cooldown gate and spends no chi, grants no XP and stamps
+     * no new cooldown. That ordering is the point — an ability that lasts 30 seconds
+     * behind a 10 second cooldown must still be cancellable during those 10 seconds,
+     * and a player should never be charged for switching something off.
+     *
+     * Air scooter and Tornado are the two. Everything else is a one-shot cast and
+     * leaves this alone.
+     */
+    default boolean isActive(ServerPlayer player, BendingData data) {
+        return false;
+    }
+
+    /** Switches a toggle off. Only ever called when isActive said it was on. */
+    default void deactivate(ServerPlayer player, BendingData data) {
+    }
+
     /** The actual effect. Chi has already been consumed and XP already granted by this point. */
     void execute(ServerPlayer player, BendingData data);
 

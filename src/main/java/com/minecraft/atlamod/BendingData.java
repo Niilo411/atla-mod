@@ -115,6 +115,16 @@ public class BendingData {
     public boolean hasAirJumpLeftGround() { return airJumpLeftGround; }
     public void setAirJumpLeftGround(boolean left) { this.airJumpLeftGround = left; }
 
+    // --- FLIGHT (passive) ---
+    // Whether the Flight passive is the thing currently holding the player's flight
+    // flags open. Those flags are PERSISTED in player NBT, so something has to
+    // remember that we were the ones who set them — otherwise unequipping the passive
+    // mid-air would leave permanent creative flight behind.
+    private transient boolean passiveFlightGranted = false;
+
+    public boolean isPassiveFlightGranted() { return passiveFlightGranted; }
+    public void setPassiveFlightGranted(boolean granted) { this.passiveFlightGranted = granted; }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {

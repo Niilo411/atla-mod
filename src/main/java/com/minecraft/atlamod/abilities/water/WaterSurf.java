@@ -143,9 +143,7 @@ public class WaterSurf implements ChanneledAbility {
      * a pond it happens to be passing above.
      */
     private static void layFooting(ServerPlayer player, ServerLevel level) {
-        BlockState platform = Atlamod.SURF_PLATFORM.get().defaultBlockState()
-                .setValue(com.minecraft.atlamod.SurfPlatformBlock.HEIGHT,
-                        com.minecraft.atlamod.SurfPlatformBlock.SURF_HEIGHT);
+        BlockState platform = Atlamod.SURF_PLATFORM.get().defaultBlockState();
         BlockPos feet = player.blockPosition();
 
         for (BlockPos water : BlockPos.betweenClosed(

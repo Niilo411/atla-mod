@@ -20,7 +20,12 @@ import com.minecraft.atlamod.abilities.air.Wind;
 import com.minecraft.atlamod.abilities.air.WindTunnel;
 import com.minecraft.atlamod.abilities.air.AirJump;
 import com.minecraft.atlamod.abilities.air.AirPull;
+import com.minecraft.atlamod.abilities.air.AirPush;
 import com.minecraft.atlamod.abilities.air.AirScooter;
+import com.minecraft.atlamod.abilities.air.AirSpout;
+import com.minecraft.atlamod.abilities.air.Breathless;
+import com.minecraft.atlamod.abilities.air.Flight;
+import com.minecraft.atlamod.abilities.air.Tornado;
 import com.minecraft.atlamod.abilities.water.Drown;
 import com.minecraft.atlamod.abilities.water.Tsunami;
 import com.minecraft.atlamod.abilities.water.WaterBall;
@@ -113,6 +118,13 @@ public final class AbilityRegistry {
 
         // --- AIR : Balanced ---
         register(new AirScooter());
+        register(new AirPush());
+        register(new AirSpout());
+
+        // --- AIR : Masterclass ---
+        register(new Breathless());
+        register(new Tornado());
+        register(new Flight());
     }
 
     public static void register(Ability ability) {

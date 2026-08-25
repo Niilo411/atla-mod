@@ -1,6 +1,5 @@
 {
   "variants": {
-    "height=1": { "model": "atlamod:block/surf_platform" },
-    "height=8": { "model": "atlamod:block/surf_platform" }
+    "": { "model": "atlamod:block/surf_platform" }
   }
 }

@@ -96,6 +96,7 @@ public class Atlamod {
     public Atlamod(IEventBus modEventBus, ModContainer modContainer) {
         ModAttachments.register(modEventBus);
         ModEffects.register(modEventBus);
+        ModEntities.register(modEventBus);
 
         // Populate the ability registry once, before any packet can dispatch a cast.
         com.minecraft.atlamod.abilities.AbilityRegistry.bootstrap();

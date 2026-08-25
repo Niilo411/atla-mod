@@ -30,6 +30,8 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.BendingProjectiles.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Drownings.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Tsunamis.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.air.AirScooters.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.air.AirSpouts.tickAll(event.getServer());
     }
 
     /**
@@ -45,6 +47,8 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.water.WaterSpheres.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.Drownings.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.Tsunamis.forgetLevel(level);
+            com.minecraft.atlamod.abilities.air.AirScooters.forgetLevel(level);
+            com.minecraft.atlamod.abilities.air.AirSpouts.forgetLevel(level);
         }
     }
     @SubscribeEvent
@@ -134,6 +138,8 @@ public class ServerEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
+            com.minecraft.atlamod.abilities.air.AirScooters.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
         }
     }
 
@@ -142,6 +148,8 @@ public class ServerEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
+            com.minecraft.atlamod.abilities.air.AirScooters.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
         }
     }
     @SubscribeEvent
@@ -222,6 +230,11 @@ public class ServerEvents {
     public static void onPlayerChangeDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         // Forces the UI to reappear on your screen after walking through a portal
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            // A scooter cannot follow its rider through a portal: the seat belongs to
+            // the level they left, so the ride ends at the threshold.
+            com.minecraft.atlamod.abilities.air.AirScooters.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
+
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncBendingDataPacket(
@@ -481,6 +494,11 @@ public class ServerEvents {
             if (data.getAirJumpTicks() > 0) {
                 com.minecraft.atlamod.abilities.air.AirJump.tick(player, data);
             }
+
+            // --- FLIGHT PASSIVE TICK ---
+            // Runs unconditionally: taking flight away when the passive is unequipped
+            // or the chi runs out is as much this call's job as granting it.
+            com.minecraft.atlamod.abilities.air.Flight.tick(player, data);
         }
     }
 

@@ -110,7 +110,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   it and Balanced's "Air pull" were SWAPPED, so the two names still both exist)
 - Offensive: Air splinters-10, Air cannon-10, wind tunnel-15
 - Balanced: Air scooter-3s, Airpush-10, Air spout-10
-- Masterclass: breathless-10, Tornado-15, Flight-5s, Air beam-5s
+- Masterclass: breathless-10, Tornado-15, Flight-5s (the design doc's "Air beam" was
+  DROPPED — it is gone from the skill tree and will not be built)
 
 ### Earth path (from design doc)
 - Defensive: Earth wall-5, Earth pillar-5, Earth armor-15
@@ -563,38 +564,172 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
     shoved back, held at 5s of Slowness I, and worn down at 1 heart a SECOND. 10
     chi/sec, 2 xp/sec, no cooldown, no cap. The damage is the least of it — nothing
     caught in it can close the distance while it runs)
-- Air Balanced path IN PROGRESS:
-  - Air scooter (CHANNELED; a ball of air under the feet carrying the bender half a
-    block off the ground and a little faster than sprint-jumping. 5 chi/sec,
-    0.5 xp/sec, no cooldown, no cap)
-- **Air scooter is built ENTIRELY out of mechanics the CLIENT simulates**, and that is
-  the whole design. Holding a player at a height by setting their position server-side
-  is the rubber band that made Fire Rocket's old height cap feel awful. Nothing in the
-  scooter corrects the player at all — instead it is four vanilla mechanics the client
-  already knows how to run:
-  - a REAL invisible platform half a block above the ground carries them,
-  - a **step height** attribute bonus (+0.6, so 1.2 total) glides them up over a rise —
-    vanilla's own step-up is a smooth climb, not a hop, so it looks like the scooter
-    riding over the lip,
-  - **Slow Falling** gives the gentle drop when the ground falls away (and, usefully,
-    no fall damage),
-  - **Speed II** makes the ride quicker than running: ~7.9 blocks/sec sprinting against
-    ~7.1 for sprint-jumping.
-- **The step-height modifier is TRANSIENT** (`addTransientModifier`), so it is never
-  written to player NBT. A permanent one would need the same login-and-respawn safety
-  net Fire Rocket's flight flags do; this one cannot outlive the session however the
-  channel ends. Worth preferring for any future attribute an ability grants.
-- **The ground scan is deliberately SHALLOW** (4 blocks down). Ride off a cliff and
-  there is simply no footing to lay, so the bender drifts down under Slow Falling until
-  the ground is back within reach — which IS the slow descent the ability wants. A deep
-  scan would build a floor in mid-air over the drop instead.
-- **The scan skips the scooter's own platforms when looking for ground**, or each tick
-  would build on the last and walk the bender steadily up into the sky.
-- **`SurfPlatformBlock` now carries a `HEIGHT` property** (1 sixteenth for Water Surf's
-  waterline, 8 for the scooter's half block) rather than being duplicated into a second
-  invisible block. Same class, same `surf_platform` id — the name is now a little
-  narrower than what it does.
-- **`getXpPerSecond()` is a `double`, and XP is spread per tick like chi.** 0.5/sec is
+- Air Balanced path COMPLETE:
+  - Air scooter (TOGGLE — press once to get on, again to get off. Carries the rider
+    where they LOOK at sprint speed, exactly ONE block off the ground, gliding down
+    over drops and climbing over rises. Stops dead over water. 5 chi/sec, 1 xp/sec,
+    no cooldown. One upgrade, "Slipstream" (10 levels), doubles the travel speed)
+  - Airpush (Air pull turned around: same 60-degree cone reaching 12 blocks, same 5s
+    of Disorientation, but everything caught is thrown AWAY — and unlike the pull,
+    this one hurts, for 2 hearts. 100 chi, 10 xp, 2s cooldown)
+  - Air spout (CHARGE 3s, then THREE small tornadoes set down one per left click,
+    wherever the bender is looking out to 20 blocks. Each stands 10 blocks high for
+    60 SECONDS, throwing anything that walks into it up and around. 150 chi, 15 xp,
+    15s cooldown from the LAST of the three)
+- Air Masterclass path IN PROGRESS (gated behind the other three, which are all done):
+  - breathless (CHARGED up to 3s, fires on release like Drown. Pulls the air out of a
+    victim's lungs: every tick of charge buys FIVE of suffocation, so 1s held is 5s
+    suffered and the 3s ceiling is 15s, at one heart a second throughout. Also leaves
+    them Disoriented for 5s. 150 chi, 15 xp, 30s cooldown)
+  - Tornado (TOGGLE — press to raise, press again to put it down, whether or not its
+    30 seconds have run. An Air spout grown up: TWICE the height (20 blocks) and twice
+    the throwing strength, and it follows the bender's CROSSHAIR instead of standing
+    where it was put. 250 chi, 25 xp, 10s cooldown)
+  - Flight (PASSIVE — equip it in the Passives tab. Grants vanilla creative flight at
+    exactly HALF speed, 0.025 against creative's 0.05. No chi, no XP, like every other
+    passive — what it buys is permanent, which is what makes it a masterclass unlock)
+- **Flight grants the permission but does NOT force the player airborne**, which is the
+  opposite of Fire Rocket. The rocket re-asserts `flying` every tick so only its
+  keybind can end it; this is CREATIVE flight, and a creative flier is free to land and
+  take off again with a double-tap of space. Forcing the flag would take that away.
+- **`BendingData.passiveFlightGranted` exists because the flight flags are PERSISTED**
+  (`Abilities#addSaveData`). Something has to remember that WE opened them, or
+  unequipping the passive in mid-air would leave permanent creative flight — the same
+  trap Fire Rocket has, and it shares the login/respawn safety nets. The flag is
+  transient, so a relog clears it and the tick simply re-grants.
+- **Flight stands aside while Fire Rocket is channelling** (`FireRocket.KEY`), since
+  both write the same flags and set different speeds. Creative and spectator players
+  are never touched in either direction.
+- **Flight has a ceiling of 120 blocks ABOVE SEA LEVEL**, taken from
+  `level.getSeaLevel()` rather than a fixed Y so it means the same thing in a dimension
+  that sits at a different height (the Nether's is 32, not 63).
+- **The ceiling cancels the CLIMB; it does not pin the player.** Only upward motion is
+  taken away, only while actually flying, and horizontal flight at the ceiling is left
+  completely alone. Pinning a position server-side is exactly what made Fire Rocket's
+  old height cap rubber-band — the client owns the player's movement and simply
+  disagrees — where cancelling the climb reads as a ceiling to push against. A bender
+  already above the line is not shoved down either; they just cannot go higher.
+- **AIR IS COMPLETE — 12 abilities across all 4 paths.** The design doc's fourth
+  masterclass entry, "Air beam", was dropped by decision and removed from the tree.
+- **`Ability.isActive` / `deactivate` is the toggle hook**, and it is checked at the
+  very top of `performCast`, BEFORE the cooldown gate and before anything is spent.
+  That ordering is the whole reason it exists: Tornado runs 30 seconds behind a 10
+  second cooldown, so a cancel routed through the ordinary cast path would be refused
+  as "on cooldown" for the first third of its life — and would charge another 250 chi
+  when it did work. Air scooter was moved onto the same hook, so "toggle" is now a real
+  thing in the codebase rather than a coincidence of zero costs.
+- **Tornado and Air spout are ONE implementation** (`AirSpouts`), differing only in
+  their numbers and in whether they have an owner. A `null` owner means a placed spout
+  that stays where it was put; an owner means a Tornado that steers. Everything else —
+  catching, throwing, drawing, timing out — is shared.
+- **A Tornado is MOVED toward the crosshair at a capped speed, not snapped to it.**
+  Flicking the view across the sky should drive the column, not teleport it thirty
+  blocks in a tick. The cap is 1.0 blocks/tick — 20 a second, comfortably faster than
+  a sprint (raised from 0.45, which played as sluggish).
+- **A Tornado dies with its owner's presence** — death, disconnect, dimension change,
+  or the owner simply not being in that level any more. Placed spouts are deliberately
+  NOT touched by the same cleanup: those are hazards left in a place with their own
+  clock, where a Tornado is something actively being held up.
+- Air spout's cooldown was cut from 100s to **15s**.
+- **breathless REUSES `Drownings`.** Suffocation is the same thing whether the air was
+  replaced by water or simply taken away, so there is one implementation of "hold this
+  thing's air at nothing and hurt it on vanilla's beat" rather than two. Two
+  consequences worth knowing: a second cast replaces the first rather than stacking
+  (that is Drownings' rule), and the water masterclass passive **water breathing
+  answers breathless too** — a bender who cannot run out of air cannot be smothered
+  either. That cross-element counter is a happy accident of the reuse, but it is a
+  sensible one and was kept deliberately.
+- **breathless is the faster, nastier half of the pair.** Drown takes 5s of charge to
+  reach 15s of drowning and costs 250 chi; breathless reaches the same ceiling in 3s
+  for 150, and adds Disorientation on top. Drown's compensation is that it is a water
+  ability and gets its reach for free near open water.
+- **`abilities/Aiming.java` is the shared "what am I pointing at" helper**, extracted
+  when breathless needed the same target-picking Drown had. Nearest LIVING thing to the
+  aim LINE rather than a raycast, so a cast does not have to be pixel-perfect on
+  something moving, and nearest-along-the-line wins so a bender hits what is in front
+  rather than something further off that is better aligned. Anything else wanting a
+  single target (Earth grab, for one) should use it rather than growing a third copy.
+- **A spout is neither an entity nor a block, so it is tracked** (`AirSpouts`, the
+  Drownings/Tsunamis pattern). It is a column of moving air: an entity would need an
+  EntityType and a client renderer for something that is only ever particles, and a
+  block would need a blockstate for something that does not occupy the world so much as
+  churn through it.
+- **Lift is applied EVERY tick something is inside**, not once on entry, which is what
+  carries a victim up the whole column and flings them out of the top instead of giving
+  them a single hop. `fallDistance` is cleared while they are in it, so the fall that
+  counts is the one from where they leave.
+- **A spout throws EVERYONE, its owner included.** It is a hazard put down in a place,
+  not a spell aimed at somebody, and one that politely stepped around the bender who
+  placed it would be a strange thing to walk into.
+- **Air spout's aim falls back to the ground rather than refusing.** The dispatcher
+  counts the CLICK, not the outcome, so the shot is already spent by the time
+  `onRelease` runs — aiming at open sky has to put a spout somewhere (the ground under
+  the end of the look) or it would silently cost the bender a third of the ability.
+- **Air scooter is a TOGGLE, so it is a plain `Ability`, not a `ChanneledAbility`.**
+  The click dispatch (`UseAbilityPacket` / `consumeClick`) fires once per press, which
+  is what a toggle wants; the hold dispatch built for Fire Breath reports key STATE and
+  is the wrong shape entirely. `execute()` just flips: riding -> stop, otherwise start.
+- **The rider genuinely rides an entity, because nothing else gives a seated player.**
+  `Pose.SITTING` is useless here on two counts: `Player#updatePlayerPose` recomputes the
+  pose from scratch every tick on both sides, and the player model's seated pose is
+  driven by `LivingEntityRenderer` reading `isPassenger()` — not by the pose at all.
+- **Riding also solves the movement problem for free.** A passenger is carried by its
+  vehicle, so the server steers the seat without ever contradicting the client about
+  where the player is — no rubber-banding — and the player's own WASD is simply not
+  consulted, which is what "moves where you look, not where you press" requires.
+  `AirScooterSeat` deliberately does NOT override `getControllingPassenger`.
+- **The seat is never saved** (`shouldBeSaved()` returns false). That is the whole
+  answer to orphaned entities: a crash mid-ride leaves nothing on disk to come back as
+  an invisible passenger-less thing no code remembers owning.
+- **The seat's box is exactly a player's 0.6 x 1.8, and that is load-bearing.**
+  Passengers do not collide themselves, so the seat is what collides with the world on
+  the rider's behalf — without a real box a scooter rides through walls, and with a
+  SHORTER box it happily carries the rider into a one-block gap and suffocates them
+  against the ceiling.
+- **A surface is "solid with space above it".** That definition is what stops the
+  scooter walking up sheer walls: every block of a five-block wall has another block on
+  top of it, so none qualifies, the search falls through to the ground the wall stands
+  on, and the seat bumps into the wall the way it should. Ground is read both underfoot
+  and `LOOK_AHEAD_TICKS` ahead, which is what turns "stops dead at a step" into "rides
+  up over it".
+- **Every route out of a ride goes through `AirScooters.stop`/`forgetPlayer`** — key
+  press, chi running out, shifting off the seat (vanilla lets a passenger dismount and
+  that is treated as a normal way to end, not an error), death, disconnect, dimension
+  change, level unload. There is no other way to end one, so none of them can leave a
+  player stuck seated or a seat orphaned.
+- **Casting any other ability dismounts the scooter first** (`AbilityHandler`
+  `dismountScooter`, called from both entry points). Chosen over refusing the cast:
+  bending while seated on a server-steered entity is a lot of surface for odd
+  interactions (rooting channels that cannot root a passenger, flight fighting the
+  seat), and blocking abilities outright risks a player who feels stuck and cannot work
+  out why nothing fires. On the HOLD entry point it only fires when a held ability is
+  STARTING — a key RELEASE must never dismount, or the scooter's own key would turn the
+  toggle off the instant it was pressed.
+- Air scooter refuses to start if the player is already a passenger, rather than
+  stealing them out of a boat or off a horse.
+- **Airpush and Air pull share their geometry on purpose**, so knowing one teaches the
+  other. The push scaling is the REVERSE of the pull's, though: a pull has to reach
+  further to bring a distant target all the way in (speed rises with distance), where a
+  gust is strongest where it leaves the hands and is spread thin by the far end (speed
+  falls with distance, 1.05 down to 0.45).
+- **Airpush shoves AFTER it damages.** `hurt()` applies its own knockback, so setting
+  the motion first would have the ability's throw quietly overwritten by a much smaller
+  vanilla one. Any future ability that both damages and moves things needs the same
+  ordering.
+- **Hovering a full block has a headroom cost worth knowing.** HOVER is the RIDER'S
+  FEET, and the seat is a player's 1.8 tall on top of that, so a scooter needs about
+  2.8 blocks of clearance to pass — an ordinary two-high doorway is too low to ride
+  through. That follows from the height, not from a bug, and the fix if it ever grates
+  is to hover lower, NOT to shrink the seat (which is what stops the rider being
+  carried into a gap and suffocated).
+- **Water ends the ride**, checked both when starting and every tick. "Over water"
+  means looking straight down from the rider's feet and meeting water before anything
+  solid — so a pond with a stone bed counts, since the water is what would be crossed.
+  Refused at the start too, or toggling on at the water's edge would cut out a tick
+  later and read as the key not working.
+- **`getXpPerSecond()` is a `double`, and XP is spread per tick like chi.** Nothing
+  needs the fraction any more (Air scooter was rebuilt as a toggle at a whole 1/sec and
+  bills itself), but it is kept: a sub-1 rate is
   not expressible as an int, so the dispatcher now differences a running total against
   the CHANNEL's tick count (`xpForTick`) exactly the way `chiCostForTick` does — one XP
   on the 40th tick of the channel and nothing on the 39 before it. Whole rates are
@@ -746,8 +881,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - A registered MobEffect needs `assets/atlamod/textures/mob_effect/<name>.png` (18x18)
   or the inventory shows the magenta checkerboard — same trap as the element icons.
 - **FIRE IS COMPLETE — all 16 abilities across all 4 paths.**
-- **WATER IS COMPLETE — all 12 abilities across all 4 paths.** 18 left across
-  Air/Earth × 4 paths
+- **WATER IS COMPLETE — all 12 abilities across all 4 paths.** 12 left, all EARTH
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 
