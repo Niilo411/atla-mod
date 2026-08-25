@@ -771,6 +771,12 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   a mining tool by accident. Earth dig is for travelling; Mine is the ability that
   gives you the blocks. Fluids are skipped entirely, since they do not block the seat
   and breaking them would let a drill quietly empty an ocean on its way past.
+- **Every cooldown message shows the seconds left, including instant casts.** The
+  charge and channel paths always did; the plain cast path did not, which made a long
+  cooldown indistinguishable from a broken one — Earth sink said nothing for two
+  minutes and then quietly worked, and "it never comes back" is the only fair reading
+  of that from outside. There is no separate cooldown bug: `tickCooldowns` decrements
+  every key once per player tick, unconditionally, at the top of `onPlayerTick`.
 - **A manager tick that can KILL something must iterate a SNAPSHOT of its list.** This
   crashed the server for real: dying to fall damage during Earth dig fired
   LivingDeathEvent, whose handler calls `Rides.forgetPlayer`, which removed from the

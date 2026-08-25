@@ -83,8 +83,13 @@ public class AbilityHandler {
         }
 
         if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
-            player.displayClientMessage(
-                    Component.literal("§c" + ability.getName() + " is on cooldown!"), true);
+            // WITH the seconds left, the same as the charge and channel paths already
+            // showed. Without them a long cooldown is indistinguishable from a broken
+            // one: Earth sink says nothing for two minutes and then quietly works, and
+            // the only honest reading of that from the outside is "it never comes back".
+            int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
+            player.displayClientMessage(Component.literal(
+                    "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
             return;
         }
 
