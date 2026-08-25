@@ -30,8 +30,12 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.BendingProjectiles.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Drownings.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Tsunamis.tickAll(event.getServer());
-        com.minecraft.atlamod.abilities.air.AirScooters.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.Rides.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.air.AirSpouts.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.earth.EarthWorks.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.earth.EarthWalls.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.earth.EarthTraps.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.earth.EarthGrabs.tickAll(event.getServer());
     }
 
     /**
@@ -47,8 +51,12 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.water.WaterSpheres.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.Drownings.forgetLevel(level);
             com.minecraft.atlamod.abilities.water.Tsunamis.forgetLevel(level);
-            com.minecraft.atlamod.abilities.air.AirScooters.forgetLevel(level);
+            com.minecraft.atlamod.abilities.Rides.forgetLevel(level);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetLevel(level);
+            com.minecraft.atlamod.abilities.earth.EarthWorks.forgetLevel(level);
+            com.minecraft.atlamod.abilities.earth.EarthWalls.forgetLevel(level);
+            com.minecraft.atlamod.abilities.earth.EarthTraps.forgetLevel(level);
+            com.minecraft.atlamod.abilities.earth.EarthGrabs.forgetLevel(level);
         }
     }
     @SubscribeEvent
@@ -133,23 +141,73 @@ public class ServerEvents {
      * Puts down anything a player was carrying when they die or disconnect. The block
      * is out of the world while held, so without this it would simply cease to exist.
      */
+
+
+    /**
+     * Refuses to let anyone shift out of an Earth trap.
+     *
+     * The trap works by making its victim a passenger, which is what stops them
+     * moving — but vanilla lets a passenger dismount whenever it likes, so without
+     * this the whole ability would last exactly as long as it took to press shift.
+     * EarthTraps drops the seat from its list BEFORE releasing anyone, so a genuine
+     * release is never caught by this.
+     */
+    @SubscribeEvent
+    public static void onDismount(net.neoforged.neoforge.event.entity.EntityMountEvent event) {
+        if (!event.isDismounting()) return;
+
+        if (com.minecraft.atlamod.abilities.earth.EarthTraps.holdsSeat(event.getEntityBeingMounted())) {
+            event.setCanceled(true);
+        }
+    }
+    /**
+     * Tells a player about someone else's Earth armor the moment they come into view.
+     *
+     * The per-tick broadcast only fires when the armor goes on or off, so without this
+     * anyone who walked up to an already-armored bender — or logged in near one, or
+     * came back into render distance — would see them in ordinary clothes until the
+     * effect ended.
+     */
+    @SubscribeEvent
+    public static void onStartTracking(PlayerEvent.StartTracking event) {
+        if (!(event.getEntity() instanceof ServerPlayer watcher)) return;
+        if (!(event.getTarget() instanceof ServerPlayer target)) return;
+
+        if (target.hasEffect(com.minecraft.atlamod.ModEffects.EARTH_ARMOR)) {
+            PacketDistributor.sendToPlayer(watcher,
+                    new com.minecraft.atlamod.network.EarthArmorPacket(target.getId(), true));
+        }
+    }
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
-            com.minecraft.atlamod.abilities.air.AirScooters.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerDeath(net.neoforged.neoforge.event.entity.living.LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            BendingData data = player.getData(ModAttachments.BENDING_DATA);
+
+            // Earth armor's stone suit is drawn from a client-side set keyed on entity
+            // id, and a respawned player REUSES its id on both sides — so a death would
+            // otherwise leave the art on a bender who no longer has the effect. The
+            // per-tick broadcast cannot catch it either: the flag it compares against is
+            // transient and comes back false, so it sees no change and says nothing.
+            // Told explicitly here instead.
+            data.setEarthArmorShown(false);
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                    player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), false));
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
-            com.minecraft.atlamod.abilities.air.AirScooters.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
         }
     }
     @SubscribeEvent
@@ -232,8 +290,9 @@ public class ServerEvents {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             // A scooter cannot follow its rider through a portal: the seat belongs to
             // the level they left, so the ride ends at the threshold.
-            com.minecraft.atlamod.abilities.air.AirScooters.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -499,12 +558,29 @@ public class ServerEvents {
             // Runs unconditionally: taking flight away when the passive is unequipped
             // or the chi runs out is as much this call's job as granting it.
             com.minecraft.atlamod.abilities.air.Flight.tick(player, data);
+
+            // --- EARTH ARMOR VISUAL ---
+            // Broadcast only when it changes. Effects are synced to their owner alone,
+            // so onlookers learn about the stone suit from here or not at all.
+            boolean armored = player.hasEffect(com.minecraft.atlamod.ModEffects.EARTH_ARMOR);
+            if (armored != data.isEarthArmorShown()) {
+                data.setEarthArmorShown(armored);
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                        player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), armored));
+            }
         }
     }
 
     @SubscribeEvent
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            // Belt and braces alongside the death handler: a client that somehow still
+            // believes in the stone suit is corrected the moment the bender is back.
+            BendingData armorData = player.getData(ModAttachments.BENDING_DATA);
+            armorData.setEarthArmorShown(false);
+            PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                    player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), false));
+
             // Same safety net as login: if the player died mid-rocket, onStop() never
             // ran. Vanilla usually rebuilds abilities from the gamemode on respawn,
             // but the cost of being wrong here is permanent creative flight.

@@ -171,7 +171,10 @@ public class UpgradeMenuScreen extends Screen {
                         guiGraphics.drawCenteredString(this.font, "?", bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
 
                         // --- NEW TOOLTIP LOGIC ---
-                        if (mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
+                        // Not while the upgrade panel is over this node: the panel is
+                        // drawn on top, and both tooltips would render at once.
+                        if (!mouseOverUpgradePanel(mouseX, mouseY)
+                                && mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
                             java.util.List<net.minecraft.network.chat.Component> tooltip = new java.util.ArrayList<>();
 
                             // 1. Ability Name (Yellow)
@@ -669,6 +672,25 @@ public class UpgradeMenuScreen extends Screen {
     }
 
     /** Draws the popped-out upgrade list. Called last, so it sits over the tree. */
+    /**
+     * Whether the pointer is inside the popped-out upgrade panel.
+     *
+     * The panel is drawn ON TOP of the ability nodes, so without asking this the node
+     * underneath still counts itself as hovered and draws its own tooltip — two
+     * tooltips on top of each other, which is what made the panel look broken.
+     */
+    private boolean mouseOverUpgradePanel(double mouseX, double mouseY) {
+        net.minecraft.client.gui.components.Button node = openUpgradeButton();
+        if (node == null) return false;
+
+        int px = upgradePanelX(node);
+        int py = node.getY();
+        int height = 22 + Math.max(1, upgradesOf(openUpgradesFor).size()) * UPGRADE_ROW_H;
+
+        return mouseX >= px && mouseX <= px + UPGRADE_PANEL_W
+                && mouseY >= py && mouseY <= py + height;
+    }
+
     private void renderUpgradePanel(GuiGraphics graphics, int mouseX, int mouseY, BendingData data) {
         net.minecraft.client.gui.components.Button node = openUpgradeButton();
         if (node == null) return;
@@ -695,7 +717,8 @@ public class UpgradeMenuScreen extends Screen {
 
             boolean owned = data.hasUpgrade(upgrade.key());
             boolean abilityOwned = data.getUnlockedAbilities().contains(openUpgradesFor);
-            boolean affordable = abilityOwned && data.getLevel() >= upgrade.cost();
+            boolean locked = upgrade.requires() != null && !data.hasUpgrade(upgrade.requires());
+            boolean affordable = abilityOwned && !locked && data.getLevel() >= upgrade.cost();
             boolean hovered = mouseX >= px + 4 && mouseX <= px + UPGRADE_PANEL_W - 4
                     && mouseY >= ry && mouseY <= ry + UPGRADE_ROW_H - 4;
 
@@ -709,6 +732,7 @@ public class UpgradeMenuScreen extends Screen {
 
             String status = owned ? "§aOwned"
                     : !abilityOwned ? "§8Unlock the ability first"
+                    : locked ? "§8Buy " + requiredName(upgrade) + " first"
                     : (affordable ? "§6Click - Lvl " + upgrade.cost()
                                   : "§cRequires Lvl " + upgrade.cost());
             graphics.drawString(this.font, status, px + 9, ry + 15, 0xFFFFFF);
@@ -719,6 +743,20 @@ public class UpgradeMenuScreen extends Screen {
                         mouseX, mouseY);
             }
         }
+    }
+
+    /**
+     * The display name of whatever an upgrade is waiting on, for the "buy X first"
+     * line. Falls back to the raw key, which should never be seen — an upgrade naming
+     * a prerequisite that is not on the same ability is a bug, not a state to render.
+     */
+    private String requiredName(com.minecraft.atlamod.abilities.AbilityUpgrade upgrade) {
+        if (upgrade.requires() == null) return "";
+
+        for (var candidate : upgradesOf(openUpgradesFor)) {
+            if (candidate.key().equals(upgrade.requires())) return candidate.name();
+        }
+        return upgrade.requires();
     }
 
     /** Clicks inside the popped-out panel. Returns true if the click was used. */
@@ -740,7 +778,9 @@ public class UpgradeMenuScreen extends Screen {
             }
 
             boolean abilityOwned = data.getUnlockedAbilities().contains(openUpgradesFor);
-            if (!abilityOwned || data.hasUpgrade(upgrade.key()) || data.getLevel() < upgrade.cost()) {
+            boolean locked = upgrade.requires() != null && !data.hasUpgrade(upgrade.requires());
+            if (!abilityOwned || locked || data.hasUpgrade(upgrade.key())
+                    || data.getLevel() < upgrade.cost()) {
                 return true; // inside the panel, just not buyable — swallow it either way
             }
 

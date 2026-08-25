@@ -140,6 +140,31 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   genuinely dry cast pays for the full 31-cube.
 - No water abilities exist yet, so `requiresWater()` is infrastructure waiting to be
   used — nothing overrides it until the Water paths are built.
+
+## Earthbending
+
+- **`abilities/earth/EarthWorks.java` holds earthbending's shared rule**, and every
+  earth ability that moves blocks should go through it: an ability may only ever fill
+  AIR, and whatever it fills it takes back afterwards. Between those two, no earth
+  ability can destroy anything or leave anything behind. That matters far more for
+  earth than for the other elements — a wall that simply stayed would be an infinite
+  block supply and would litter the world with every cast.
+- **Earth SLIDES rather than appearing**, using `FallingBlockEntity` the same way
+  HeldBlocks does: a real entity so the block is genuinely visible in motion, gravity
+  off and its own `time` pinned at 0 so it never drops itself as an item or places
+  itself. The real block is only set when the slide LANDS, so a block is never in two
+  places at once and nothing is ever stood on half of one.
+- **Raised earth MIRRORS the ground it came from** (`materialFor`), so a wall out of a
+  hillside looks like the hillside instead of every ability everywhere producing the
+  same brown blocks. Two exceptions, both load-bearing: anything that FALLS is swapped
+  for dirt, since a wall of sand would collapse the instant it went up, and anything
+  that is not plain diggable full-block ground falls back to dirt rather than
+  duplicating whatever a player happened to be standing on.
+- **A block only sinks back if it is still the block we put there.** Someone may have
+  mined it, built over it, or had another ability replace it in the meantime, and
+  removing whatever occupies the space now would be exactly the griefing the air-only
+  rule exists to prevent.
+
 ## Current Status
 
 - Fire Offensive path COMPLETE: Fire Leap, Fire Whip, Fireball (hold 2s to build,
@@ -388,10 +413,10 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Water Manipulation (look at a water SOURCE block and press the key to take hold of
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
     cooldown)
-  - Water Surf (channeled; lifts you to the surface and lays INVISIBLE footing in the
-    air just above it so you
-    can run across, with Speed I — Speed II via the "Swift Current" upgrade, 10 levels.
-    10 chi/sec, 3 xp/sec, no cooldown. Must be started from in the water)
+  - Water Surf (TOGGLE, and Air scooter's twin — press once to get on, again to get
+    off. Carried across the WATERLINE wherever you look, standing rather than seated.
+    Ends when the water does. 10 chi/sec, 3 xp/sec, no cooldown. "Swift Current"
+    (10 levels) doubles the speed)
   - Water Sphere (channeled; holds the water back in a 5-block sphere so oceans can be
     walked through. Water closes in behind as the bender moves and the whole pocket
     fills in on release. 2 chi/sec, 2 xp/sec, no cooldown)
@@ -409,15 +434,15 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   what a bender actually sees. The expensive outward scan (~1300) only runs when they
   move to a new block, plus a forced rescan each second. Doing only the outward scan on
   a timer meant someone standing still watched the sea close on them and snap away again.
-- **Surfing lays an invisible platform ABOVE the water, not ice in it.** `SurfPlatformBlock`
-  is one sixteenth of a block tall, renders nothing (`RenderShape.INVISIBLE`) and has no
-  outline, and sits in the AIR block over a water source — so the water is untouched and
-  still visible, and the bender appears to run on it. Frosted ice works and is how vanilla
-  does it, but it plainly looks like ice. Each platform removes itself on a scheduled tick.
-- Either way a REAL block carries the player, which is the important part: the client walks
-  on it normally. Pinning the player to the waterline every tick would have the server
-  correcting the client constantly — the rubber-band that made Fire Rocket's old height
-  cap feel bad.
+- **Water Surf used to lay invisible platform blocks; it does not any more.** That
+  approach (a `SurfPlatformBlock` sliver in the air above each water source, so a REAL
+  block carried the player and the client walked on it normally) was the right answer
+  while the ability was a channel the player walked around in. Once it became a ride,
+  the seat entity does the same job better — a passenger is moved BY its vehicle, so
+  there is nothing for the server to correct in the first place. The block is gone.
+  The underlying lesson stands and is why both rides exist: pinning a player's position
+  every tick has the server correcting the client constantly, which is the rubber-band
+  that made Fire Rocket's old height cap feel bad.
 - **`abilities/HeldBlocks.java` is the block-moving system**, written element-agnostic
   because earthbending is expected to lean on it — nothing in it knows what the block
   is. The block is genuinely REMOVED on grab and put back on place, so it moves rather
@@ -611,6 +636,330 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   already above the line is not shoved down either; they just cannot go higher.
 - **AIR IS COMPLETE — 12 abilities across all 4 paths.** The design doc's fourth
   masterclass entry, "Air beam", was dropped by decision and removed from the tree.
+- Earth Defensive path COMPLETE:
+  - Earth wall (HELD: one block of height per second, capping itself at 7 and ending
+    the channel there. 6 blocks across the bender's facing, 2 blocks in front,
+    following Firewall's geometry. Slides up smoothly, stands 30 seconds, slides back
+    down. Flat 50 chi and 5 xp however tall it ends up, 1s cooldown from release)
+  - Earth pillar (Earth wall narrowed to ONE column, and otherwise identical — same
+    held rise at a block a second, same 7 ceiling, same 30 seconds standing. 10 chi,
+    1 xp, 1s cooldown)
+  - Earth armor (+10 ARMOR points for 120 seconds, worn as a suit of stone drawn over
+    whatever the bender already has on. 150 chi, 15 xp, 150s cooldown)
+- Earth Offensive path COMPLETE:
+  - Earth spike (TAPPED, not held. A single column driven up in 2 TICKS wherever the
+    bender is LOOKING — 3 blocks tall with a stalagmite tip — hurting anything within
+    1.8 blocks — the whole ring of neighbouring blocks — for 4.5 hearts as it comes
+    up, the CASTER included. Stands 5 seconds, then sinks. 100 chi, 5 xp, no cooldown)
+  - Splinters (Air splinters' heavier twin: CHARGE 2s, then SIX shards of stone thrown
+    one per left click at 3.5 blocks/tick. 2.5 hearts each, so FOUR of them come to
+    exactly the 20 a zombie has. Tight 0.5 hit radius — "needs good aim" has to be
+    true of the hitbox, not just the description. 100 chi, 10 xp, 10s cooldown from
+    the last of the six)
+  - Earth block (pulls a real block OUT of the ground onto the crosshair, then throws
+    it on a left click for 2.5 hearts. No particles anywhere in it — the block itself
+    is what you see, the whole way. 50 chi, 5 xp, 1s cooldown from the throw)
+  - Earth trap (ONE slab closes over the feet of EVERYTHING in sight within 20 blocks,
+    holding it for 10 seconds. 150 chi, 15 xp, 30s cooldown — the same price, range
+    and "what is on screen" test as Wind, which is what an ability that reaches a whole
+    screenful costs)
+- Earth Balanced path COMPLETE:
+  - Mine (CHARGED up to 5s, FIRES ON RELEASE. A tap breaks the one block you are
+    looking at; a full charge takes 30, working outward from it. 10 chi and 1 xp for
+    the tap, plus 10 chi and 1 xp for every whole second held — so a full dig is 60
+    chi and 6 xp. No cooldown. Blocks DROP, because a mining ability that destroyed
+    what it broke would be a demolition ability)
+    Two upgrades: "Obsidian Breaker" (10 levels) then "Timber" (20, behind it)
+- Earth Masterclass path COMPLETE (gated behind the other three):
+  - Earthquake (30 SECONDS of Slowness II and Disorientation on everything within 20
+    blocks, in every direction. No damage and no displacement — half a minute of both
+    effects at once is a fight already decided. The camera SHAKE is only the first 5
+    seconds of that. 150 chi, 15 xp, 30s cooldown)
+  - Ravine (tears the ground open in front of the bender — 10 blocks out, 5 deep, 5
+    across. Permanent: nothing is put back and nothing drops. 200 chi, 20 xp, 150s
+    cooldown)
+  - Earth sink (Ravine's cleverer sibling: opens a pit 12 long, 6 wide and 7 deep in
+    front, hits everything over it for 4 hearts on the way in, and then CLOSES THE
+    GROUND BACK over whatever fell in. 250 chi, 25 xp, 120s cooldown)
+- **Earth sink BORROWS the world where Ravine keeps it.** Same pit, but every block is
+  remembered and put back a few seconds later, so the landscape afterwards is exactly
+  as it was — with whatever fell in now inside it. The burial is the real weapon; the
+  blow on cast is only an opener, and vanilla suffocation does the killing.
+- **`EarthWorks.openFor` is the inverse of `raiseFor`** — take a block now, give it back
+  on a timer — and one `restore` flag on the same waiting list serves both directions.
+  Raised earth sinks away when its time is up; taken earth comes back.
+- **The ground only closes into EMPTY space.** Somebody may have built in the hole while
+  it was open, and closing over their work would be exactly the griefing the earth rule
+  exists to prevent. An entity standing there is a different matter, and is the whole
+  point of the ability.
+- **An unloading level settles everything mid-timer**, in both directions, so a pit
+  cannot be made permanent by the simple trick of leaving the dimension while it is open.
+- **The blow is dealt BEFORE the ground goes**, while victims are still standing where
+  the ability was aimed. A moment later they are falling, and a box drawn around the
+  surface would start missing them.
+- **Ravine is the one earth ability that does NOT put the world back.** Everything else
+  in the element borrows — a wall stands and sinks, a spike rises and goes, a grab lays
+  its slices and takes them up. A ravine is permanent, and the two and a half minute
+  cooldown is what that is really paying for.
+- **It drops nothing.** At over a hundred blocks a cast that would be a hundred items to
+  wade through, and this is not a mining ability — Mine is the one that gives you the
+  blocks. Fluids are left alone too: breaking them only drains whatever is sitting
+  nearby, and a ravine that fills on its own when it opens into water is a far more
+  interesting outcome than an empty trench.
+- **It starts a block OUT, not underfoot**, so a bender does not drop into their own
+  ravine the instant they open it.
+- **The caster is spared the EFFECTS but not the SHAKE**, which is the whole character
+  of the ability. `getEntities(player, box)` already excludes them from the sweep — the
+  same argument that was a bug for Earth spike is exactly right here — and the shake
+  packet is then sent to them separately.
+- **Camera shake has no server-side existence**, so `EarthquakePacket` asks each client
+  to do it and `ClientShake` counts it down. Applied through
+  `ViewportEvent.ComputeCameraAngles`, which moves the VIEW only — nudging the player
+  entity instead would have the server arguing about where they are.
+- **The shake is counted down on the client TICK, not in the camera event.** That event
+  fires once per FRAME, so counting there would run a 30 second shake down at whatever
+  rate the machine happens to render. The partial tick is folded into the offset
+  instead, so it stays smooth at any framerate.
+- Three different frequencies across yaw, pitch and roll, because a single sine on one
+  axis reads as a rocking boat within about a second.
+- **Mine is the only ability whose PRICE scales with its charge**, and the dispatcher
+  cannot do that: it knows one chi figure per ability. So `getChiCost` is the BASE only
+  — gated and taken the usual way — and the per-second extra is taken in `execute`,
+  where `getLastChargeTicks` is finally known.
+- **A bender who cannot afford the whole charge gets the part they can.** `execute`
+  clamps the seconds to what their chi covers rather than refusing: they held the key
+  in good faith, and doing nothing at all after five seconds is the worse answer.
+  - Earth dig (TOGGLE — the bender becomes a drill and goes underground, steered by
+    the MOUSE like the other rides. 5 chi/sec, 1 xp/sec, no cooldown. Has to be started
+    looking DOWN at solid ground; ends by itself when it SURFACES. About 7 blocks a
+    second — faster than a sprint, because it is earthbending's way of travelling)
+  - Earth grab (a wall of ground rises 20 blocks out and rolls back IN to 5, hauling
+    every mob and player it washes over back to the bender's feet. Made of whatever the
+    far ground is; refuses water. No damage at all — pure displacement. 150 chi, 15 xp,
+    20s cooldown)
+- **Earth grab is Tsunami inverted, and reuses its shape deliberately.** A moving BODY
+  of two slices, laid at the leading edge and taken up at the trailing one, so the wall
+  TRAVELS rather than leaving a wall behind it. The one real difference is direction:
+  the front counts DOWN, because this wave comes home rather than rolling away.
+- **Blocks go in and out with `Block.UPDATE_CLIENTS`, no neighbour updates** — the same
+  call Tsunami makes, for a different reason. Water needs it so the wave does not start
+  flowing on its own; earth needs it so a wave passing under gravel does not bring a
+  hillside down behind it. Only AIR is replaced either way, so nothing is destroyed.
+- **The haul runs EVERY tick, not once per step.** Something caught early is carried
+  the whole way in; shoving it once would leave it behind as the wave moved on.
+- Earth grab does no damage whatsoever. What the bender does with a mob suddenly
+  deposited at their feet is the point of the ability.
+- **Earth dig is a third `Rides.Kind`**, which is what let it steer like Air Scooter
+  and Water Surf for almost nothing. Two hooks were added to `Kind` for it: `velocity`,
+  because a drill is the ONE ride where up and down belong to the camera rather than to
+  the terrain, and `beforeMove`, so it can take out the blocks it is about to occupy —
+  the whole seat's box, not one block, or the corners catch and it grinds.
+- **"Am I underground?" is NOT "is there rock at my head".** The obvious test cannot
+  work for a drill: it takes those blocks out ITSELF, so a tick later it is always
+  standing in the air it just made, and the ride ended the instant it started. What
+  matters is whether there is still world OVERHEAD, which `level.canSeeSky` answers —
+  a tunnel keeps its ceiling, a surfaced drill does not.
+- **`Ride.submerged` is the same guard Air jump's `airJumpLeftGround` is.** A drill
+  begins on the surface with open sky above it, so "you have surfaced" cannot be
+  allowed to end the ride until it has been underground at least once. A drill that
+  never manages to bury itself is dropped after `BURROW_GRACE`.
+- **The drill has to beat running or nobody would use it.** It is earthbending's
+  travel ability, so it moves at about 7 blocks a second against a sprint's 5.6. It was
+  briefly SLOWER than walking, which made it useless for the one thing it exists to do.
+- **It does NOT drop what it tunnels through.** At seven blocks a second that would be
+  hundreds of item entities a trip — a tunnel full of rubble to wade back through, and
+  a mining tool by accident. Earth dig is for travelling; Mine is the ability that
+  gives you the blocks. Fluids are skipped entirely, since they do not block the seat
+  and breaking them would let a drill quietly empty an ocean on its way past.
+- **A manager tick that can KILL something must iterate a SNAPSHOT of its list.** This
+  crashed the server for real: dying to fall damage during Earth dig fired
+  LivingDeathEvent, whose handler calls `Rides.forgetPlayer`, which removed from the
+  very list `Rides.tickAll` was walking — `ConcurrentModificationException`, straight
+  out of the server tick loop. Fixed in `Rides`, `EarthTraps` and `AirSpouts`, all of
+  which move, mount or throw entities and so can reach back into themselves. A plain
+  iterator is only safe when nothing downstream can call back in, and in this codebase
+  almost nothing qualifies.
+- **No ride banks fall damage.** `Rides.advance` zeroes the rider's `fallDistance` every
+  tick: they are a passenger being carried by the seat, so anything counted against
+  them is the vehicle moving, not a fall they took.
+- **Getting off a drill grants Slow Falling for five seconds**, because a ride usually
+  ends partway up its own shaft and that is a long drop nobody chose. Vanilla resets
+  fall distance every tick the effect is held, so it needs no flag of ours and sees
+  itself out.
+- **Running out of chi underground is deliberately NOT made safe.** The ride simply
+  stops and leaves the bender standing inside rock, and vanilla suffocation does the
+  rest. Digging deeper than you can pay to get out of is supposed to be a real risk.
+- **Starting requires BOTH a downward aim and solid ground.** Without the aim test a
+  drill begun while looking at the horizon bores off sideways through a hillside;
+  without the ground test it can be started in mid-air, where it would instantly meet
+  the "in open air" condition and switch off again having taken a tick's chi.
+- **The upgrade panel drew TWO tooltips at once.** It is painted on top of the ability
+  nodes, so the node underneath still counted itself hovered and rendered its own
+  tooltip through the panel's. `mouseOverUpgradePanel` now suppresses the node tooltip
+  whenever the pointer is inside the panel, and the click handler shares the same
+  bounds check rather than keeping its own copy.
+- **Mine cannot take everything.** Netherite blocks are refused at any price — the one
+  flat no in the ability — and bedrock and friends are already out on negative hardness.
+  Obsidian (with crying obsidian, since gating one and not the other would only look
+  like an oversight) waits on the "Obsidian Breaker" upgrade at 10 levels, and every
+  kind of log — the `LOGS` tag, so stems, wood and hyphae too — waits on "Timber" at 20,
+  which itself waits on Obsidian Breaker.
+- **`AbilityUpgrade` now has a `requires` field**, the key of an upgrade that must be
+  owned first, which is how Timber sits behind Obsidian Breaker. Enforced in
+  `BuyUpgradePacket` and not merely greyed out in the menu — the client is only ever
+  asking. The menu shows "Buy <name> first" on a locked row and refuses the click.
+- **Blocks are taken nearest-first** from a 7x7x7 box around the aimed block, sorted by
+  distance, so a dig always starts where the bender pointed and grows into a rough ball
+  rather than taking an arbitrary corner. Anything with a negative destroy speed
+  (bedrock, portal frames) is skipped, and so is anything holding a fluid.
+- **The trap holds its victim the way the RIDES do: by making them a PASSENGER.** A
+  passenger's own movement input is never consulted — the vehicle decides where they
+  are — so a trapped player simply cannot walk and a trapped mob cannot either, with no
+  effects to fight over and nothing for the server to correct. It reuses `BendingSeat`
+  with `seated` false, so they stand rather than sit.
+- **That replaced a first attempt built out of Slowness VII and the shields'
+  `RootedPacket`**, which needed two different mechanisms for players and mobs and left
+  a client-side flag that could stick if a release was ever missed. The seat needs
+  neither, and is stronger.
+- **Vanilla lets a passenger dismount whenever it likes**, so `EntityMountEvent` is
+  cancelled for trap seats — without it the ability would last exactly as long as it
+  took to press shift. `EarthTraps` drops the seat from its list BEFORE releasing
+  anyone, so a genuine release is never refused by its own guard.
+- **The stone matches the ground by NAME**: the slab for `x` is almost always `x_slab`,
+  which covers stone, cobblestone, every wood, sandstone and deepslate with no table to
+  maintain. Ground with no slab at all — dirt and grass, mainly — falls back to the
+  GROUND BLOCK itself rather than a stand-in stone, because looking like what is
+  underneath matters more than being half height. Nothing suffocates either way:
+  Minecraft only smothers something whose EYES are inside a block.
+- **`Aiming.allInSight` is the shared "everything on screen" sweep**, extracted from
+  Wind when Earth trap needed the same question answered. Cone plus a line-of-sight
+  test, caster always excluded. Wind now calls it rather than keeping its own copy.
+- **`EntityType.FALLING_BLOCK` is registered with `updateInterval(20)` — its position
+  is broadcast ONCE A SECOND.** This is the single most misleading performance trap hit
+  so far: any FallingBlockEntity moved by hand every tick teleports in one-second jumps
+  on the client, which reads as severe lag while costing essentially nothing on the
+  server. It is a sync RATE, not a load.
+- **The fix is `entity.hasImpulse = true` every tick.** `ServerEntity.sendChanges`
+  sends the position when the interval elapses OR when that flag is set, and clears it
+  after each send — so it has to be set again every tick, not once. Applied in
+  `HeldBlocks.follow`, `EarthWorks.park` and the `Style.BLOCK` draw, which fixes the
+  carried block, every earth slide (wall, pillar, spike) and the thrown block together.
+  Water Manipulation had the same stutter all along and is fixed by the same line.
+- Worth remembering before reaching for a custom entity: a moving-block ability that
+  looks laggy is far more likely to be this than anything expensive.
+- **Earth block is all one REAL block, start to finish.** `HeldBlocks` genuinely
+  removes it (so the hole is visible), shows it with a FallingBlockEntity that follows
+  the crosshair (so the block is visible in hand), and the throw hands that SAME entity
+  to the projectile rather than discarding and respawning one — so what flies is
+  visibly the block that was picked up, with no blink.
+- **`HeldBlocks.take` ends a carry WITHOUT placing**, handing the block and its live
+  display entity to the caller. It is the one method in that class that can lose a
+  block: whoever takes it owns putting it back. `BendingProjectiles.landBlock` is that
+  other half — a thrown block is set down where it stops, or popped as an item if the
+  space is taken, because a throw that deleted its own block would make the ability a
+  quiet way to dig holes.
+- **Adopting the existing entity also avoids a real hazard.** `FallingBlockEntity.fall`
+  CLEARS the block at the position it spawns in, so spawning a fresh one at the throw
+  point would delete whatever happened to be there. HeldBlocks only gets away with
+  calling it because the block it names has just been removed anyway.
+- **`Style.BLOCK` is the one projectile style that is not particles.** Nothing is drawn
+  for it; the shot just moves its entity, re-parking it each tick so vanilla's own
+  falling-block timer never lands it or drops it as an item.
+- Earth block refuses anything with a block entity, anything unbreakable, and anything
+  that is not a full cube — a bender should not be able to throw somebody's chest.
+- **"Four kills a zombie" only holds because the shot PIERCES INVULNERABILITY FRAMES.**
+  Vanilla ignores a second hit of equal size within ten ticks of the first, so six
+  shards landing in quick succession would have five of them do nothing at all, and the
+  promise would only be true for someone who carefully paused half a second between
+  clicks. `Spec.piercesInvulnerability` clears the timer before the hit. It also
+  depends on `indirectMagic` bypassing armour, or a zombie's own two points would
+  quietly stretch four hits into five.
+- **`Style.STONE` draws shots with BLOCK particles**, which carry the real stone
+  texture and tumble — a shard of rock rather than a puff with a damage number. Kept to
+  a tight cluster with almost no spread so a shot reads as ONE fragment travelling
+  rather than a trail of dust.
+- **Earth spike goes up at the CROSSHAIR, not at the bender's feet**, unlike the wall
+  and the pillar. A spike that could only appear an arm's length away would be a
+  defensive ability with a damage number on it. `Aiming.groundUnderLook` does the
+  aiming, the same call Air spout and Tornado use.
+- **Earth spike hits its OWN caster, and passing `null` to `getEntities` is what makes
+  that work.** The first argument to `Level.getEntities` is the entity to SKIP, so the
+  obvious `getEntities(player, box)` quietly excludes the bender from their own search
+  — which is right for something you throw and wrong for something you put in the
+  ground. It also made the ability untestable on yourself: standing on your own spike
+  produced nothing but suffocation damage from the block, and no radius change could
+  ever have fixed it. Any future ability that places a HAZARD rather than aiming one
+  needs the same null.
+- **Earth spike is deliberately over-rewarded for landing.** It hits for 4.5 hearts,
+  half again what a 3-heart spike would be worth, and catches a radius of 1.8 rather
+  than 1.0 — the whole ring of neighbouring blocks, since a block away diagonally is
+  1.41 from the centre and a body at the far edge of one is further still. At a radius
+  of 1.0 only something standing almost exactly on the spike was caught, which for an
+  ability aimed at a patch of floor under a moving target was punishing twice.
+- **Its speed is the point**: 2 ticks a block against the wall's 8. A wall easing up
+  over most of a second is fine for cover; a spike doing that could be stepped off
+  before it arrived. `EarthWorks.riseInto` takes the slide length as an argument for
+  exactly this.
+- **`EarthWorks.raiseFor` is for earth that is placed and FORGOTTEN** — it rises,
+  stands, and sinks itself with nothing having to remember it. Earth wall and pillar
+  deliberately do NOT use it: their standing is one part of a longer life that
+  EarthWalls has to own anyway. Earth block and Earth trap should.
+- **The tip is vanilla pointed dripstone**, UP + TIP, which survives on anything solid
+  beneath it — the earth block under it qualifies, so it does not need propping.
+- **Earth armor is a registered MobEffect carrying an ATTRIBUTE MODIFIER**, not a
+  countdown on BendingData. `MobEffect.addAttributeModifier(Attributes.ARMOR, ...,
+  ADD_VALUE)` means vanilla applies and removes the ten points in step with the effect
+  itself — the duration, the removal, the cleanup on death and the inventory timer all
+  come free, and "adds ten on TOP of existing armor" is simply what ADD_VALUE means.
+- **The stone look is a RENDER LAYER, not a change of equipment** (`EarthArmorLayer`,
+  hung on both player renderers in `ModEntityRenderers`). That is what lets the ability
+  keep its promise about existing armor: the real gear is untouched underneath and
+  merely hidden, rather than being swapped out and needing to be given back.
+- **Mob effects are NOT synced to onlookers**, and this is the trap the visual had to
+  work around: vanilla sends a player's effects only to that player, so a stone suit
+  driven off `hasEffect` would be visible to nobody but its wearer. `EarthArmorPacket`
+  carries the state to everyone tracking them, broadcast from the player tick ONLY when
+  it changes, plus `PlayerEvent.StartTracking` so anyone who walks up to (or logs in
+  near) an already-armored bender is told as well. Any future ability whose look has to
+  be seen by others needs the same two halves.
+- **A respawned player REUSES its entity id**, on both sides (`PlayerList.respawn` calls
+  `setId`, and the client's `handleRespawn` copies the old id onto the new LocalPlayer).
+  That is what made Earth armor's stone suit survive death: the client's set is keyed on
+  entity id and nothing cleared it, while the per-tick broadcast could not notice —
+  `earthArmorShown` is transient, so it comes back false and the change detector sees no
+  change to report. Told explicitly on death AND on respawn instead. Anything else keyed
+  on entity id across a death needs the same treatment.
+- `ClientEarthArmor` is also cleared on leaving a world, since ids start again in the
+  next one and whoever inherited the number would otherwise turn up wearing stone.
+- The armor sheet is vanilla's **cobblestone**, tiled 4x2 across the 64x32 armor layout
+  with each tile sampled at its own random offset (wrapping) so the repeat does not line
+  up into a visible grid. Generated from the game's own texture, which is worth knowing
+  if this mod is ever published — that is Mojang's art sitting in the jar.
+- **`RaisedEarth` is the shared base for both.** A subclass supplies only three things:
+  what it is called, what it costs, and WHICH COLUMNS to raise. The chi, the cap, the
+  lifecycle and the fact that it outlives its own channel are identical for anything
+  that pulls earth up and belong in one place — Earth pillar is a 40-line class because
+  of it, and Earth armor should be able to be one too.
+- **The HEIGHT CAP is `canContinue`, not a duration.** Returning false once
+  `EarthWalls` stops growing ends the channel exactly when the seventh layer lands,
+  where a `getMaxDurationTicks` would be a second figure that has to be kept in step
+  with the height and would silently drift out of it.
+- **Raised earth charges its chi in `onStart`, not per second.** A channel's chi is a
+  RATE, and this one is a single price for the whole wall however long the key is
+  held. `getMinimumChiToStart` is the gate; `onStart` does the spending.
+- **A wall outlives its channel by half a minute**, so `EarthWalls` owns all three of
+  its lives — growing, standing, sinking — and the ability class owns almost nothing.
+  If the bender logs out or dies mid-raise the wall finishes at whatever height it
+  reached rather than growing forever with nobody to let go of the key.
+- **Columns with no ground are left OUT of the wall** rather than aborting it, which is
+  what makes a wall thrown across a chasm shorter instead of broken.
+- **`canStart` was never being called for CHANNELED abilities** until Earth wall needed
+  it — `startChannel` checked cooldown, chi and water but skipped the precondition that
+  `performCast` has always run. Water Surf and Water Sphere's "you must be in water"
+  tests had therefore never fired at all; only Water Heal appeared to work, and that
+  was its `canContinue` stopping the channel a tick after it started rather than the
+  refusal doing its job. Fixed in `startChannel`, in the same position performCast
+  uses.
 - **`Ability.isActive` / `deactivate` is the toggle hook**, and it is checked at the
   very top of `performCast`, BEFORE the cooldown gate and before anything is spent.
   That ordering is the whole reason it exists: Tornado runs 30 seconds behind a 10
@@ -665,6 +1014,28 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   counts the CLICK, not the outcome, so the shot is already spent by the time
   `onRelease` runs — aiming at open sky has to put a spout somewhere (the ground under
   the end of the look) or it would silently cost the bender a third of the ability.
+- **`abilities/Rides.java` carries both Air scooter and Water Surf**, generalised out
+  of the old AirScooters when Water Surf was rebuilt in the scooter's image. The two
+  differ in only three things, all held on the `Kind` enum: where the surface IS (a
+  block above solid ground, or the waterline), what makes the ride STOP (crossing
+  water, or running out of it), and what it costs. Seating the rider, steering by the
+  crosshair, billing and the half dozen ways a ride can end are written once.
+- **The seat is `BendingSeat`** (was AirScooterSeat), and it carries a SYNCHED
+  `seated` flag because `LivingEntityRenderer` asks the VEHICLE, not the passenger,
+  which pose to draw — so the answer has to exist client-side. Air scooter rides
+  seated; Water Surf rides standing, because nobody surfs sitting down.
+- **Water Surf is a TOGGLE now, not a channel**, and is carried by a real entity like
+  the scooter. The old version laid invisible platform blocks under the bender every
+  tick; the ride does the same job better, since a passenger is moved BY its vehicle
+  and the server never has to correct the client at all. `SurfPlatformBlock` was its
+  only user and has been deleted along with its blockstate and model.
+- **Water Surf's "Swift Current" upgrade now doubles the ride's SPEED** rather than
+  granting Speed II, since the ride's pace is no longer the player's walking speed.
+  Same key, same cost, so anyone who bought it keeps it.
+- **Water Sphere no longer requires being in water.** It simply finds nothing to hold
+  back on dry land and waits until there is some — which lets a bender raise the sphere
+  on the shore and walk in, rather than having to dive first and open it while already
+  drowning.
 - **Air scooter is a TOGGLE, so it is a plain `Ability`, not a `ChanneledAbility`.**
   The click dispatch (`UseAbilityPacket` / `consumeClick`) fires once per press, which
   is what a toggle wants; the hold dispatch built for Fire Breath reports key STATE and
@@ -881,7 +1252,10 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - A registered MobEffect needs `assets/atlamod/textures/mob_effect/<name>.png` (18x18)
   or the inventory shows the magenta checkerboard — same trap as the element icons.
 - **FIRE IS COMPLETE — all 16 abilities across all 4 paths.**
-- **WATER IS COMPLETE — all 12 abilities across all 4 paths.** 12 left, all EARTH
+- **WATER IS COMPLETE — all 12 abilities across all 4 paths.**
+- **EARTH IS COMPLETE — all 13 abilities across all 4 paths.**
+- **ALL FOUR ELEMENTS ARE BUILT**, 54 registrations in `AbilityRegistry.bootstrap()`.
+  Everything from here is tuning, upgrades and polish rather than new paths.
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size
 

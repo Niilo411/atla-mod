@@ -3,7 +3,6 @@ package com.minecraft.atlamod.abilities.water;
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -17,6 +16,11 @@ import net.minecraft.sounds.SoundSource;
  * go fills the whole thing in. WaterSpheres does the bookkeeping, and the reason it
  * exists is that every block taken out has to be remembered — otherwise a bender
  * could drain a sea simply by walking across the bottom of it.
+ *
+ * It can be opened on dry land, where it simply finds no water to hold back and waits
+ * until there is some. That is deliberate: a bender should be able to raise the sphere
+ * on the shore and then walk in, rather than having to dive first and open it while
+ * already drowning.
  */
 public class WaterSphere implements ChanneledAbility {
 
@@ -56,16 +60,6 @@ public class WaterSphere implements ChanneledAbility {
      */
     @Override
     public boolean requiresWater() {
-        return false;
-    }
-
-    /** Has to be started from the water — there is nothing to hold back on land. */
-    @Override
-    public boolean canStart(ServerPlayer player, BendingData data) {
-        if (player.isInWater()) return true;
-
-        player.displayClientMessage(
-                Component.literal("§bYou must be in water to open a sphere!"), true);
         return false;
     }
 

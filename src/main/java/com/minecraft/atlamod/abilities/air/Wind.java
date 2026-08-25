@@ -2,6 +2,7 @@ package com.minecraft.atlamod.abilities.air;
 
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.Ability;
+import com.minecraft.atlamod.abilities.Aiming;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,9 +10,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -79,14 +78,8 @@ public class Wind implements Ability {
 
         drawGust(level, eye, look);
 
-        // A box of +-RANGE around the eye. Any point within RANGE is inside it on
-        // every axis, so nothing in the cone can fall outside the search — a tighter
-        // box centred down the look vector misses targets at the edge of the arc.
-        AABB searchBox = new AABB(eye, eye).inflate(RANGE);
-
-        for (Entity target : level.getEntities(player, searchBox)) {
-            if (!(target instanceof LivingEntity living) || !living.isAlive()) continue;
-            if (!isOnScreen(player, living, eye, look)) continue;
+        // Everything in front of the bender, within range, and not through a wall.
+        for (LivingEntity living : Aiming.allInSight(player, RANGE, CONE_DOT)) {
 
             living.addEffect(new MobEffectInstance(
                     MobEffects.MOVEMENT_SLOWDOWN, SLOW_DURATION, SLOW_LEVEL, false, true, true));
@@ -101,21 +94,6 @@ public class Wind implements Ability {
                     living.getX(), living.getY() + living.getBbHeight() * 0.5, living.getZ(),
                     10, 0.35, 0.45, 0.35, 0.03);
         }
-    }
-
-    /**
-     * Whether the bender can actually see this target: inside the view cone, within
-     * range, and not through a wall.
-     *
-     * The line of sight check is what makes "on your screen" mean what it says —
-     * without it the gust would go through terrain and hit things in the cave below.
-     */
-    private static boolean isOnScreen(ServerPlayer player, LivingEntity target, Vec3 eye, Vec3 look) {
-        Vec3 toTarget = target.getEyePosition().subtract(eye);
-        if (toTarget.lengthSqr() > RANGE * RANGE) return false;
-        if (toTarget.normalize().dot(look) < CONE_DOT) return false;
-
-        return player.hasLineOfSight(target);
     }
 
     /**

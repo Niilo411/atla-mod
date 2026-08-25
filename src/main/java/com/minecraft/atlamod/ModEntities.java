@@ -19,11 +19,11 @@ public final class ModEntities {
     private static final DeferredRegister<EntityType<?>> ENTITIES =
             DeferredRegister.create(Registries.ENTITY_TYPE, Atlamod.MODID);
 
-    /** What an Air Scooter rider sits on. See AirScooterSeat. */
-    public static final DeferredHolder<EntityType<?>, EntityType<AirScooterSeat>> AIR_SCOOTER_SEAT =
-            ENTITIES.register("air_scooter_seat",
-                    () -> EntityType.Builder.<AirScooterSeat>of(AirScooterSeat::new, MobCategory.MISC)
-                            .sized(AirScooterSeat.SIZE.width(), AirScooterSeat.SIZE.height())
+    /** What a bender rides on — Air Scooter and Water Surf both. See BendingSeat. */
+    public static final DeferredHolder<EntityType<?>, EntityType<BendingSeat>> BENDING_SEAT =
+            ENTITIES.register("bending_seat",
+                    () -> EntityType.Builder.<BendingSeat>of(BendingSeat::new, MobCategory.MISC)
+                            .sized(BendingSeat.SIZE.width(), BendingSeat.SIZE.height())
                             // Follows the rider, who is by definition a player being
                             // tracked already; updated every tick because the seat is
                             // what carries them and any lag in it is felt directly.
@@ -31,7 +31,7 @@ public final class ModEntities {
                             .updateInterval(1)
                             .noSummon()
                             .fireImmune()
-                            .build("air_scooter_seat"));
+                            .build("bending_seat"));
 
     private ModEntities() {
     }

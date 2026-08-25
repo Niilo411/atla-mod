@@ -11,6 +11,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Picking out the one thing a bender is aiming at.
  *
@@ -63,6 +66,45 @@ public final class Aiming {
         }
 
         return best;
+    }
+
+    /**
+     * Everything living the bender can actually SEE — in front of them, within reach,
+     * and not through a wall.
+     *
+     * The caster is never included. The cone is deliberately a little wider than the
+     * real view frustum (Minecraft's default 70-degree vertical FOV works out around
+     * 106 across on a widescreen, so a true half angle near 0.6), because something at
+     * the very edge of the screen should be caught rather than feel unfairly missed —
+     * and the player's FOV slider is a client preference the server cannot see anyway.
+     *
+     * The line-of-sight test is what makes "in sight" mean what it says: without it an
+     * ability would reach through terrain and catch things in the cave below.
+     */
+    public static List<LivingEntity> allInSight(ServerPlayer player, double reach, double coneDot) {
+        List<LivingEntity> found = new ArrayList<>();
+        if (!(player.level() instanceof ServerLevel level)) return found;
+
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getLookAngle();
+
+        // A box of +-reach around the eye. Any point within reach is inside it on every
+        // axis, so nothing in the cone can fall outside the search — a tighter box
+        // centred down the look vector misses targets at the edge of the arc.
+        AABB search = new AABB(eye, eye).inflate(reach);
+
+        for (Entity candidate : level.getEntities(player, search)) {
+            if (!(candidate instanceof LivingEntity living) || !living.isAlive()) continue;
+
+            Vec3 toTarget = living.getEyePosition().subtract(eye);
+            if (toTarget.lengthSqr() > reach * reach) continue;
+            if (toTarget.normalize().dot(look) < coneDot) continue;
+            if (!player.hasLineOfSight(living)) continue;
+
+            found.add(living);
+        }
+
+        return found;
     }
 
     /**

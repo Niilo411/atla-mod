@@ -41,23 +41,26 @@ public class AbilityHandler {
         if (ability instanceof ChanneledAbility || ability instanceof ChargedAbility
                 || ability instanceof PassiveAbility) return;
 
-        dismountScooter(player, ability);
+        dismountRide(player, ability);
         performCast(player, data, ability);
     }
 
     /**
-     * Casting anything else gets you off the Air Scooter first.
+     * Casting anything else gets you off whatever you are riding first — Air Scooter
+     * or Water Surf.
      *
-     * Chosen over refusing the cast: bending from a scooter would mean bending while
-     * seated on a moving entity the server is steering, which is a lot of surface for
-     * odd interactions (rooting channels that cannot root a passenger, flight abilities
+     * Chosen over refusing the cast: bending from a ride would mean bending while sat
+     * on a moving entity the server is steering, which is a lot of surface for odd
+     * interactions (rooting channels that cannot root a passenger, flight abilities
      * fighting the seat), while blocking abilities outright risks a player who feels
      * stuck and cannot work out why nothing fires. Stepping off is unambiguous, and
-     * the scooter is free to get back onto.
+     * the ride is free to get back onto.
      */
-    private static void dismountScooter(ServerPlayer player, Ability ability) {
-        if (ability instanceof com.minecraft.atlamod.abilities.air.AirScooter) return;
-        com.minecraft.atlamod.abilities.air.AirScooters.stop(player);
+    private static void dismountRide(ServerPlayer player, Ability ability) {
+        if (ability instanceof com.minecraft.atlamod.abilities.air.AirScooter
+                || ability instanceof com.minecraft.atlamod.abilities.water.WaterSurf
+                || ability instanceof com.minecraft.atlamod.abilities.earth.EarthDig) return;
+        com.minecraft.atlamod.abilities.Rides.stop(player);
     }
 
     /**
@@ -165,7 +168,7 @@ public class AbilityHandler {
         // it arrives for every ability the player lets go of, including the scooter's
         // own key, which would turn the toggle back off the instant it was pressed.
         if (isHeld && ability != null) {
-            dismountScooter(player, ability);
+            dismountRide(player, ability);
         }
 
         if (ability instanceof ChanneledAbility channeled) {
@@ -283,6 +286,13 @@ public class AbilityHandler {
                     "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
             return;
         }
+
+        // Per-ability precondition, the same one performCast checks and in the same
+        // place. This was missing until Earth wall needed it, which meant Water Surf
+        // and Water Sphere's "you must be in water" tests had never actually run —
+        // only Water Heal appeared to work, and that was its canContinue stopping the
+        // channel a tick after it started rather than the refusal doing its job.
+        if (!ability.canStart(player, data)) return;
 
         // A gate, not a cost: nothing is deducted for meeting it, and the channel
         // keeps running below this figure once it is up.

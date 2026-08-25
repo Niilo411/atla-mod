@@ -24,6 +24,19 @@ import com.minecraft.atlamod.abilities.air.AirPush;
 import com.minecraft.atlamod.abilities.air.AirScooter;
 import com.minecraft.atlamod.abilities.air.AirSpout;
 import com.minecraft.atlamod.abilities.air.Breathless;
+import com.minecraft.atlamod.abilities.earth.EarthArmor;
+import com.minecraft.atlamod.abilities.earth.EarthBlock;
+import com.minecraft.atlamod.abilities.earth.EarthSpike;
+import com.minecraft.atlamod.abilities.earth.EarthTrap;
+import com.minecraft.atlamod.abilities.earth.EarthDig;
+import com.minecraft.atlamod.abilities.earth.EarthGrab;
+import com.minecraft.atlamod.abilities.earth.Earthquake;
+import com.minecraft.atlamod.abilities.earth.EarthSink;
+import com.minecraft.atlamod.abilities.earth.Ravine;
+import com.minecraft.atlamod.abilities.earth.Mine;
+import com.minecraft.atlamod.abilities.earth.Splinters;
+import com.minecraft.atlamod.abilities.earth.EarthPillar;
+import com.minecraft.atlamod.abilities.earth.EarthWall;
 import com.minecraft.atlamod.abilities.air.Flight;
 import com.minecraft.atlamod.abilities.air.Tornado;
 import com.minecraft.atlamod.abilities.water.Drown;
@@ -125,6 +138,27 @@ public final class AbilityRegistry {
         register(new Breathless());
         register(new Tornado());
         register(new Flight());
+
+        // --- EARTH : Defensive ---
+        register(new EarthWall());
+        register(new EarthPillar());
+        register(new EarthArmor());
+
+        // --- EARTH : Offensive ---
+        register(new EarthSpike());
+        register(new Splinters());
+        register(new EarthBlock());
+        register(new EarthTrap());
+
+        // --- EARTH : Balanced ---
+        register(new Mine());
+        register(new EarthDig());
+        register(new EarthGrab());
+
+        // --- EARTH : Masterclass ---
+        register(new Earthquake());
+        register(new Ravine());
+        register(new EarthSink());
     }
 
     public static void register(Ability ability) {

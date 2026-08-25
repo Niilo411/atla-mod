@@ -15,7 +15,6 @@ import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
@@ -131,16 +130,23 @@ public final class AirSpouts {
         blowOut(tornado);
     }
 
-    /** Runs every column in the world. Called once per server tick. */
+    /**
+     * Runs every column in the world. Called once per server tick.
+     *
+     * Iterates a SNAPSHOT for the same reason Rides does: throwing things about runs
+     * game code that can reach back here — a victim dying fires the death handler,
+     * which calls forgetPlayer and removes from ACTIVE — and mutating the list under
+     * its own iterator crashes the server tick loop.
+     */
     public static void tickAll(MinecraftServer server) {
         if (ACTIVE.isEmpty()) return;
 
-        Iterator<Spout> spouts = ACTIVE.iterator();
-        while (spouts.hasNext()) {
-            Spout spout = spouts.next();
+        for (Spout spout : List.copyOf(ACTIVE)) {
+            if (!ACTIVE.contains(spout)) continue;
+
             if (!advance(spout, server)) {
                 blowOut(spout);
-                spouts.remove();
+                ACTIVE.remove(spout);
             }
         }
     }

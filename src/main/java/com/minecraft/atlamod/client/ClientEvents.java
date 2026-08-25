@@ -23,6 +23,10 @@ public class ClientEvents {
     public static void onClientTick(ClientTickEvent.Post event) {
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
 
+        // Counted down here rather than in the camera event, which fires once per FRAME
+        // and would run the shake down at whatever rate the machine happens to render.
+        ClientShake.tick();
+
         // 1. Safely open the menu if the server flagged it AND no other screen is open
         if (needsToOpenMenu && mc.screen == null && mc.level != null && mc.player != null) {
             mc.setScreen(new ElementSelectionScreen());
@@ -180,4 +184,33 @@ public class ClientEvents {
         input.left = input.right;
         input.right = left;
     }
+
+    /**
+     * Forgets who was wearing Earth armor on the way out of a world.
+     *
+     * The set is keyed on entity id, and ids start again in the next world — without
+     * this, whichever entity happened to be handed a matching number would turn up
+     * wearing stone.
+     */
+    @SubscribeEvent
+    public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        ClientEarthArmor.clear();
+        ClientShake.clear();
     }
+
+    /**
+     * Shakes the camera while an Earthquake is running under this player.
+     *
+     * Done here rather than by moving the player: the view is the only thing that
+     * should move, and nudging the entity would fight the server about where they are.
+     */
+    @SubscribeEvent
+    public static void onCameraAngles(net.neoforged.neoforge.client.event.ViewportEvent.ComputeCameraAngles event) {
+        if (!ClientShake.active()) return;
+
+        float partial = (float) event.getPartialTick();
+        event.setYaw(event.getYaw() + ClientShake.offset(0, partial));
+        event.setPitch(event.getPitch() + ClientShake.offset(1, partial));
+        event.setRoll(event.getRoll() + ClientShake.offset(2, partial));
+    }
+}

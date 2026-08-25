@@ -15,13 +15,13 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * Almost nothing lives in this class. The ride owns an entity and has to be taken
  * down safely from half a dozen different directions, so it lives in
- * {@link AirScooters} alongside the other per-player managers — and the running cost
+ * {@link com.minecraft.atlamod.abilities.Rides} alongside the other per-player managers — and the running cost
  * is charged there too, since the dispatcher only knows how to bill held abilities
  * and this is not one.
  */
 public class AirScooter implements Ability {
 
-    /** Doubles how fast the scooter travels. Read by AirScooters when steering. */
+    /** Doubles how fast the scooter travels. Read by Rides when steering. */
     public static final String SLIPSTREAM = "air_scooter_slipstream";
     private static final int SLIPSTREAM_COST = 10;
 
@@ -40,7 +40,7 @@ public class AirScooter implements Ability {
     }
 
     /**
-     * Free to get on and off. The 5 chi a second is charged by AirScooters while the
+     * Free to get on and off. The 5 chi a second is charged by Rides while the
      * ride runs; billing anything here would be a toll on the keypress instead.
      */
     @Override
@@ -66,17 +66,19 @@ public class AirScooter implements Ability {
     /** Riding already: the next press gets off. */
     @Override
     public boolean isActive(ServerPlayer player, BendingData data) {
-        return AirScooters.isRiding(player);
+        return com.minecraft.atlamod.abilities.Rides.isRiding(
+                player, com.minecraft.atlamod.abilities.Rides.Kind.AIR_SCOOTER);
     }
 
     @Override
     public void deactivate(ServerPlayer player, BendingData data) {
-        AirScooters.stop(player);
+        com.minecraft.atlamod.abilities.Rides.stop(player);
     }
 
     /** Press on. Getting off goes through deactivate, not through here. */
     @Override
     public void execute(ServerPlayer player, BendingData data) {
-        AirScooters.start(player);
+        com.minecraft.atlamod.abilities.Rides.start(
+                player, com.minecraft.atlamod.abilities.Rides.Kind.AIR_SCOOTER, SLIPSTREAM);
     }
 }

@@ -50,6 +50,12 @@ public final class BendingProjectiles {
      */
     private static final double STEP = 0.9;
 
+    /** The chip a stone shot is drawn from. Built once; it never varies. */
+    private static final net.minecraft.core.particles.BlockParticleOption STONE_CHIP =
+            new net.minecraft.core.particles.BlockParticleOption(
+                    ParticleTypes.BLOCK,
+                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+
     private static final List<Shot> IN_FLIGHT = new ArrayList<>();
 
     private BendingProjectiles() {
@@ -58,7 +64,21 @@ public final class BendingProjectiles {
     /** How a shot looks and sounds. */
     public enum Style {
         WATER,
-        AIR
+        AIR,
+
+        /**
+         * Chips of real stone, drawn with BLOCK particles rather than a puff.
+         * Those carry the stone texture and tumble, so a shot reads as a sharp
+         * fragment of rock instead of a cloud with a damage number.
+         */
+        STONE,
+
+        /**
+         * A real block, carried by a FallingBlockEntity rather than drawn at all.
+         * The only style that is not particles: Earth block throws the very block it
+         * pulled out of the ground, and it has to look like one the whole way.
+         */
+        BLOCK
     }
 
     /**
@@ -73,12 +93,20 @@ public final class BendingProjectiles {
      */
     public record Spec(double speed, int lifetime, float damage, double hitRadius,
                        double knockback, Style style,
-                       @Nullable Supplier<MobEffectInstance> onHit) {
+                       @Nullable Supplier<MobEffectInstance> onHit,
+                       boolean piercesInvulnerability) {
 
         /** A shot that only hits, with no lingering effect. */
         public Spec(double speed, int lifetime, float damage, double hitRadius,
                     double knockback, Style style) {
-            this(speed, lifetime, damage, hitRadius, knockback, style, null);
+            this(speed, lifetime, damage, hitRadius, knockback, style, null, false);
+        }
+
+        /** A shot with a lingering effect, on vanilla's ordinary damage timing. */
+        public Spec(double speed, int lifetime, float damage, double hitRadius,
+                    double knockback, Style style,
+                    @Nullable Supplier<MobEffectInstance> onHit) {
+            this(speed, lifetime, damage, hitRadius, knockback, style, onHit, false);
         }
     }
 
@@ -90,6 +118,10 @@ public final class BendingProjectiles {
         Vec3 pos;
         Vec3 velocity;
         int ticksLeft;
+
+        /** Set only for Style.BLOCK: what is being thrown, and the entity showing it. */
+        @Nullable net.minecraft.world.level.block.state.BlockState carried;
+        @Nullable net.minecraft.world.entity.item.FallingBlockEntity display;
 
         Shot(UUID ownerId, ServerLevel level, Spec spec, Vec3 pos, Vec3 velocity) {
             this.ownerId = ownerId;
@@ -107,6 +139,25 @@ public final class BendingProjectiles {
 
         IN_FLIGHT.add(new Shot(owner.getUUID(), level, spec, from,
                 direction.normalize().scale(spec.speed())));
+    }
+
+    /**
+     * Sends a real block on its way, still wearing the entity that was showing it.
+     *
+     * The display is ADOPTED rather than respawned: it is already alive and in the
+     * right place, and spawning a new FallingBlockEntity would mean calling fall(),
+     * which clears whatever block happens to occupy the spawn position.
+     */
+    public static void launchCarried(ServerPlayer owner, Vec3 from, Vec3 direction, Spec spec,
+                                     net.minecraft.world.level.block.state.BlockState carried,
+                                     @Nullable net.minecraft.world.entity.item.FallingBlockEntity display) {
+        if (!(owner.level() instanceof ServerLevel level)) return;
+
+        Shot shot = new Shot(owner.getUUID(), level, spec, from,
+                direction.normalize().scale(spec.speed()));
+        shot.carried = carried;
+        shot.display = display;
+        IN_FLIGHT.add(shot);
     }
 
     /** Advances every shot in the world. Called once per server tick. */
@@ -165,6 +216,14 @@ public final class BendingProjectiles {
             if (!(target instanceof LivingEntity living) || !living.isAlive()) continue;
 
             if (owner != null) {
+                // Vanilla ignores a second hit of equal size within ten ticks of the
+                // first, which for an ability whose whole point is landing several
+                // shots quickly would silently throw most of them away. Clearing the
+                // timer first makes every splinter count.
+                if (shot.spec.piercesInvulnerability()) {
+                    living.invulnerableTime = 0;
+                }
+
                 living.hurt(owner.damageSources().indirectMagic(owner, owner), shot.spec.damage());
             }
 
@@ -200,7 +259,51 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.CLOUD, x, y, z, 5, 0.1, 0.1, 0.1, 0.0);
                 shot.level.sendParticles(ParticleTypes.SMALL_GUST, x, y, z, 1, 0.05, 0.05, 0.05, 0.0);
             }
+            case STONE -> {
+                // Real block chips, tightly clustered and barely moving, so they read
+                // as one sharp fragment travelling rather than a trail of dust.
+                shot.level.sendParticles(STONE_CHIP, x, y, z, 4, 0.04, 0.04, 0.04, 0.0);
+            }
+            case BLOCK -> {
+                // Nothing is drawn: the block IS the entity, just moved along.
+                if (shot.display != null && shot.display.isAlive()) {
+                    shot.display.setNoGravity(true);
+                    shot.display.setDeltaMovement(Vec3.ZERO);
+                    // Its own timer would land it as a block or drop it as an item.
+                    shot.display.time = 0;
+                    shot.display.setPos(x, y - 0.5, z);
+                    // FALLING_BLOCK syncs its position once a SECOND (updateInterval 20).
+                    // A thrown block without this arrives in one-second teleports.
+                    shot.display.hasImpulse = true;
+                }
+            }
         }
+    }
+
+    /**
+     * Sets a thrown block down where it stopped.
+     *
+     * The block was taken OUT of the world to be thrown, so it has to go back into it
+     * — a throw that simply deleted whatever it was carrying would make the ability a
+     * quiet way of destroying terrain. If the landing spot is somehow occupied it is
+     * dropped as an item instead, which is still not losing it.
+     */
+    private static void landBlock(Shot shot, double x, double y, double z) {
+        if (shot.display != null && shot.display.isAlive()) {
+            shot.display.discard();
+        }
+        if (shot.carried == null) return;
+
+        BlockPos at = BlockPos.containing(x, y, z);
+        if (shot.level.getBlockState(at).canBeReplaced()) {
+            shot.level.setBlockAndUpdate(at, shot.carried);
+        } else {
+            net.minecraft.world.level.block.Block.popResource(
+                    shot.level, at, new net.minecraft.world.item.ItemStack(shot.carried.getBlock()));
+        }
+
+        shot.level.playSound(null, x, y, z,
+                shot.carried.getSoundType().getPlaceSound(), SoundSource.BLOCKS, 1.0F, 0.8F);
     }
 
     /** Where it comes apart. */
@@ -216,6 +319,12 @@ public final class BendingProjectiles {
                 shot.level.playSound(null, x, y, z,
                         SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.0F, 1.1F);
             }
+            case STONE -> {
+                shot.level.sendParticles(STONE_CHIP, x, y, z, 25, 0.25, 0.25, 0.25, 0.16);
+                shot.level.playSound(null, x, y, z,
+                        SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.0F, 1.4F);
+            }
+            case BLOCK -> landBlock(shot, x, y, z);
             case AIR -> {
                 // Scaled off the shot's own hit radius, which is already the mod's
                 // measure of how big the thing is: an Air splinter pops, an Air

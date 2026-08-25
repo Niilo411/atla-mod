@@ -25,6 +25,21 @@ public final class ModEffects {
     public static final DeferredHolder<MobEffect, MobEffect> DISORIENTATION =
             EFFECTS.register("disorientation", DisorientationEffect::new);
 
+    /**
+     * Ten points of armor, worn as stone. The bonus is declared here rather than in
+     * the effect class because vanilla wants it as an attribute modifier on the
+     * MobEffect itself — it then applies and removes it in step with the effect, which
+     * is a great deal safer than adding one by hand and hoping to remember to take it
+     * off again.
+     */
+    public static final DeferredHolder<MobEffect, MobEffect> EARTH_ARMOR =
+            EFFECTS.register("earth_armor", () -> new EarthArmorEffect().addAttributeModifier(
+                    net.minecraft.world.entity.ai.attributes.Attributes.ARMOR,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                            Atlamod.MODID, "earth_armor"),
+                    10.0,
+                    net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
+
     private ModEffects() {
     }
 

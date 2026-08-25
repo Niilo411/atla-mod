@@ -55,6 +55,11 @@ public record BuyUpgradePacket(String abilityName, String upgradeKey) implements
                 }
             }
             if (upgrade == null) return;
+
+            // Upgrades can stand behind one another. Checked here and not only in the
+            // menu: the client is asking, not deciding.
+            if (upgrade.requires() != null && !data.hasUpgrade(upgrade.requires())) return;
+
             if (data.getLevel() < upgrade.cost()) return;
 
             data.setLevel(data.getLevel() - upgrade.cost());

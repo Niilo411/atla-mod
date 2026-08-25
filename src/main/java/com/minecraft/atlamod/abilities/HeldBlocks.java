@@ -121,6 +121,12 @@ public final class HeldBlocks {
             held.display.setDeltaMovement(Vec3.ZERO);
             held.display.setPos(held.pos.x, held.pos.y - 0.5, held.pos.z);
             held.display.time = 0;
+            // EntityType.FALLING_BLOCK is registered with updateInterval(20), so its
+            // position is only broadcast ONCE A SECOND. Moving it every tick without
+            // this makes it teleport in one-second jumps, which looks like severe lag
+            // and is really just a sync rate. hasImpulse forces the update through, and
+            // ServerEntity clears it again each time, so it has to be set every tick.
+            held.display.hasImpulse = true;
         } else {
             // No model to render: draw it instead.
             held.level.sendParticles(ParticleTypes.SPLASH,
@@ -163,6 +169,32 @@ public final class HeldBlocks {
         }
 
         finish(player, held);
+    }
+
+    /** A block handed off to something else, together with the entity showing it. */
+    public record Taken(BlockState state, @javax.annotation.Nullable FallingBlockEntity display) {}
+
+    /**
+     * Ends the carry and hands the block to the CALLER, placing nothing.
+     *
+     * For abilities that do something else with it — Earth block throws it. The
+     * display entity is handed over still alive rather than discarded and respawned,
+     * so the block the bender was holding is visibly the same one that flies off, and
+     * nothing has to spawn a FallingBlockEntity at a position that might not be empty.
+     *
+     * The block is OUT OF THE WORLD when this returns. Whoever takes it is responsible
+     * for putting it somewhere and for discarding the entity, or both simply cease to
+     * exist — which is the one failure mode this whole class is built to avoid.
+     *
+     * @return null if the player was not carrying anything
+     */
+    @javax.annotation.Nullable
+    public static Taken take(ServerPlayer player) {
+        Held held = HELD.get(player.getUUID());
+        if (held == null) return null;
+
+        HELD.remove(player.getUUID());
+        return new Taken(held.state, held.display);
     }
 
     private static void finish(ServerPlayer player, Held held) {

@@ -67,17 +67,6 @@ public class Atlamod {
                     .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
                     .noLootTable()));
 
-    // The invisible footing under a surfing waterbender. No BlockItem: it exists only
-    // for as long as someone is running on it.
-    public static final DeferredBlock<Block> SURF_PLATFORM = BLOCKS.register("surf_platform",
-            () -> new SurfPlatformBlock(BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.WATER)
-                    .replaceable()
-                    .noOcclusion()
-                    .instabreak()
-                    .noLootTable()
-                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)));
-
     // Creates a new food item with the id "atlamod:example_id", nutrition 1 and saturation 2
     public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()
             .alwaysEdible().nutrition(1).saturationModifier(2f).build()));

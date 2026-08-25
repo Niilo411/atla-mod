@@ -196,6 +196,26 @@ public class ModNetworking {
                 }
         );
 
+        // --- EARTH ARMOR (Server -> Client) : who is wearing the stone suit ---
+        registrar.playToClient(
+                EarthArmorPacket.TYPE,
+                EarthArmorPacket.STREAM_CODEC,
+                (EarthArmorPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> com.minecraft.atlamod.client.ClientEarthArmor.set(
+                            payload.entityId(), payload.active()));
+                }
+        );
+
+        // --- EARTHQUAKE (Server -> Client) : shake the receiving player's camera ---
+        registrar.playToClient(
+                EarthquakePacket.TYPE,
+                EarthquakePacket.STREAM_CODEC,
+                (EarthquakePacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() ->
+                            com.minecraft.atlamod.client.ClientShake.start(payload.ticks()));
+                }
+        );
+
         // --- BUY UPGRADE (Client -> Server) ---
         registrar.playToServer(
                 BuyUpgradePacket.TYPE,

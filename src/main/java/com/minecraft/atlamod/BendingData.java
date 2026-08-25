@@ -125,6 +125,15 @@ public class BendingData {
     public boolean isPassiveFlightGranted() { return passiveFlightGranted; }
     public void setPassiveFlightGranted(boolean granted) { this.passiveFlightGranted = granted; }
 
+    // --- EARTH ARMOR (visual sync) ---
+    // Whether onlookers have been told this player is wearing the stone suit. Mob
+    // effects are only synced to their OWN owner, so the look has to be broadcast by
+    // hand; this remembers what was last sent so it is only sent on a change.
+    private transient boolean earthArmorShown = false;
+
+    public boolean isEarthArmorShown() { return earthArmorShown; }
+    public void setEarthArmorShown(boolean shown) { this.earthArmorShown = shown; }
+
     private boolean isFireWhipping = false;
 
     public boolean isFireWhipping() {
