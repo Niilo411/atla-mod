@@ -714,6 +714,24 @@ halves live in three places because no single hook could carry all of them:
 
 ### The rest
 
+- **Bass waves PINS the bender for the fifteen seconds it throws**, using the same two
+  halves every rooting channel does — `AbilityHandler.setRooted` for the client and
+  `holdStill` on the server every tick, both made public for it since rooting was
+  previously a channel-only affair. The pin lifts the moment the LAST wave goes out
+  rather than when it lands, so leftover rings finish travelling on their own time.
+  Every route out releases (cancelled, finished, dead, gone), because ClientRootState
+  is a client static and a missed release leaves a player who cannot move.
+- **Compressed punches' cooldown starts when it ENDS, not when it starts** — the
+  channel rule rather than the toggle one, and deliberately so: with the cooldown
+  running from the cast, a bender could hold it for its full thirty seconds and switch
+  straight back on the moment it dropped. `CompressedPunches.stop` is the single exit
+  all three endings go through (pressed off, out of time, out of chi), so the thirty
+  seconds applies uniformly. That matters most for the deliberate toggle-off, which
+  reaches it through `deactivate` — the dispatcher's toggle path skips the cooldown
+  stamp entirely, so without stamping it there that route would be free.
+- At 25 chi a second its thirty second cap costs 750 chi to run dry, which is more than
+  a bender below level 3 can hold at all. The cap and the pool between them make the
+  full thirty seconds something to grow into.
 - **Compressed punches is two effects, not one.** The WAVE goes out on every left click
   whether it connects or not (fired from `LeftClickTriggerPacket`, before the two-phase
   routing, so an armed ability does not swallow the punch); the harder direct hit is
