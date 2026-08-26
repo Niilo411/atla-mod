@@ -34,8 +34,12 @@ public final class MetalShields {
     /** How far in front of the bender the shield hangs. */
     private static final double DISTANCE = 2.0;
 
-    /** Half the shield's width, in blocks. */
-    private static final int HALF_WIDTH = 2;
+    /** Half the shield's width, in blocks — three columns across. */
+    private static final int HALF_WIDTH = 1;
+
+    /** How far the thrown shield starts out and how far it travels. */
+    private static final int THROW_FROM = 2;
+    private static final int THROW_TO = 14;
 
     /** How tall it stands, from the bender's feet. */
     private static final int HEIGHT = 3;
@@ -49,9 +53,8 @@ public final class MetalShields {
     /** Two seconds of Stunned on whatever it hits. */
     private static final int THROW_STUN = 40;
 
-    /** How far the thrown shield travels, and how fast. */
-    private static final double THROW_REACH = 12.0;
-    private static final double THROW_SPEED = 0.8;
+    /** How wide the throw's damage sweep is, matching the wall's own footprint. */
+    private static final double THROW_HALF_WIDTH = 2.0;
 
     private static final List<Shield> ACTIVE = new ArrayList<>();
 
@@ -100,10 +103,11 @@ public final class MetalShields {
     /**
      * Hurls the shield forward, which is what the left click does.
      *
-     * The plates come down first and the throw is drawn with particles rather than by
-     * flying the real blocks. Moving a five-by-three wall of blocks through the world
-     * a step at a time would be fifteen block updates a tick, and the moment it passed
-     * over anything it would either overwrite it or stop dead.
+     * The thrown shield is a real travelling WALL, built out of the same EarthGrabs
+     * wave Stone walls uses — the plates come down and the wave goes out. The one
+     * difference is that this one is launched UNGROUNDED: it hangs on the line it was
+     * thrown along rather than finding the surface, so a shield aimed upward really
+     * does fly, where an earth wave always rides the terrain.
      */
     public static void hurl(ServerPlayer player) {
         for (Shield shield : List.copyOf(ACTIVE)) {
@@ -119,40 +123,56 @@ public final class MetalShields {
         }
     }
 
-    /** Walks the thrown shield out, hitting the first thing in its way. */
+    /**
+     * Sends the thrown shield out as a real wall, and hits what it is about to cross.
+     *
+     * UNGROUNDED, unlike every earth wave: it follows the full look vector, pitch
+     * included, so it can be thrown up as readily as along the floor.
+     *
+     * The damage lands ONCE, up front, on everything in the corridor the wall is about
+     * to pass through — the same call Stone walls makes. Hitting per tick as it
+     * travelled would multiply four hearts by however long the throw took.
+     */
     private static void fly(ServerLevel level, ServerPlayer owner, BendingData data) {
         Vec3 look = owner.getLookAngle();
-        Vec3 at = owner.getEyePosition().add(look.scale(DISTANCE));
+        Vec3 origin = owner.getEyePosition();
 
+        com.minecraft.atlamod.abilities.earth.EarthGrabs.launch(
+                owner, origin, look, MetalWorks.metal(),
+                THROW_FROM, THROW_TO, HALF_WIDTH, false);
+
+        strike(level, owner, data, origin, look);
+
+        Metal.clang(level, owner.position(), 1.4F, 0.8F);
+    }
+
+    /** Everything in the thrown wall's path takes the blow, once. */
+    private static void strike(ServerLevel level, ServerPlayer owner, BendingData data,
+                               Vec3 origin, Vec3 look) {
         float damage = Metal.damage(data, THROW_DAMAGE);
 
-        for (double travelled = 0.0; travelled < THROW_REACH; travelled += THROW_SPEED) {
-            at = at.add(look.scale(THROW_SPEED));
+        AABB search = new AABB(origin, origin).inflate(THROW_TO);
 
-            if (level.getBlockState(BlockPos.containing(at)).isSolid()) break;
+        for (Entity caught : level.getEntities(owner, search)) {
+            if (!(caught instanceof LivingEntity living) || !living.isAlive()) continue;
 
-            Metal.spark(level, at, 6, 0.4);
+            Vec3 offset = living.position().add(0.0, living.getBbHeight() * 0.5, 0.0)
+                    .subtract(origin);
 
-            AABB hitbox = new AABB(at, at).inflate(1.5, 1.5, 1.5);
-            boolean struck = false;
+            double along = offset.dot(look);
+            if (along < THROW_FROM || along > THROW_TO) continue;
 
-            for (Entity caught : level.getEntities(owner, hitbox)) {
-                if (!(caught instanceof LivingEntity living) || !living.isAlive()) continue;
+            // Distance from the aim LINE, so a wall thrown at a pitch catches what it
+            // really passes through rather than what happens to be level with it.
+            if (offset.subtract(look.scale(along)).length() > THROW_HALF_WIDTH) continue;
 
-                living.hurt(owner.damageSources().indirectMagic(owner, owner), damage);
-                living.addEffect(new MobEffectInstance(
-                        ModEffects.STUNNED, THROW_STUN, 0, false, true, true));
+            living.hurt(owner.damageSources().indirectMagic(owner, owner), damage);
+            living.addEffect(new MobEffectInstance(
+                    ModEffects.STUNNED, THROW_STUN, 0, false, true, true));
 
-                living.setDeltaMovement(look.x * 0.6, 0.3, look.z * 0.6);
-                living.hurtMarked = true;
-                struck = true;
-            }
-
-            if (struck) break;
+            living.setDeltaMovement(look.x * 0.6, 0.3, look.z * 0.6);
+            living.hurtMarked = true;
         }
-
-        Metal.clang(level, at, 1.4F, 0.8F);
-        Metal.spark(level, at, 30, 0.6);
     }
 
     /** Iterates a SNAPSHOT, like every other manager that touches entities. */

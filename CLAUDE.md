@@ -881,7 +881,16 @@ both at 35 points.
   not standing inside their own crush.
 - **Stone walls damages ONCE, up front**, to everything in the corridor the wall is
   about to cross — not per tick as it travels, which would multiply six hearts by
-  however long the wall took to get there.
+  however long the wall took to get there. The thrown Metal shield does the same.
+- **A thrown Metal shield is a real travelling WALL too**, built out of the same
+  `EarthGrabs` wave — but launched UNGROUNDED. That is the one thing an earth wave
+  cannot do: every other caller wants each column to find its own footing so the wall
+  rides the terrain, where a thrown slab should hang on the line it was aimed along and
+  go wherever it was pointed, straight up included. `EarthGrabs.launch` now takes that
+  as a flag, along with a per-wave WIDTH.
+- **Widths differ on purpose.** Earth grab keeps its seven columns because it is a net
+  being dragged home and wants to catch everything; Stone walls is five and the shield
+  is three, because both are aimed at something and should have to be aimed.
 - **Armor pierce is a real PROJECTILE, not a line trace**, and that fixes the two things
   wrong with the first attempt: there was nothing at all to see, and its aim tolerance
   of 0.4 blocks was so tight it essentially never found a target, so the ability

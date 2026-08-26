@@ -49,8 +49,9 @@ public final class EarthGrabs {
     /** How many slices of wall exist at once — the thickness of the moving body. */
     private static final int BODY_DEPTH = 2;
 
-    /** Half the width of the wall, so seven columns across. */
-    private static final int HALF_WIDTH = 3;
+    /** Half the width Earth grab itself uses, so seven columns across. Other callers
+     * pass their own — a thrown wall is a good deal narrower than a wave. */
+    public static final int HALF_WIDTH = 3;
 
     /** How tall the wall stands. Lower than a tsunami: this is earth, not water. */
     private static final int HEIGHT = 2;
@@ -77,21 +78,37 @@ public final class EarthGrabs {
         final BlockState material;
         final int from;
         final int to;
+        final int halfWidth;
+
+        /**
+         * Whether each column finds its own footing, or the wall simply hangs on the
+         * line it was thrown along.
+         *
+         * Grounded is what every EARTH wave wants: the wall rides over the terrain
+         * rather than ploughing through it. A thrown metal shield wants the opposite —
+         * it is a slab in flight, and should go wherever it was aimed including
+         * straight up.
+         */
+        final boolean grounded;
 
         int front;
         int age;
         final Deque<List<BlockPos>> slices = new ArrayDeque<>();
 
         Grab(ServerLevel level, UUID ownerId, Vec3 origin, Vec3 forward,
-             BlockState material, int from, int to) {
+             BlockState material, int from, int to, int halfWidth, boolean grounded) {
             this.level = level;
             this.ownerId = ownerId;
             this.origin = origin;
             this.forward = forward;
-            this.across = new Vec3(-forward.z, 0.0, forward.x);
+            // Always horizontal, even for a wave thrown at a pitch: a wall stays
+            // upright, so its width runs level however it is aimed.
+            this.across = new Vec3(-forward.z, 0.0, forward.x).normalize();
             this.material = material;
             this.from = from;
             this.to = to;
+            this.halfWidth = halfWidth;
+            this.grounded = grounded;
             this.front = from;
         }
 
@@ -125,9 +142,23 @@ public final class EarthGrabs {
      */
     public static void launch(ServerPlayer owner, Vec3 origin, Vec3 forward,
                               BlockState material, int from, int to) {
+        launch(owner, origin, forward, material, from, to, HALF_WIDTH, true);
+    }
+
+    /**
+     * The same wave, with its own width and its own idea of where it sits.
+     *
+     * {@code grounded} false is what lets a thrown metal shield fly: each column hangs
+     * on the line it was thrown along instead of finding the surface, so the wall goes
+     * wherever it was aimed — straight up included.
+     */
+    public static void launch(ServerPlayer owner, Vec3 origin, Vec3 forward,
+                              BlockState material, int from, int to,
+                              int halfWidth, boolean grounded) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
-        ACTIVE.add(new Grab(level, owner.getUUID(), origin, forward.normalize(), material, from, to));
+        ACTIVE.add(new Grab(level, owner.getUUID(), origin, forward.normalize(),
+                material, from, to, halfWidth, grounded));
 
         level.playSound(null, owner.blockPosition(), SoundEvents.STONE_BREAK,
                 SoundSource.PLAYERS, 2.0F, 0.4F);
@@ -190,13 +221,17 @@ public final class EarthGrabs {
     private static List<BlockPos> raiseSlice(Grab grab, int distance) {
         List<BlockPos> placed = new ArrayList<>();
 
-        for (int side = -HALF_WIDTH; side <= HALF_WIDTH; side++) {
+        for (int side = -grab.halfWidth; side <= grab.halfWidth; side++) {
             Vec3 spot = grab.origin
                     .add(grab.forward.scale(distance))
                     .add(grab.across.scale(side));
 
-            BlockPos ground = EarthWorks.surfaceUnder(
-                    grab.level, BlockPos.containing(spot), UP_SCAN, DOWN_SCAN);
+            // A grounded wave finds its own footing so it rides over terrain; a thrown
+            // one simply hangs where it was aimed, which is what lets it fly.
+            BlockPos ground = grab.grounded
+                    ? EarthWorks.surfaceUnder(
+                            grab.level, BlockPos.containing(spot), UP_SCAN, DOWN_SCAN)
+                    : BlockPos.containing(spot);
             if (ground == null) continue;
 
             for (int h = 0; h < HEIGHT; h++) {
@@ -243,7 +278,7 @@ public final class EarthGrabs {
         Vec3 centre = grab.origin.add(grab.forward.scale(grab.front));
 
         AABB caught = new AABB(centre, centre)
-                .inflate(HALF_WIDTH + 1.0, HEIGHT + 1.0, HALF_WIDTH + 1.0);
+                .inflate(grab.halfWidth + 1.0, HEIGHT + 1.0, grab.halfWidth + 1.0);
 
         ServerPlayer owner = grab.level.getServer().getPlayerList().getPlayer(grab.ownerId);
 

@@ -44,8 +44,17 @@ public class StoneWalls implements ChargedAbility, TwoPhaseAbility {
     private static final int FROM = 2;
     private static final int TO = 20;
 
-    /** How wide the damage sweep is, matching the wave's own footprint. */
-    private static final double HALF_WIDTH = 3.5;
+    /**
+     * Half the wall's width, so five columns across rather than the wave's usual seven.
+     *
+     * Narrower than Earth grab on purpose: that one is a net being dragged home and
+     * wants to catch everything, where this is a wall being thrown at something and
+     * should have to be aimed.
+     */
+    private static final int HALF_WIDTH = 2;
+
+    /** How wide the damage sweep is, matching the wall's own footprint. */
+    private static final double SWEEP_HALF_WIDTH = HALF_WIDTH + 0.5;
 
     @Override
     public String getName() {
@@ -127,7 +136,7 @@ public class StoneWalls implements ChargedAbility, TwoPhaseAbility {
 
         // Outward: from close to far, which is the reverse of Earth grab's own launch
         // and is the whole ability.
-        EarthGrabs.launch(player, player.position(), heading, material, FROM, TO);
+        EarthGrabs.launch(player, player.position(), heading, material, FROM, TO, HALF_WIDTH, true);
 
         // The wave itself only shoves; the damage is dealt once, up front, to whatever
         // is standing in the corridor it is about to cross. Hitting per tick as it
@@ -152,7 +161,7 @@ public class StoneWalls implements ChargedAbility, TwoPhaseAbility {
 
             double along = offset.dot(heading);
             if (along < FROM || along > TO) continue;
-            if (Math.abs(offset.dot(across)) > HALF_WIDTH) continue;
+            if (Math.abs(offset.dot(across)) > SWEEP_HALF_WIDTH) continue;
             if (Math.abs(offset.y) > 4.0) continue;
 
             living.hurt(player.damageSources().indirectMagic(player, player), damage);
