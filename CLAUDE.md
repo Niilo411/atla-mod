@@ -547,6 +547,90 @@ four, and it is earned rather than picked.
   `500 + level*100`. A gate rather than a bug, and the same one Fire Rain and Tsunami
   have — anyone with 25 levels to spend on the upgrade is long past it.
 
+## Icebending (the second SUB-element)
+
+Same shape as lightning: two paths, not chosen at the start, unlocked with a scroll.
+
+- **Getting it**: a village FISHERMAN sells the Icebending Scroll for one Heart of the
+  Sea, at trade levels 1 and 3 (same two-entry reasoning as the weaponsmith's). Right
+  click to read; the scroll burns itself and lays a 5x5 patch of snow around the reader
+  as confirmation.
+- **NO prerequisite, unlike lightning.** The design asks only for the trade, so anyone
+  who can find a fisherman and a buried treasure learns it. If ice should ever sit
+  behind waterbending the way lightning sits behind fire, `IceScrollItem` is the single
+  place that would change.
+- Left path: icicles, Freeze, Ice over, Ice barrage
+- Right path: Ice sphere, Ice Bomb, Freezing Beam, Ice Breath
+
+- **`IceWorks` is icebending's `EarthWorks`** and keeps the same rule, which matters as
+  much here: an ability may only fill AIR, and takes back exactly what it filled.
+  Without it Ice over would pave a permanent rink every fifty seconds. What it does NOT
+  share is the sliding — earth rises out of the ground as a FallingBlockEntity, where
+  ice simply forms where the cold is.
+- **Everything structural uses PACKED ice, never plain ice.** Plain ice MELTS on a
+  random tick near light and leaves WATER — at which point `IceWorks` sees a block that
+  is not the one it placed, correctly refuses to remove it, and the ability has quietly
+  flooded somebody's build. Packed ice never melts and is just as slippery. Snow is safe
+  for the opposite reason: it melts to AIR, which is where it was going anyway.
+- **Freeze's damage immunity is not a balance decision, it is what makes the ability
+  work.** Two blocks of ice put a solid block where the victim's eyes are, and vanilla
+  suffocates anything in that position — a victim who could be hurt would simply be
+  killed by their own shell. `Frozens` owns both halves and always ends them together.
+  Checked FIRST in the damage handler, above the shield cancel, since a shell is more
+  absolute than any other rule; `BYPASSES_INVULNERABILITY` still lands.
+- That also makes Freeze genuinely double-edged, which is the point: ten seconds where
+  a target can neither act nor be finished. Freezing something your allies are killing
+  is a mistake.
+- **Ice barrage is built out of falling PROJECTILES**, not a tracker of its own — that
+  is what the generic `onImpact` hook added for Lightning bolt is for. Each icicle is an
+  ordinary shot launched straight down: the projectile system already sweeps its path
+  (so it cannot fall through a roof), already carries the damage, and already calls back
+  wherever it stops. The ability only supplies what to plant.
+- Its icicles are scattered by AREA, not by radius — picking a uniform radius bunches
+  everything near the caster, since a ring at r=30 holds ten times the ground of one at
+  r=3. The square root spreads them evenly.
+- **The dripstone tip goes on LAST.** A downward-pointing dripstone needs something
+  solid ABOVE it to hang from, so a tip placed while that space is still air breaks
+  itself the instant it lands and the icicle comes out headless.
+- **`IceBombs` deliberately does NOT use `HeldBlocks`**, despite the carry looking
+  identical. HeldBlocks takes a REAL block out of the world and is careful to put it
+  back, because losing one would destroy terrain; an ice bomb is summoned out of nothing
+  and is meant to be destroyed at the end, so every guarantee HeldBlocks offers would
+  work against it.
+- **It still hit the `FallingBlockEntity.fall` trap**, which is worth remembering: that
+  method CLEARS the block at the position it spawns in. HeldBlocks gets away with it
+  because the block it names has just been removed on purpose. Summoning one out of
+  nothing had to save and restore whatever was there, or every cast deleted whatever was
+  floating three blocks in front of the bender.
+- Ice bomb, Lightning ball and Air spout all pass `null` to `getEntities` rather than
+  the owner: the first argument is the entity to SKIP, and all three are hazards put in
+  a place rather than spells aimed at somebody. Standing in your own blast should hurt.
+- **A thrown bomb outlives its bender's presence; a carried one does not.** Once it is
+  out of their hands it is a hazard with its own clock, and should still go off if they
+  log out — the same distinction `AirSpouts` draws between a Tornado and a placed spout.
+- **Ice Breath reuses lightning's Stunned effect**, which is the second cross-element
+  reuse in the mod (the first being breathless borrowing `Drownings`). A second of stun
+  every two seconds is the real weapon; four hp a second is modest by comparison.
+- Lightning aura, Lightning ball, Freezing Beam and Ice Breath all damage on an explicit
+  ONE-SECOND beat rather than per tick, for the reason wind tunnel documents: per-tick
+  hits are only spaced out by invulnerability frames, and that stops holding the moment
+  anything else resets them.
+
+### Two figures that were NOT in the design
+
+- **Ice Bomb's chi, xp and cooldown** (100 / 10 / 5s) — the design gives it none.
+- **Ice Bomb's blast damage** (8.0 in a 4-block radius) — the design says only "a ton of
+  ice particles". A thing called a bomb that did nothing but sparkle read as an omission
+  rather than a decision, so it hits. Both are flagged INVENTED in the source.
+
+### One interpretation
+
+**Freezing Beam** is specced as firing "when holding left click". There is no
+held-left-click signal in the mod — a left click reaches the server as a single event —
+so the click STARTS the beam and it runs its twenty seconds on its own. That also reads
+better with the stated duration, which nobody could otherwise reach without holding a
+mouse button down for twenty seconds.
+
 ## The Avatar
 
 Four commands, all op-gated at permission level 2 (the three older `/bend`

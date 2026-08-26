@@ -38,6 +38,10 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.earth.EarthGrabs.tickAll(event.getServer());
 
         com.minecraft.atlamod.abilities.lightning.LightningBalls.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.ice.IceWorks.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.ice.Frozens.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.ice.IceBombs.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.ice.FreezingBeams.tickAll(event.getServer());
 
         // Keeps a running cycle looking for an Avatar when nobody holds the title.
         // Rate-limited inside, and does nothing at all once one is in place.
@@ -64,6 +68,12 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetLevel(level);
             com.minecraft.atlamod.abilities.earth.EarthGrabs.forgetLevel(level);
             com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetLevel(level);
+            com.minecraft.atlamod.abilities.ice.Frozens.forgetLevel(level);
+            com.minecraft.atlamod.abilities.ice.IceBombs.forgetLevel(level);
+            com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetLevel(level);
+            // Melts LAST: the two above hand their own blocks back through IceWorks,
+            // so anything they release still gets settled by this sweep.
+            com.minecraft.atlamod.abilities.ice.IceWorks.forgetLevel(level);
         }
     }
     /**
@@ -86,6 +96,28 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(Atlamod.LIGHTNING_SCROLL.get()),
                     2,   // how many times it can be bought before restocking
                     12,  // villager xp for the trade
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Icebending Scroll in the fisherman's book, for a Heart of the Sea.
+     *
+     * Same two levels as the weaponsmith's, for the same reason: a villager picks only
+     * a couple of trades at random from each level's pool, so one entry would be a coin
+     * flip per fisherman.
+     */
+    @SubscribeEvent
+    public static void onFishermanTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.FISHERMAN) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.HEART_OF_THE_SEA, 1),
+                    new net.minecraft.world.item.ItemStack(Atlamod.ICE_SCROLL.get()),
+                    2,
+                    12,
                     0.05F));
         }
     }
@@ -342,11 +374,19 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.IceBombs.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerDeath(net.neoforged.neoforge.event.entity.living.LivingDeathEvent event) {
+        // Anything at all, not just players: a mob sealed in ice can still be killed
+        // by something that bypasses invulnerability, and its shell has to come down
+        // with it rather than standing there empty until its timer runs out.
+        com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(event.getEntity());
+
         if (event.getEntity() instanceof ServerPlayer player) {
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -365,6 +405,9 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.IceBombs.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -468,6 +511,9 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.IceBombs.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -534,6 +580,21 @@ public class ServerEvents {
      */
     @SubscribeEvent
     public static void onIncomingDamage(net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent event) {
+        // Sealed in ice by Freeze: nothing gets through, and this is checked FIRST
+        // because a shell is more absolute than any of the rules below it.
+        //
+        // Not optional, either — the ice sits where the victim's eyes are, so vanilla
+        // suffocation would kill anything encased within seconds. The immunity is what
+        // makes the ability a hold rather than an execution. See Frozens.
+        //
+        // BYPASSES_INVULNERABILITY still lands, so the void and /kill are unaffected,
+        // exactly as they are for the shields.
+        if (!event.getSource().is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)
+                && com.minecraft.atlamod.abilities.ice.Frozens.isFrozen(event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
+
         if (event.getEntity() instanceof ServerPlayer player) {
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
             if (AbilityHandler.blocksDamage(data, event.getSource())) {

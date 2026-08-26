@@ -171,6 +171,18 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.lightning.LightningBall());
         register(new com.minecraft.atlamod.abilities.lightning.LightningStun());
         register(new com.minecraft.atlamod.abilities.lightning.LightningSwarm());
+
+        // --- ICE : Left (the second sub-element, two paths again) ---
+        register(new com.minecraft.atlamod.abilities.ice.Icicles());
+        register(new com.minecraft.atlamod.abilities.ice.Freeze());
+        register(new com.minecraft.atlamod.abilities.ice.IceOver());
+        register(new com.minecraft.atlamod.abilities.ice.IceBarrage());
+
+        // --- ICE : Right ---
+        register(new com.minecraft.atlamod.abilities.ice.IceSphere());
+        register(new com.minecraft.atlamod.abilities.ice.IceBomb());
+        register(new com.minecraft.atlamod.abilities.ice.FreezingBeam());
+        register(new com.minecraft.atlamod.abilities.ice.IceBreath());
     }
 
     public static void register(Ability ability) {

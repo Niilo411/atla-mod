@@ -51,6 +51,10 @@ public class Atlamod {
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
     // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
+    // Icebending's key. Bought from a village fisherman, read once, spent.
+    public static final DeferredItem<Item> ICE_SCROLL = ITEMS.register("ice_scroll",
+            () -> new IceScrollItem(new Item.Properties()));
+
     // Lightningbending's key. Bought from a village weaponsmith, read once, spent.
     public static final DeferredItem<Item> LIGHTNING_SCROLL = ITEMS.register("lightning_scroll",
             () -> new LightningScrollItem(new Item.Properties()));
@@ -140,6 +144,7 @@ public class Atlamod {
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(WATER_CANTEEN);
             event.accept(LIGHTNING_SCROLL);
+            event.accept(ICE_SCROLL);
         }
     }
 

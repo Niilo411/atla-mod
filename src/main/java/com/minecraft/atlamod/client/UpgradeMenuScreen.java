@@ -424,6 +424,7 @@ public class UpgradeMenuScreen extends Screen {
             // nothing is drawn there.
             case "lightning" -> new String[]{
                     "Lightning redirection", "Lightning aura", "Lightning Jump", "Lightning Strength"};
+            case "ice" -> new String[]{"icicles", "Freeze", "Ice over", "Ice barrage"};
             default -> new String[0];
         };
     }
@@ -437,6 +438,7 @@ public class UpgradeMenuScreen extends Screen {
             case "earth" -> new String[]{"Earth wall", "Earth pillar", "Earth armor"};
             case "lightning" -> new String[]{
                     "Lightning bolt", "Lightning ball", "Lightning stun", "Lightning Swarm"};
+            case "ice" -> new String[]{"Ice sphere", "Ice Bomb", "Freezing Beam", "Ice Breath"};
             default -> new String[0];
         };
     }

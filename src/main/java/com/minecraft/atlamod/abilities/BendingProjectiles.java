@@ -82,7 +82,10 @@ public final class BendingProjectiles {
         BLOCK,
 
         /** A streak of live current, drawn with sparks and a bright core. */
-        LIGHTNING
+        LIGHTNING,
+
+        /** A shard of ice, drawn with frost and a hard white core. */
+        ICE
     }
 
     /**
@@ -311,6 +314,12 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 6, 0.12, 0.12, 0.12, 0.06);
                 shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.02, 0.02, 0.02, 0.0);
             }
+            case ICE -> {
+                // Tight and hard, with a short trail of frost falling off it — a
+                // shard travelling, not a cloud of snow.
+                shot.level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 3, 0.06, 0.06, 0.06, 0.0);
+                shot.level.sendParticles(ParticleTypes.ITEM_SNOWBALL, x, y, z, 2, 0.05, 0.05, 0.05, 0.0);
+            }
             case BLOCK -> {
                 // Nothing is drawn: the block IS the entity, just moved along.
                 if (shot.display != null && shot.display.isAlive()) {
@@ -383,6 +392,12 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 8, 0.3, 0.3, 0.3, 0.05);
                 shot.level.playSound(null, x, y, z,
                         SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.9F, 1.5F);
+            }
+            case ICE -> {
+                shot.level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 30, 0.35, 0.35, 0.35, 0.2);
+                shot.level.sendParticles(ParticleTypes.ITEM_SNOWBALL, x, y, z, 15, 0.3, 0.3, 0.3, 0.25);
+                shot.level.playSound(null, x, y, z,
+                        SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.7F, 1.4F);
             }
             case BLOCK -> landBlock(shot, x, y, z);
             case AIR -> {
