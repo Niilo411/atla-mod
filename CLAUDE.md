@@ -283,6 +283,23 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
+- **Ability icons**: `client/AbilityIcons.java` maps an ability to a PNG under
+  `assets/atlamod/textures/gui/abilities/`, drawn on its skill tree node in place of
+  the old "?" box. Same shape and same rules as `ElementIcons` below — only abilities
+  listed in its map are drawn, because a texture Minecraft cannot find renders as the
+  magenta checkerboard. With 60+ abilities and 7 pictures the "?" fallback is the
+  NORMAL case here rather than an edge case.
+  Sources are expected to be **256x256**, scaled through the pose stack.
+  The map KEY is the display name lowercased — the same key the registry and the
+  cooldowns use — so the tree, the registry and the icon table cannot drift apart
+  without the icon simply not appearing.
+  **File names are separate from ability names on purpose**: a ResourceLocation path
+  may only hold lowercase letters, digits and a little punctuation, so "Fire whip"
+  has to live on disk as `fire_whip.png`. Spaces and capitals in a texture file name
+  throw at load rather than failing quietly.
+  Adding art = the PNG in that folder + one `put()` line.
+  The equip and passives tabs deliberately do NOT show them: their rows are 70x20 with
+  a centred name in them already, and an icon would need those laid out again.
 - **Element icons**: `client/ElementIcons.java` maps an element to a PNG under
   `assets/atlamod/textures/gui/elements/`. Only elements listed in its `ICONS` map
   are drawn — anything else keeps the old "?" box, because a texture Minecraft cannot

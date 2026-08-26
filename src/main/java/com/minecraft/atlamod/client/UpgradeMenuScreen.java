@@ -168,7 +168,20 @@ public class UpgradeMenuScreen extends Screen {
 
                         guiGraphics.fill(bx, by, bx + bw, by + bh, 0xFF222222);
                         guiGraphics.renderOutline(bx, by, bw, bh, borderColor);
-                        guiGraphics.drawCenteredString(this.font, "?", bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
+
+                        // The ability's own art where there is any, and the old "?"
+                        // where there is not. Most abilities have none yet, so the
+                        // fallback is the normal case rather than an edge case — and it
+                        // has to stay, because a texture Minecraft cannot find renders
+                        // as the magenta checkerboard.
+                        if (AbilityIcons.has(node.name())) {
+                            // Inset by a pixel so the art sits inside the border rather
+                            // than on it, matching the element badge on the HUD.
+                            AbilityIcons.draw(guiGraphics, node.name(), bx + 1, by + 1, bw - 2);
+                        } else {
+                            guiGraphics.drawCenteredString(this.font, "?",
+                                    bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
+                        }
 
                         // --- NEW TOOLTIP LOGIC ---
                         // Not while the upgrade panel is over this node: the panel is
