@@ -825,9 +825,22 @@ both at 35 points.
 - **The THROW is drawn with particles, not by flying the real blocks.** Moving a
   five-by-three wall through the world a step at a time would be fifteen block updates
   a tick, and the moment it crossed anything it would either overwrite it or stop dead.
-- **Bullets pierce invulnerability frames, which is not optional at twenty shots.**
-  Vanilla ignores a second hit of equal size within ten ticks, so without it nineteen
-  of the twenty would be discarded and the ability would deal 2 rather than 40.
+- **Bullets is Air splinters' shape at four times the count**: the charge SUMMONS
+  twenty slugs and the armed slot spends them ONE PER LEFT CLICK. That makes it a
+  magazine, which is the opposite of Icicles beside it in icebending — one click there
+  spends five shards at once.
+- **Pressing its key again puts the magazine down.** Twenty shots is a long time to be
+  committed to one ability, so it uses the isActive/deactivate hook the toggles use,
+  which the dispatcher checks at the very top of `startCharge` — before the cooldown
+  gate and before anything is spent, so cancelling is always possible and always free.
+  The chi is NOT refunded: it was spent summoning them, and that happened.
+- `AbilityHandler.clearArmedTwoPhase` is the inverse of `armTwoPhase`, added for it.
+  The two second cooldown is stamped on the way out as well, exactly as it would be on
+  the last shot — otherwise cancelling and re-summoning would be a way round the wait
+  rather than a way out of the ability.
+- **Bullets pierce invulnerability frames, which is not optional at this rate of fire.**
+  Vanilla ignores a second hit of equal size within ten ticks, so without it a bender
+  clicking quickly would have most of the magazine silently discarded.
 - **Armor pierce is deliberately NOT gated on having a target**, which makes it the one
   precision ability in the mod that charges for a miss. Every other one refuses the
   cast when nothing is in view so aiming at the sky is free; an ability whose whole

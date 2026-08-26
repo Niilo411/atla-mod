@@ -179,6 +179,24 @@ public class AbilityHandler {
     }
 
     /**
+     * Throws away an armed two-phase ability without firing it.
+     *
+     * The inverse of {@link #armTwoPhase}. Bullets is the user: twenty shots is a long
+     * time to be committed to one ability, so pressing its key again puts them down.
+     * The chi is NOT refunded — it was spent summoning them, and that already happened.
+     */
+    public static void clearArmedTwoPhase(ServerPlayer player, BendingData data) {
+        if (data.getActiveTwoPhaseAbility().isEmpty()) return;
+
+        data.setActiveTwoPhaseAbility("");
+        data.setTwoPhaseTicks(0);
+        data.setTwoPhaseShots(0);
+
+        AbilitySupport.syncData(player, data);
+        syncChargeStatus(player, data);
+    }
+
+    /**
      * Ends whatever channel is running, exactly as releasing the key would — cooldown,
      * rooting and onStop included.
      *
