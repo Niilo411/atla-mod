@@ -597,6 +597,20 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
 - Its icicles are scattered by AREA, not by radius — picking a uniform radius bunches
   everything near the caster, since a ring at r=30 holds ten times the ground of one at
   r=3. The square root spreads them evenly.
+- **2 to 6 icicles are AIMED at each thing in the radius**, on top of the scattered
+  forty. The scatter is exactly that — with bad luck a whole barrage could miss
+  everything, which after a five second wind-up on a twenty second cooldown reads as
+  the ability not working. The aimed ones spawn only 3 blocks above the target's head:
+  at 1.6 blocks a tick that lands in about two ticks, and a sprinting player covers
+  under 0.3 a tick, so nothing can walk out from under them. No special case in the
+  projectile system was needed — just a much shorter drop.
+- **Those aimed icicles PIERCE invulnerability frames**, and that is load-bearing:
+  vanilla ignores a second hit of equal size within ten ticks, so without it only the
+  first of each handful would land and the rest would be silently discarded. Same trap
+  Earth Splinters documents.
+- The guarantee holds for anything under OPEN SKY. An icicle aimed at somebody stood
+  under a roof bursts on the roof, which is inherent to an ability that drops things
+  from above rather than a gap in the aiming.
 - **The dripstone tip goes on LAST.** A downward-pointing dripstone needs something
   solid ABOVE it to hang from, so a tip placed while that space is still air breaks
   itself the instant it lands and the icicle comes out headless.
@@ -638,6 +652,15 @@ held-left-click signal in the mod — a left click reaches the server as a singl
 so the click STARTS the beam and it runs its twenty seconds on its own. That also reads
 better with the stated duration, which nobody could otherwise reach without holding a
 mouse button down for twenty seconds.
+
+A running beam is **switched off by pressing its own keybind again**, through the same
+`isActive`/`deactivate` hook Tornado, Air scooter and Lightning ball use. That hook is
+checked at the very top of `startCharge`, before the held-ability guard, the cooldown
+and the chi — which is the whole reason it exists here: the beam runs twenty seconds
+behind a ten second cooldown, so a cancel routed through the ordinary cast path would
+be refused as "on cooldown" for the first half of its life and would charge another
+150 chi when it finally worked. Cancelling also skips the three second wind-up, since
+nothing needs building to put something down.
 
 ## The Avatar
 

@@ -10,6 +10,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.DripstoneThickness;
 import net.minecraft.world.level.block.PointedDripstoneBlock;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -39,6 +41,21 @@ public class IceBarrage implements ChargedAbility {
 
     /** How long a landed icicle stands before melting. */
     private static final int STAND_TICKS = 200; // 10 seconds
+
+    /** Fewest and most icicles guaranteed to land on each thing caught in the radius. */
+    private static final int AIMED_MIN = 2;
+    private static final int AIMED_MAX = 6;
+
+    /**
+     * How far above a target an aimed icicle starts.
+     *
+     * Deliberately much lower than the scattered ones' 25. At 1.6 blocks a tick this
+     * arrives in about two ticks, and a sprinting player covers under 0.3 blocks a
+     * tick — so nothing can clear the hit radius in the time it takes to fall. That
+     * short drop is what makes these hits certain rather than merely likely, without
+     * needing a special case in the projectile system to do it.
+     */
+    private static final int AIMED_DROP = 3;
 
     private static final BendingProjectiles.Spec ICICLE = new BendingProjectiles.Spec(
             1.6, 80, DAMAGE, 1.0, 0.1, BendingProjectiles.Style.ICE);
@@ -104,7 +121,51 @@ public class IceBarrage implements ChargedAbility {
             BendingProjectiles.launch(player, from, new Vec3(0.0, -1.0, 0.0), icicle);
         }
 
+        rainOnTargets(player, data, level, centre);
+
         Ice.crack(level, centre, 1.6F, 0.6F);
+    }
+
+    /**
+     * Drops a guaranteed handful straight onto everything caught in the radius.
+     *
+     * The scattered barrage above is exactly that — scattered — so with bad luck it
+     * could miss every single target, which for a five second wind-up on a twenty
+     * second cooldown reads as the ability simply not working. These are aimed:
+     * between two and six per target, spawned just overhead so they cannot be walked
+     * out from under.
+     *
+     * They PIERCE invulnerability frames, and that is load-bearing. Vanilla ignores a
+     * second hit of equal size within ten ticks of the first, so without it only the
+     * first icicle of each handful would count and the other five would be silently
+     * thrown away — the same trap Earth Splinters documents.
+     */
+    private static void rainOnTargets(ServerPlayer player, BendingData data,
+                                      ServerLevel level, Vec3 centre) {
+        BendingProjectiles.Spec aimed = new BendingProjectiles.Spec(
+                ICICLE.speed(), ICICLE.lifetime(), Ice.damage(data, DAMAGE),
+                ICICLE.hitRadius(), ICICLE.knockback(), ICICLE.style(),
+                null, true, IceBarrage::plant);
+
+        AABB area = new AABB(centre, centre).inflate(RADIUS);
+
+        for (net.minecraft.world.entity.Entity caught : level.getEntities(player, area)) {
+            if (!(caught instanceof LivingEntity living) || !living.isAlive()) continue;
+            if (living.position().distanceToSqr(centre) > RADIUS * RADIUS) continue;
+
+            int count = AIMED_MIN + level.random.nextInt(AIMED_MAX - AIMED_MIN + 1);
+
+            for (int i = 0; i < count; i++) {
+                // Spread across the target rather than stacked in one column, so a
+                // handful reads as several icicles coming down on it.
+                Vec3 from = living.position().add(
+                        (level.random.nextDouble() - 0.5) * 0.6,
+                        living.getBbHeight() + AIMED_DROP,
+                        (level.random.nextDouble() - 0.5) * 0.6);
+
+                BendingProjectiles.launch(player, from, new Vec3(0.0, -1.0, 0.0), aimed);
+            }
+        }
     }
 
     /**

@@ -191,6 +191,22 @@ public final class FreezingBeams {
         return owner.getEyePosition().add(side).subtract(0.0, 0.2, 0.0);
     }
 
+    /**
+     * Shuts a running beam off early, at the bender's own request.
+     *
+     * Separate from forgetPlayer, which is the silent cleanup for a bender who has
+     * died or left: this one is a deliberate act and says so.
+     */
+    public static void cancel(ServerPlayer player) {
+        for (Beam beam : List.copyOf(ACTIVE)) {
+            if (!beam.ownerId.equals(player.getUUID())) continue;
+
+            Ice.shatter(beam.level, origin(player), 20, 0.4);
+            Ice.crack(beam.level, player.position(), 0.7F, 1.5F);
+            ACTIVE.remove(beam);
+        }
+    }
+
     public static void forgetPlayer(ServerPlayer player) {
         ACTIVE.removeIf(beam -> beam.ownerId.equals(player.getUUID()));
     }

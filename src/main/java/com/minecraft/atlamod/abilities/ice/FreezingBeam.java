@@ -50,11 +50,29 @@ public class FreezingBeam implements ChargedAbility, TwoPhaseAbility {
     }
 
     /**
-     * Refuses to build a second ball while a beam is still running.
+     * A beam already running: the next press SHUTS IT OFF rather than starting another.
      *
-     * Without this the cooldown could be waited out mid-beam and a bender could stack
-     * beams on top of each other — the ten seconds is shorter than the twenty the beam
-     * lasts, which is a gap only this closes.
+     * Checked by the dispatcher at the very top of startCharge — before the held-ability
+     * guard, the cooldown and the chi — which is exactly what this needs. The beam lasts
+     * twenty seconds behind a ten second cooldown, so a cancel routed through the
+     * ordinary cast path would be refused as "on cooldown" for the first half of its
+     * life, and would charge another 150 chi when it finally worked.
+     *
+     * It also means no wind-up: three seconds to raise the beam, nothing to put it down.
+     */
+    @Override
+    public boolean isActive(ServerPlayer player, BendingData data) {
+        return FreezingBeams.has(player);
+    }
+
+    @Override
+    public void deactivate(ServerPlayer player, BendingData data) {
+        FreezingBeams.cancel(player);
+    }
+
+    /**
+     * Belt and braces alongside isActive: nothing should be able to build a second ball
+     * while a beam is running, whichever path the press arrives by.
      */
     @Override
     public boolean canStart(ServerPlayer player, BendingData data) {
