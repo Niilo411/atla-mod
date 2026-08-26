@@ -94,14 +94,34 @@ public final class EarthGrabs {
             this.to = to;
             this.front = from;
         }
+
+        /** One step in this wave's direction of travel. */
+        int step() {
+            return to >= from ? SPEED : -SPEED;
+        }
+
+        /** Whether the front has gone past where it was told to stop. */
+        boolean past() {
+            return to >= from ? front > to : front < to;
+        }
+
+        /** The unit direction the wave is travelling, for carrying what it catches. */
+        Vec3 travel() {
+            return to >= from ? forward : forward.scale(-1.0);
+        }
     }
 
     /**
-     * Sends a wave home from {@code from} blocks out to {@code to} blocks out.
+     * Sends a wave from {@code from} blocks out to {@code to} blocks out.
      *
-     * Both distances are measured forward from the bender, and {@code from} is the
-     * larger — the wave travels inward, which is the opposite of every other wall in
-     * the mod and the reason the step below is negative.
+     * Both distances are measured along {@code forward} from {@code origin}, and the
+     * wave travels from one to the other in whichever direction that implies — Earth
+     * grab comes HOME (from 20 to 5), Stone walls goes AWAY (from 2 to 20), and Crush
+     * sends two of them at each other along the sideways axis.
+     *
+     * Whatever it catches is carried in the wave's own direction of travel, which is
+     * what makes all three read as one thing being done three ways rather than three
+     * separate mechanisms.
      */
     public static void launch(ServerPlayer owner, Vec3 origin, Vec3 forward,
                               BlockState material, int from, int to) {
@@ -141,10 +161,11 @@ public final class EarthGrabs {
             return true;
         }
 
-        // Inward, so the front counts DOWN.
-        grab.front -= SPEED;
+        // Whichever way this wave was pointed. Earth grab counts DOWN as it comes
+        // home; Stone walls counts UP as it goes out.
+        grab.front += grab.step();
 
-        if (grab.front < grab.to) {
+        if (grab.past()) {
             collapse(grab);
             return false;
         }
@@ -229,10 +250,11 @@ public final class EarthGrabs {
         for (Entity target : grab.level.getEntities(owner, caught)) {
             if (!(target instanceof LivingEntity living) || !living.isAlive()) continue;
 
-            // Backwards along the wave's own direction of travel — which is towards the
-            // bender, since the wave is coming home.
-            Vec3 pull = grab.forward.scale(-DRAG_SPEED);
-            living.setDeltaMovement(pull.x, DRAG_LIFT, pull.z);
+            // Along the wave's own direction of travel, whichever way that is: Earth
+            // grab drags things home, Stone walls shoves them away, and Crush pushes
+            // them at each other from both sides.
+            Vec3 push = grab.travel().scale(DRAG_SPEED);
+            living.setDeltaMovement(push.x, DRAG_LIFT, push.z);
 
             // Players ignore server-side velocity unless it is explicitly pushed to
             // them. A mob is simulated on the server and needs no packet.

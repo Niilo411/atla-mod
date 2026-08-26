@@ -102,19 +102,20 @@ public final class BendingProjectiles {
                        double knockback, Style style,
                        @Nullable Supplier<MobEffectInstance> onHit,
                        boolean piercesInvulnerability,
-                       @Nullable BiConsumer<ServerLevel, Vec3> onImpact) {
+                       @Nullable BiConsumer<ServerLevel, Vec3> onImpact,
+                       @Nullable BiConsumer<ServerPlayer, LivingEntity> onHitEntity) {
 
         /** A shot that only hits, with no lingering effect. */
         public Spec(double speed, int lifetime, float damage, double hitRadius,
                     double knockback, Style style) {
-            this(speed, lifetime, damage, hitRadius, knockback, style, null, false, null);
+            this(speed, lifetime, damage, hitRadius, knockback, style, null, false, null, null);
         }
 
         /** A shot with a lingering effect, on vanilla's ordinary damage timing. */
         public Spec(double speed, int lifetime, float damage, double hitRadius,
                     double knockback, Style style,
                     @Nullable Supplier<MobEffectInstance> onHit) {
-            this(speed, lifetime, damage, hitRadius, knockback, style, onHit, false, null);
+            this(speed, lifetime, damage, hitRadius, knockback, style, onHit, false, null, null);
         }
 
         /** A shot that pierces invulnerability frames, with no impact hook. */
@@ -123,7 +124,7 @@ public final class BendingProjectiles {
                     @Nullable Supplier<MobEffectInstance> onHit,
                     boolean piercesInvulnerability) {
             this(speed, lifetime, damage, hitRadius, knockback, style,
-                    onHit, piercesInvulnerability, null);
+                    onHit, piercesInvulnerability, null, null);
         }
 
         /**
@@ -134,9 +135,25 @@ public final class BendingProjectiles {
          * to mean the same thing in all three. Lightning bolt's upgrade is the only
          * user so far, and calls down a real bolt there.
          */
+        /** Everything except a hook on what was struck, which most shots do not need. */
+        public Spec(double speed, int lifetime, float damage, double hitRadius,
+                    double knockback, Style style,
+                    @Nullable Supplier<MobEffectInstance> onHit,
+                    boolean piercesInvulnerability,
+                    @Nullable BiConsumer<ServerLevel, Vec3> onImpact) {
+            this(speed, lifetime, damage, hitRadius, knockback, style,
+                    onHit, piercesInvulnerability, onImpact, null);
+        }
+
+        /** The same shot, but doing something to whatever it strikes. */
+        public Spec withHitEntity(@Nullable BiConsumer<ServerPlayer, LivingEntity> onHit) {
+            return new Spec(speed, lifetime, damage, hitRadius, knockback, style,
+                    this.onHit, piercesInvulnerability, onImpact, onHit);
+        }
+
         public Spec withImpact(@Nullable BiConsumer<ServerLevel, Vec3> impact) {
             return new Spec(speed, lifetime, damage, hitRadius, knockback, style,
-                    onHit, piercesInvulnerability, impact);
+                    onHit, piercesInvulnerability, impact, onHitEntity);
         }
     }
 
@@ -273,6 +290,13 @@ public final class BendingProjectiles {
 
             if (shot.spec.onHit() != null) {
                 living.addEffect(shot.spec.onHit().get());
+            }
+
+            // Anything the ability wants to do to what it actually STRUCK, as opposed
+            // to where it stopped. Armor pierce is the only user: taking somebody's
+            // armour needs the victim, which the position-based onImpact cannot give.
+            if (shot.spec.onHitEntity() != null && owner != null) {
+                shot.spec.onHitEntity().accept(owner, living);
             }
 
             Vec3 push = shot.velocity.normalize().scale(shot.spec.knockback());

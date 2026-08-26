@@ -853,9 +853,35 @@ both at 35 points.
   fiction but no block is touched — an ability that really consumed ground would be
   either a duplication glitch or a way to delete terrain depending on which half went
   wrong. Mine remains earthbending's ability for actually digging.
+- **Crush and Stone walls are both built out of `EarthGrabs`**, which was generalised
+  to travel in EITHER direction for them. Earth grab comes HOME (20 -> 5), Stone walls
+  goes AWAY (2 -> 20), and Crush points the same wave sideways and launches it twice,
+  once from each side of the corridor, so the two converge. Whatever a wave catches is
+  now carried in its OWN direction of travel rather than always inward, which is what
+  makes all three read as one mechanism used three ways.
+- **Neither is made of metal, and that is deliberate**: both use `EarthWorks.materialFor`
+  so the walls are whatever the ground actually is. A metalbender conjuring walls of
+  iron out of nothing would be a different ability — what these do is take hold of the
+  ground, which is why they borrow earthbending's wave whole.
 - **Crush pins its victims before the walls close**, and that gap is the only warning
   anyone gets. It starts three blocks out rather than at the bender's feet, so they are
   not standing inside their own crush.
+- **Stone walls damages ONCE, up front**, to everything in the corridor the wall is
+  about to cross — not per tick as it travels, which would multiply six hearts by
+  however long the wall took to get there.
+- **Armor pierce is a real PROJECTILE, not a line trace**, and that fixes the two things
+  wrong with the first attempt: there was nothing at all to see, and its aim tolerance
+  of 0.4 blocks was so tight it essentially never found a target, so the ability
+  appeared to do nothing whatsoever. It is still the most demanding shot in the mod —
+  a 0.35 hit radius against Air splinters' 1.0 — but it is demanding rather than
+  impossible, and a miss now visibly misses.
+- It also has a SECOND PHASE now, like Fireball: the charge sharpens the rod, the rod
+  hangs on the crosshair drawn as a short segment along the line it will fly, and the
+  left click throws it.
+- **`BendingProjectiles.Spec` gained `onHitEntity`** for it, alongside the existing
+  `onImpact`. Taking somebody's armour needs the VICTIM, which a position-based hook
+  cannot give. The rod carries no damage of its own, so the either/or the design asks
+  for actually holds: armour is destroyed OR 8 damage is dealt, never both.
 
 ### Figures that were NOT in the design
 
