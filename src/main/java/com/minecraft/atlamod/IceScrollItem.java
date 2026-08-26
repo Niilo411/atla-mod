@@ -24,15 +24,22 @@ import java.util.List;
  * The Icebending Scroll. Bought from a village fisherman for a Heart of the Sea, and
  * read by right clicking it.
  *
- * Unlike the Lightningbending Scroll this has NO prerequisite: the design asks only
- * for the trade, so anyone who can find a fisherman and a buried treasure map can
- * learn it. If icebending should ever be gated behind waterbending the way lightning
- * is behind fire, this is the one place that would need to change.
+ * Like the Lightningbending Scroll, it is a KEY rather than a teacher: it only opens
+ * icebending to someone who has already gone far enough in the parent element, which
+ * here is two completed WATERbending paths. Ice comes out of water the way lightning
+ * comes out of fire, and the requirement is deliberately identical.
+ *
+ * Anyone short of that can hold it, buy it, and read it as often as they like — it
+ * refuses and stays in their inventory. A scroll that burned itself on a failed
+ * reading would cost a Heart of the Sea to discover a requirement.
  *
  * The confirmation is a five by five patch of snow laid around the reader, and the
  * scroll burning itself.
  */
 public class IceScrollItem extends Item {
+
+    /** How many of water's four paths must be finished before the scroll will open. */
+    private static final int WATER_PATHS_REQUIRED = 2;
 
     /** Five by five means two blocks either side of the reader, plus the middle. */
     private static final int PATCH_HALF = 2;
@@ -63,6 +70,20 @@ public class IceScrollItem extends Item {
             serverPlayer.sendSystemMessage(Component.literal("You already know icebending.")
                     .withStyle(ChatFormatting.GRAY));
             // Not consumed: nothing happened, so nothing should be spent.
+            return InteractionResultHolder.fail(held);
+        }
+
+        int completed = com.minecraft.atlamod.abilities.ElementPaths.completedPaths(
+                "water", data.getUnlockedAbilities());
+
+        if (completed < WATER_PATHS_REQUIRED) {
+            serverPlayer.sendSystemMessage(Component.literal(
+                    "The scroll means nothing to you yet. Complete " + WATER_PATHS_REQUIRED
+                            + " waterbending paths first — you have finished " + completed + ".")
+                    .withStyle(ChatFormatting.RED));
+            // Deliberately NOT consumed: the reader has done nothing wrong, and a
+            // scroll that burned itself here would cost them a Heart of the Sea for
+            // finding out a requirement.
             return InteractionResultHolder.fail(held);
         }
 
@@ -139,6 +160,9 @@ public class IceScrollItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context,
                                 List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.literal("Right click to read.").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("Requires " + WATER_PATHS_REQUIRED
+                        + " completed waterbending paths.")
+                .withStyle(ChatFormatting.DARK_GRAY));
         tooltip.add(Component.literal("The scroll burns itself once read.")
                 .withStyle(ChatFormatting.DARK_GRAY));
     }

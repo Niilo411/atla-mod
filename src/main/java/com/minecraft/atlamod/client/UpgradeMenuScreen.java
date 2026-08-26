@@ -411,59 +411,24 @@ public class UpgradeMenuScreen extends Screen {
     }
 
     // --- YOUR CUSTOM ABILITIES ---
+    // The tables themselves live in abilities/ElementPaths, in COMMON code, because
+    // the sub-element scrolls have to ask the same questions on the server and this
+    // screen only exists on the client. These four are thin delegates so the rest of
+    // the screen reads exactly as it did.
     private String[] getOffensive(String element) {
-        if (element == null) return new String[0];
-        return switch (element.toLowerCase()) {
-            case "fire" -> new String[]{"Fire leap", "Fire whip", "Fireball", "Fire Breath"};
-            case "water" -> new String[]{"Water ball", "Water stream", "Water Bullets"};
-            case "air" -> new String[]{"Air splinters", "Air cannon", "wind tunnel"};
-            case "earth" -> new String[]{"Earth spike", "Splinters", "Earth block", "Earth trap"};
-            // Lightning is a SUB-element with only two paths. They are drawn on the
-            // tree's left and right arms, so the existing four-armed layout needs no
-            // change at all — the top and bottom arms simply come back empty and
-            // nothing is drawn there.
-            case "lightning" -> new String[]{
-                    "Lightning redirection", "Lightning aura", "Lightning Jump", "Lightning Strength"};
-            case "ice" -> new String[]{"icicles", "Freeze", "Ice over", "Ice barrage"};
-            default -> new String[0];
-        };
+        return com.minecraft.atlamod.abilities.ElementPaths.offensive(element);
     }
 
     private String[] getDefensive(String element) {
-        if (element == null) return new String[0];
-        return switch (element.toLowerCase()) {
-            case "fire" -> new String[]{"Fire push", "Fire shield", "Firewall", "Fire ring"};
-            case "water" -> new String[]{"Water shield", "Water push", "Water heal"};
-            case "air" -> new String[]{"Air pull", "Air jump", "Air Aura", "Wind"};
-            case "earth" -> new String[]{"Earth wall", "Earth pillar", "Earth armor"};
-            case "lightning" -> new String[]{
-                    "Lightning bolt", "Lightning ball", "Lightning stun", "Lightning Swarm"};
-            case "ice" -> new String[]{"Ice sphere", "Ice Bomb", "Freezing Beam", "Ice Breath"};
-            default -> new String[0];
-        };
+        return com.minecraft.atlamod.abilities.ElementPaths.defensive(element);
     }
 
     private String[] getBalanced(String element) {
-        if (element == null) return new String[0];
-        return switch (element.toLowerCase()) {
-            case "fire" -> new String[]{"Ignite", "Fire spikes", "Fire rocket", "Taller fire"};
-            case "water" -> new String[]{"Water Manipulation", "Water Surf", "Water Sphere"};
-            case "air" -> new String[]{"Air scooter", "Airpush", "Air spout"};
-            case "earth" -> new String[]{"Mine", "Earth dig", "Earth grab"};
-            default -> new String[0];
-        };
+        return com.minecraft.atlamod.abilities.ElementPaths.balanced(element);
     }
 
     private String[] getMaster(String element) {
-        if (element == null) return new String[0];
-        return switch (element.toLowerCase()) {
-            case "fire" -> new String[]{"blue fire", "Fire blow", "Fire immunity", "Fire Rain"};
-            case "water" -> new String[]{"Drown", "water breathing", "Tsunami"};
-            case "air" -> new String[]{"breathless", "Tornado", "Flight"};
-            case "earth" -> new String[]{"Earthquake", "Ravine", "Earth sink"};
-            case "energy" -> new String[]{"Give and take"}; // Avatar special element
-            default -> new String[0];
-        };
+        return com.minecraft.atlamod.abilities.ElementPaths.master(element);
     }
 
     private String[] getPathArray(String path, String[] off, String[] def, String[] bal, String[] mas) {

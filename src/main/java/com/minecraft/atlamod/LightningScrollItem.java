@@ -39,22 +39,6 @@ public class LightningScrollItem extends Item {
     /** How far in front of the reader the confirming bolt lands, in blocks. */
     private static final double STRIKE_DISTANCE = 3.0;
 
-    /**
-     * Fire's four paths, as the ability names the skill tree stores.
-     *
-     * Duplicated from UpgradeMenuScreen rather than shared with it, and that is a
-     * deliberate trade: the menu is CLIENT-only and this check has to run on the
-     * server. The alternative is hoisting the whole tree into common code, which is
-     * a much larger change than this feature needs — but it does mean that renaming
-     * a fire ability means changing it in both places.
-     */
-    private static final String[][] FIRE_PATHS = {
-            { "Fire leap", "Fire whip", "Fireball", "Fire Breath" },
-            { "Fire push", "Fire shield", "Firewall", "Fire ring" },
-            { "Ignite", "Fire spikes", "Fire rocket", "Taller fire" },
-            { "blue fire", "Fire blow", "Fire immunity", "Fire Rain" }
-    };
-
     public LightningScrollItem(Properties properties) {
         super(properties.stacksTo(1));
     }
@@ -77,7 +61,8 @@ public class LightningScrollItem extends Item {
             return InteractionResultHolder.fail(held);
         }
 
-        int completed = completedFirePaths(data);
+        int completed = com.minecraft.atlamod.abilities.ElementPaths.completedPaths(
+                "fire", data.getUnlockedAbilities());
         if (completed < FIRE_PATHS_REQUIRED) {
             serverPlayer.sendSystemMessage(Component.literal(
                     "The scroll means nothing to you yet. Complete " + FIRE_PATHS_REQUIRED
@@ -121,24 +106,6 @@ public class LightningScrollItem extends Item {
         // scroll reads as the item being broken.
         held.shrink(1);
         return InteractionResultHolder.success(held);
-    }
-
-    /** How many of fire's four paths the player has every ability of. */
-    private static int completedFirePaths(BendingData data) {
-        List<String> unlocked = data.getUnlockedAbilities();
-
-        int complete = 0;
-        for (String[] path : FIRE_PATHS) {
-            boolean whole = true;
-            for (String ability : path) {
-                if (!unlocked.contains(ability)) {
-                    whole = false;
-                    break;
-                }
-            }
-            if (whole) complete++;
-        }
-        return complete;
     }
 
     @Override

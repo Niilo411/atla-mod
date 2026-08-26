@@ -400,11 +400,10 @@ four, and it is earned rather than picked.
   back empty for lightning and simply draw nothing. The existing "finish one path
   before starting another" rule then applies unchanged, since `isPathComplete` returns
   false for an empty array and the masterclass gate is never reachable.
-- **The scroll duplicates fire's path lists** (`LightningScrollItem.FIRE_PATHS`) rather
-  than sharing them with the menu, and that is a real trade: `UpgradeMenuScreen` is
-  CLIENT-only and this check must run on the server. Renaming a fire ability now means
-  changing it in two places. Hoisting the whole tree into common code is the proper fix
-  and is a much bigger change than this feature needed.
+- **Both scrolls ask `ElementPaths.completedPaths`** — see the note on that class under
+  Icebending. The lightning scroll originally kept its own copy of fire's path lists,
+  since `UpgradeMenuScreen` is client-only and the check has to run on the server; the
+  ice scroll needing the same thing for water is what finally paid for extracting them.
 - Left path: Lightning redirection, Lightning aura, Lightning Jump, Lightning Strength
 - Right path: Lightning bolt, Lightning ball, Lightning stun, Lightning Swarm
 
@@ -555,10 +554,19 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
   Sea, at trade levels 1 and 3 (same two-entry reasoning as the weaponsmith's). Right
   click to read; the scroll burns itself and lays a 5x5 patch of snow around the reader
   as confirmation.
-- **NO prerequisite, unlike lightning.** The design asks only for the trade, so anyone
-  who can find a fisherman and a buried treasure learns it. If ice should ever sit
-  behind waterbending the way lightning sits behind fire, `IceScrollItem` is the single
-  place that would change.
+- **It needs 2 completed WATERbending paths**, exactly as the lightning scroll needs 2
+  fire paths. Ice comes out of water the way lightning comes out of fire, so the gate is
+  deliberately identical. A reader who is short keeps the scroll rather than burning it.
+- **`abilities/ElementPaths.java` holds every element's path tables**, in COMMON code.
+  They used to live in `UpgradeMenuScreen` alone, which was fine while the tree was only
+  ever drawn — it stopped being fine when the scrolls needed to ask "has this player
+  finished two paths of X?" on the SERVER. The first scroll kept a copy; a second would
+  have made two copies of two different tables, all kept in step by hand. The menu now
+  delegates to the shared tables like everything else, so adding an ability to a path is
+  one edit again.
+- `ElementPaths.isComplete` treats an EMPTY path as never complete, and that matters:
+  without it a sub-element's two missing arms would each count as finished and any
+  "how many paths are done" check would start at two.
 - Left path: icicles, Freeze, Ice over, Ice barrage
 - Right path: Ice sphere, Ice Bomb, Freezing Beam, Ice Breath
 
