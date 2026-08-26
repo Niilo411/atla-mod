@@ -368,6 +368,12 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- **EVERY `/bend` command needs permission level 2**, which is exactly "cheats enabled
+  in singleplayer, or op on a server" — vanilla ties those two together, so one check
+  covers both. The `requires()` sits on the ROOT rather than on each subcommand, so
+  anything added under `/bend` later cannot be left ungated by being forgotten, and the
+  whole command is hidden from the suggestion list for anyone who cannot use it rather
+  than being offered and then refusing.
 - **Picking your element starts you at level 1**, not 0, granted in
   `ElementChoicePacket`'s handler. Two details there: the "is this their first
   choice" test has to be read BEFORE `setMainElement`, which sets `hasChosenElement`
@@ -912,8 +918,7 @@ both at 35 points.
 
 ## The Avatar
 
-Four commands, all op-gated at permission level 2 (the three older `/bend`
-subcommands are deliberately left ungated as they were):
+Four commands, covered by the permission gate on the `/bend` root:
 - `/bend avatar <player>` — names that player the Avatar
 - `/bend avatar cycle start` — begins the cycle at earth
 - `/bend avatar remove` — takes the title off whoever holds it

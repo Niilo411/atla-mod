@@ -177,6 +177,17 @@ public class ServerEvents {
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("bend")
+                // EVERY /bend command needs permission level 2, which is exactly
+                // "cheats enabled in singleplayer, or op on a server" — vanilla ties
+                // those two together, so one check covers both.
+                //
+                // On the ROOT rather than on each subcommand: Brigadier applies a
+                // requires() to everything beneath it, so nothing added under /bend
+                // later can be left ungated by being forgotten. It also hides the whole
+                // command from the suggestion list for anyone who cannot use it, rather
+                // than offering commands that will only refuse.
+                .requires(source -> source.hasPermission(2))
+
                 // ADD ELEMENT COMMAND
                 .then(Commands.literal("add")
                         .then(Commands.argument("element", word())
@@ -250,17 +261,15 @@ public class ServerEvents {
                 )
                 // AVATAR COMMANDS
                 //
-                // Op-gated, unlike the three above. Naming the Avatar decides who on
-                // the server holds every element at once, which is not something any
-                // player should be able to hand themselves.
+                // The permission check is on the /bend root and covers these too, so
+                // there is no second requires() here — one would only be a copy that
+                // could drift out of step with it.
                 //
                 // "cycle" is a literal and the player is an argument, so Brigadier
                 // tries the literal first and there is no ambiguity between
                 // "/bend avatar cycle ..." and "/bend avatar <player>" even for a
                 // player unlucky enough to be called "cycle".
                 .then(Commands.literal("avatar")
-                        .requires(source -> source.hasPermission(2))
-
                         // /bend avatar cycle start|stop
                         .then(Commands.literal("cycle")
                                 .then(Commands.literal("start")
