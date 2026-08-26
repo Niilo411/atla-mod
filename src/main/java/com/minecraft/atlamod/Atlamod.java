@@ -51,6 +51,10 @@ public class Atlamod {
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
     // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
+    // Soundbending's key. Bought from a village fletcher, read once, spent.
+    public static final DeferredItem<Item> SOUND_SCROLL = ITEMS.register("sound_scroll",
+            () -> new SoundScrollItem(new Item.Properties()));
+
     // Icebending's key. Bought from a village fisherman, read once, spent.
     public static final DeferredItem<Item> ICE_SCROLL = ITEMS.register("ice_scroll",
             () -> new IceScrollItem(new Item.Properties()));
@@ -145,6 +149,7 @@ public class Atlamod {
             event.accept(WATER_CANTEEN);
             event.accept(LIGHTNING_SCROLL);
             event.accept(ICE_SCROLL);
+            event.accept(SOUND_SCROLL);
         }
     }
 

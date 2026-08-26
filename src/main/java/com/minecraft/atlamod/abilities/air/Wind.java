@@ -82,13 +82,13 @@ public class Wind implements Ability {
         for (LivingEntity living : Aiming.allInSight(player, RANGE, CONE_DOT)) {
 
             living.addEffect(new MobEffectInstance(
-                    MobEffects.MOVEMENT_SLOWDOWN, SLOW_DURATION, SLOW_LEVEL, false, true, true));
+                    MobEffects.MOVEMENT_SLOWDOWN, com.minecraft.atlamod.abilities.sound.Sound.duration(data, SLOW_DURATION), SLOW_LEVEL, false, true, true));
 
             // indirectMagic rather than a fire or projectile source: it bypasses
             // armour, so the one heart is actually one heart on a geared target, and
             // it keeps clear of the tags other abilities key off (Blue Fire's
             // doubling, Air Aura's projectile blocking).
-            living.hurt(player.damageSources().indirectMagic(player, player), DAMAGE);
+            living.hurt(player.damageSources().indirectMagic(player, player), com.minecraft.atlamod.abilities.sound.Sound.damage(data, DAMAGE));
 
             level.sendParticles(ParticleTypes.POOF,
                     living.getX(), living.getY() + living.getBbHeight() * 0.5, living.getZ(),

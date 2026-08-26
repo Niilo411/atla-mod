@@ -5,6 +5,8 @@
   "item.atlamod.water_canteen": "Water Canteen",
   "item.atlamod.lightning_scroll": "Lightningbending Scroll",
   "item.atlamod.ice_scroll": "Icebending Scroll",
+  "item.atlamod.sound_scroll": "Soundbending Scroll",
+  "effect.atlamod.deafened": "Deafened",
   "effect.atlamod.stunned": "Stunned",
   "block.atlamod.bending_fire": "Bending Fire",
 

@@ -25,6 +25,10 @@ public final class ModEffects {
     public static final DeferredHolder<MobEffect, MobEffect> DISORIENTATION =
             EFFECTS.register("disorientation", DisorientationEffect::new);
 
+    /** Stops the victim hearing anything. See DeafenedEffect. */
+    public static final DeferredHolder<MobEffect, MobEffect> DEAFENED =
+            EFFECTS.register("deafened", DeafenedEffect::new);
+
     /** Stops the victim moving outright. See StunnedEffect. */
     public static final DeferredHolder<MobEffect, MobEffect> STUNNED =
             EFFECTS.register("stunned", StunnedEffect::new);

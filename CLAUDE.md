@@ -666,6 +666,93 @@ be refused as "on cooldown" for the first half of its life and would charge anot
 150 chi when it finally worked. Cancelling also skips the three second wind-up, since
 nothing needs building to put something down.
 
+## Soundbending (the third SUB-element)
+
+Same shape as lightning and ice: two paths, not chosen at the start, unlocked with a
+scroll gated behind two completed paths of the parent element — AIR here.
+
+- **Getting it**: a village FLETCHER sells the Soundbending Scroll for 32 feathers, at
+  trade levels 1 and 3. Reading it needs 2 completed airbending paths, plays a loud
+  screech, and destroys the scroll. A reader who is short keeps it.
+- Left path: Bass Bounce, Sound boosting, Sound wall, Sound Leap
+- Right path: Roar, Deafen, Compressed punches, Bass waves
+
+### Sound boosting is the broadest passive in the mod
+
+It touches TWO WHOLE ELEMENTS rather than one ability — every air and sound ability
+gets +25% damage, +25% effect duration, and −25% cooldown and charge time. Its four
+halves live in three places because no single hook could carry all of them:
+
+- **Damage and effect durations are applied BY the abilities** (`Sound.damage`,
+  `Sound.duration`). A damage-handler rule could not tell an air ability from any other
+  `indirectMagic` in the mod — the same trap Lightning Strength documents.
+- **Cooldowns and charge times are applied by the DISPATCHER** (`Sound.shorten`, via
+  `AbilityHandler.cooldownFor` / `chargeTicksFor`). Those are read in five places no
+  ability class touches, so asking each ability to shorten its own would be a rule the
+  next one added would quietly break. This half therefore covers every air and sound
+  ability automatically, including ones added later.
+- **`ElementPaths.elementOf` is what decides who qualifies.** Whichever tree an ability
+  sits in IS its element — there is no separate label on the ability that could
+  disagree with the tree.
+- The HUD charge meter fills against the SHORTENED total, so the bar matches the charge
+  actually being served.
+
+### Deafened is the mod's third custom effect
+
+- Like Disorientation and Stunned it holds NO behaviour, for the same reason: sound
+  exists only on the CLIENT. `ClientEvents.onPlaySound` cancels every sound the game
+  tries to play while the local player carries it. Not filtered by category — muting
+  effects but leaving music would be a half-deafness nobody asked for.
+- Mobs receive it and are unaffected, exactly as they are by Disorientation.
+- **Deafen's bending lockout is a SEPARATE mechanism**, and has to be: it runs 10
+  seconds against the deafness's 25, so one effect could not carry both, and two
+  effects for one ability would be two icons for a single thing. It is a transient
+  counter on `BendingData`, checked at the top of both dispatcher entry points.
+- **Only a key PRESS is refused while locked out, never a release.** A channel already
+  running when the lockout lands has to be able to be let go of, or it would drain chi
+  until it ran dry.
+
+### The rest
+
+- **Compressed punches is two effects, not one.** The WAVE goes out on every left click
+  whether it connects or not (fired from `LeftClickTriggerPacket`, before the two-phase
+  routing, so an armed ability does not swallow the punch); the harder direct hit is
+  applied in the damage handler, where melee damage is actually decided. Set rather
+  than added, so it does not stack with a weapon.
+- **Compressed punches and Sound wall are TOGGLES billed by the second**, which the
+  dispatcher's channel billing does not reach — they are charged from the player tick
+  by `ServerEvents.chargeSoundToggle` on the same one-second beat, and switch
+  themselves off when the chi runs out. Spending goes through `consumeChi`, so the
+  regen delay is re-armed each second exactly as it is for a channel; a toggle that
+  regenerated its own upkeep would be free.
+- **A bass wave is a growing RING, not an area hit.** Each thing is struck once as the
+  wave passes over it, caught in the shell between last tick's radius and this one's.
+  That is the whole difference between a wave and an aura. Waves already travelling
+  finish their flight after the fifteen seconds are up rather than vanishing mid-air.
+- **Sound wall places no blocks at all** — it is particles, and it stops movement by
+  pushing back rather than by colliding. Anything inside the plane is shoved out the
+  side it came in on, every tick, which reads as solid without a single block existing.
+  Projectiles are discarded outright: an arrow that kept flying but did no damage would
+  still stick in whoever is behind the wall. The caster passes through freely, since
+  cover you cannot get behind is a cage.
+- **Bass Bounce is Fire Leap's shape**: cast, hop, and the SLAM fires on landing from a
+  countdown on BendingData. It reuses Air jump's "has actually left the ground" guard,
+  which is needed for the same reason — the server applies the launch but the CLIENT
+  moves the player, so a landing test without it fires on the launch itself.
+- **Bass Bounce and Sound Leap both SOLVE for their launch speed** rather than using a
+  tuned constant, via `AirJump.speedForHeight` and Sound Leap's own `reachOf`. Drag
+  means distance and height are not proportional to launch speed, so a hand-picked
+  value would be wrong at every size but one.
+- **Sound Leap reuses Air jump's fall protection wholesale** — the same `airJumpTicks`
+  countdown, left-ground guard and `LivingFallEvent` cancel. It is a LAUNCH, not a
+  teleport like Lightning Jump, so the bender really crosses the ground and a wall in
+  the way stops them.
+
+### Figures that were NOT in the design
+
+- **Sound wall's costs** (10 chi/sec, 100 to raise, 1 xp/sec) — the design gives it no
+  numbers at all. Flagged INVENTED in the source, like Ice Bomb's.
+
 ## The Avatar
 
 Four commands, all op-gated at permission level 2 (the three older `/bend`

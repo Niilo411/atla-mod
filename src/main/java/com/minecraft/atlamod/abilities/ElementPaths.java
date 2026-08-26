@@ -39,6 +39,8 @@ public final class ElementPaths {
             case "lightning" -> new String[]{
                     "Lightning redirection", "Lightning aura", "Lightning Jump", "Lightning Strength"};
             case "ice" -> new String[]{"icicles", "Freeze", "Ice over", "Ice barrage"};
+            case "sound" -> new String[]{
+                    "Bass Bounce", "Sound boosting", "Sound wall", "Sound Leap"};
             default -> NONE;
         };
     }
@@ -54,6 +56,8 @@ public final class ElementPaths {
             case "lightning" -> new String[]{
                     "Lightning bolt", "Lightning ball", "Lightning stun", "Lightning Swarm"};
             case "ice" -> new String[]{"Ice sphere", "Ice Bomb", "Freezing Beam", "Ice Breath"};
+            case "sound" -> new String[]{
+                    "Roar", "Deafen", "Compressed punches", "Bass waves"};
             default -> NONE;
         };
     }
@@ -118,6 +122,32 @@ public final class ElementPaths {
             if (isComplete(path, unlocked)) complete++;
         }
         return complete;
+    }
+
+    /** Every element with a tree, in no particular order. */
+    private static final String[] ELEMENTS = {
+            "fire", "water", "air", "earth", "lightning", "ice", "sound"
+    };
+
+    /**
+     * Which element an ability belongs to, or empty if it belongs to none.
+     *
+     * Whichever tree an ability sits in IS its element — there is no separate label on
+     * the ability to disagree with. Sound boosting is what needed this: it sharpens air
+     * and sound abilities and nothing else, and the dispatcher has to be able to ask
+     * "is this one of those?" without a table of its own.
+     */
+    public static String elementOf(String ability) {
+        if (ability == null || ability.isEmpty()) return "";
+
+        for (String element : ELEMENTS) {
+            for (String[] path : all(element)) {
+                for (String named : path) {
+                    if (named.equalsIgnoreCase(ability)) return element;
+                }
+            }
+        }
+        return "";
     }
 
     private static boolean containsIgnoreCase(List<String> unlocked, String ability) {

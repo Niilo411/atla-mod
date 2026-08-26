@@ -443,6 +443,47 @@ public class BendingData {
     public int getTwoPhaseTicks() { return twoPhaseTicks; }
     public void setTwoPhaseTicks(int ticks) { this.twoPhaseTicks = Math.max(0, ticks); }
 
+    // --- BASS BOUNCE ---
+    // Ticks left of the hop before the slam is given up on, and whether the bender has
+    // actually got off the ground yet. Exactly the pair Air jump keeps, for exactly
+    // the same reason: the server applies the launch but the CLIENT moves the player,
+    // so a landing test without the second flag would fire on the launch itself.
+    private transient int bassBounceTicks = 0;
+    private transient boolean bassBounceLeftGround = false;
+
+    public int getBassBounceTicks() { return bassBounceTicks; }
+    public void setBassBounceTicks(int ticks) { this.bassBounceTicks = Math.max(0, ticks); }
+
+    public boolean hasBassBounceLeftGround() { return bassBounceLeftGround; }
+    public void setBassBounceLeftGround(boolean left) { this.bassBounceLeftGround = left; }
+
+    // --- COMPRESSED PUNCHES ---
+    // Whether the toggle is up. Transient, so a relog switches it off — which is the
+    // right answer for something billed by the second: nobody should come back to an
+    // ability quietly draining chi they did not choose to spend.
+    private transient boolean punchingCompressed = false;
+
+    public boolean isPunchingCompressed() { return punchingCompressed; }
+    public void setPunchingCompressed(boolean punching) { this.punchingCompressed = punching; }
+
+    // --- BENDING LOCKOUT ---
+    // Ticks left during which this player cannot bend at all. Deafen is the only
+    // thing that sets it.
+    //
+    // A counter on the data rather than another MobEffect, because it runs for a
+    // DIFFERENT length of time than the deafness it comes with (10 seconds against
+    // 25) — one effect could not carry both, and two effects for one ability would be
+    // two icons for a single thing happening.
+    //
+    // Transient: a relog clears it. Ten seconds of lockout is not worth persisting,
+    // and a player who logged out unable to bend and came back the same way would
+    // reasonably think the mod had broken.
+    private transient int bendingLockedTicks = 0;
+
+    public int getBendingLockedTicks() { return bendingLockedTicks; }
+    public void setBendingLockedTicks(int ticks) { this.bendingLockedTicks = Math.max(0, ticks); }
+    public boolean isBendingLocked() { return bendingLockedTicks > 0; }
+
     // --- LIGHTNING REDIRECTION ---
     // How hard the bolt this player CAUGHT will hit when they throw it back.
     //

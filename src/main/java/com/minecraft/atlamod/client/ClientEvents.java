@@ -203,6 +203,28 @@ public class ClientEvents {
     }
 
     /**
+     * Silences the world while the local player is Deafened.
+     *
+     * This is the WHOLE of that effect: sound exists only on the client, so the server
+     * can no more mute somebody than it can read their movement keys. It cancels every
+     * sound the game tries to play, which is what "cannot hear anything" asks for.
+     *
+     * Deliberately NOT filtered by category. Muting effects but leaving music, or
+     * leaving the UI, would be a half-deafness nobody asked for — and the effect runs
+     * for twenty-five seconds, so it ends well before it could be mistaken for the
+     * game's audio having broken.
+     */
+    @SubscribeEvent
+    public static void onPlaySound(net.neoforged.neoforge.client.event.sound.PlaySoundEvent event) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        if (mc.player.hasEffect(com.minecraft.atlamod.ModEffects.DEAFENED)) {
+            event.setSound(null);
+        }
+    }
+
+    /**
      * Forgets who was wearing Earth armor on the way out of a world.
      *
      * The set is keyed on entity id, and ids start again in the next world — without

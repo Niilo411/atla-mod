@@ -119,7 +119,7 @@ public class AirPull implements Ability {
             if (toTarget.normalize().dot(look) < CONE_DOT) continue;
 
             living.addEffect(new MobEffectInstance(
-                    ModEffects.DISORIENTATION, DISORIENT_DURATION, 0, false, true, true));
+                    ModEffects.DISORIENTATION, com.minecraft.atlamod.abilities.sound.Sound.duration(data, DISORIENT_DURATION), 0, false, true, true));
 
             level.sendParticles(ParticleTypes.POOF,
                     living.getX(), living.getY() + living.getBbHeight() * 0.5, living.getZ(),

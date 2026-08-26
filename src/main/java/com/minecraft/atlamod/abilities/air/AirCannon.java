@@ -147,7 +147,13 @@ public class AirCannon implements ChargedAbility, TwoPhaseAbility {
         Vec3 look = player.getLookAngle();
         Vec3 from = player.getEyePosition().add(look.scale(1.0));
 
-        BendingProjectiles.launch(player, from, look, SHOT);
+        // Rebuilt rather than launched as the constant, so Sound boosting can reach
+        // its damage — a Spec is fixed at class load and knows nothing about who is
+        // firing it.
+        BendingProjectiles.launch(player, from, look, new BendingProjectiles.Spec(
+                SHOT.speed(), SHOT.lifetime(), com.minecraft.atlamod.abilities.sound.Sound.damage(data, SHOT.damage()),
+                SHOT.hitRadius(), SHOT.knockback(), SHOT.style(),
+                SHOT.onHit(), SHOT.piercesInvulnerability(), SHOT.onImpact()));
 
         if (player.level() instanceof ServerLevel level) {
             // Backwash at the muzzle — the air that didn't go with the shot.

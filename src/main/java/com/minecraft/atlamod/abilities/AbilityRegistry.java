@@ -184,6 +184,18 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.ice.IceBomb());
         register(new com.minecraft.atlamod.abilities.ice.FreezingBeam());
         register(new com.minecraft.atlamod.abilities.ice.IceBreath());
+
+        // --- SOUND : Right (the third sub-element, two paths again) ---
+        register(new com.minecraft.atlamod.abilities.sound.Roar());
+        register(new com.minecraft.atlamod.abilities.sound.Deafen());
+        register(new com.minecraft.atlamod.abilities.sound.CompressedPunches());
+        register(new com.minecraft.atlamod.abilities.sound.BassWavesAbility());
+
+        // --- SOUND : Left ---
+        register(new com.minecraft.atlamod.abilities.sound.BassBounce());
+        register(new com.minecraft.atlamod.abilities.sound.SoundBoosting());
+        register(new com.minecraft.atlamod.abilities.sound.SoundWall());
+        register(new com.minecraft.atlamod.abilities.sound.SoundLeap());
     }
 
     public static void register(Ability ability) {

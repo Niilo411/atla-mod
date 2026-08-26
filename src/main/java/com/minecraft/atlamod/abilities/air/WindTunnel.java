@@ -128,7 +128,7 @@ public class WindTunnel implements ChanneledAbility {
             shove(living, player, distance);
 
             if (damageThisTick) {
-                living.hurt(player.damageSources().indirectMagic(player, player), DAMAGE_PER_SECOND);
+                living.hurt(player.damageSources().indirectMagic(player, player), com.minecraft.atlamod.abilities.sound.Sound.damage(data, DAMAGE_PER_SECOND));
             }
         }
     }

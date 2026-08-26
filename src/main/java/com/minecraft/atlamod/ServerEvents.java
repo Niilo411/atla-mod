@@ -42,6 +42,8 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.ice.Frozens.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.ice.IceBombs.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.ice.FreezingBeams.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.sound.BassWaves.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.sound.SoundWalls.tickAll(event.getServer());
 
         // Keeps a running cycle looking for an Avatar when nobody holds the title.
         // Rate-limited inside, and does nothing at all once one is in place.
@@ -71,6 +73,8 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.Frozens.forgetLevel(level);
             com.minecraft.atlamod.abilities.ice.IceBombs.forgetLevel(level);
             com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetLevel(level);
+            com.minecraft.atlamod.abilities.sound.BassWaves.forgetLevel(level);
+            com.minecraft.atlamod.abilities.sound.SoundWalls.forgetLevel(level);
             // Melts LAST: the two above hand their own blocks back through IceWorks,
             // so anything they release still gets settled by this sweep.
             com.minecraft.atlamod.abilities.ice.IceWorks.forgetLevel(level);
@@ -116,6 +120,27 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(
                             net.minecraft.world.item.Items.HEART_OF_THE_SEA, 1),
                     new net.minecraft.world.item.ItemStack(Atlamod.ICE_SCROLL.get()),
+                    2,
+                    12,
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Soundbending Scroll in the fletcher's book, for 32 feathers.
+     *
+     * Same two levels as the other two scrolls, for the same reason: a villager picks
+     * only a couple of trades at random from each level's pool.
+     */
+    @SubscribeEvent
+    public static void onFletcherTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.FLETCHER) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.FEATHER, 32),
+                    new net.minecraft.world.item.ItemStack(Atlamod.SOUND_SCROLL.get()),
                     2,
                     12,
                     0.05F));
@@ -377,6 +402,8 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.IceBombs.forgetPlayer(player);
             com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
+            com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
         }
     }
 
@@ -408,6 +435,8 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.IceBombs.forgetPlayer(player);
             com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
+            com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -514,6 +543,8 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.IceBombs.forgetPlayer(player);
             com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
+            com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -611,6 +642,25 @@ public class ServerEvents {
                             com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
                 event.setCanceled(true);
                 return;
+            }
+        }
+
+        // Compressed punches: a punch that actually LANDS hits for 10 rather than
+        // whatever the bender's fists are worth.
+        //
+        // Done here because this is where melee damage is decided — the wave that goes
+        // out on the same click is a separate thing, thrown from the left-click packet.
+        // Keyed on the source having a player ATTACKER and not being a projectile,
+        // which is the mod's existing test for "somebody hit this by hand" (see Air
+        // Aura). Set rather than added, so it does not stack with a weapon.
+        if (event.getSource().getEntity() instanceof ServerPlayer puncher
+                && !event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_PROJECTILE)
+                && !event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
+
+            BendingData puncherData = puncher.getData(ModAttachments.BENDING_DATA);
+            if (puncherData.isPunchingCompressed()) {
+                event.setAmount(com.minecraft.atlamod.abilities.sound.Sound.damage(puncherData,
+                        com.minecraft.atlamod.abilities.sound.CompressedPunches.PUNCH_DAMAGE));
             }
         }
 
@@ -809,6 +859,39 @@ public class ServerEvents {
             // or the chi runs out is as much this call's job as granting it.
             com.minecraft.atlamod.abilities.air.Flight.tick(player, data);
 
+            // --- BENDING LOCKOUT (Deafen) ---
+            if (data.getBendingLockedTicks() > 0) {
+                data.setBendingLockedTicks(data.getBendingLockedTicks() - 1);
+            }
+
+            // --- SOUND TOGGLES, BILLED BY THE SECOND ---
+            // Compressed punches and Sound wall are toggles rather than channels, so
+            // the dispatcher's channel billing does not reach them — they are charged
+            // here instead, on the same one-second beat, and switch themselves off the
+            // moment the chi runs out.
+            if (data.isPunchingCompressed()) {
+                if (!chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.sound.CompressedPunches.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.sound.CompressedPunches.XP_PER_SECOND)) {
+                    data.setPunchingCompressed(false);
+                }
+            }
+
+            if (com.minecraft.atlamod.abilities.sound.SoundWalls.has(player)) {
+                if (!chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.sound.SoundWall.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.sound.SoundWall.XP_PER_SECOND)) {
+                    com.minecraft.atlamod.abilities.sound.SoundWalls.drop(player);
+                }
+            }
+
+            // --- BASS BOUNCE TICK ---
+            // Cast and left running, like Fire Leap: the hop happens now and the slam
+            // happens on landing.
+            if (data.getBassBounceTicks() > 0) {
+                com.minecraft.atlamod.abilities.sound.BassBounce.tick(player, data);
+            }
+
             // --- LIGHTNING STRENGTH PASSIVE ---
             // Runs unconditionally, like Flight: taking the Speed back off when the
             // passive is unequipped is as much this call's job as granting it.
@@ -831,6 +914,28 @@ public class ServerEvents {
                         player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), armored));
             }
         }
+    }
+
+    /**
+     * Charges a per-second sound toggle, on the same beat chi regen uses.
+     *
+     * Returns false when the bender can no longer afford it, which is the caller's cue
+     * to switch the toggle off. Spending goes through consumeChi so the regen delay is
+     * re-armed each second, exactly as it is for a channel — a toggle that quietly
+     * regenerated its own upkeep would be free.
+     *
+     * @return true if the toggle may keep running
+     */
+    private static boolean chargeSoundToggle(net.minecraft.server.level.ServerPlayer player,
+                                             BendingData data, int chiPerSecond, int xpPerSecond) {
+        if (player.tickCount % 20 != 0) return true;
+
+        if (data.getCurrentChi() < chiPerSecond) return false;
+
+        data.consumeChi(chiPerSecond);
+        com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data, xpPerSecond);
+        com.minecraft.atlamod.abilities.AbilitySupport.syncData(player, data);
+        return true;
     }
 
     @SubscribeEvent

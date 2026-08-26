@@ -21,6 +21,14 @@ public record LeftClickTriggerPacket() implements CustomPacketPayload {
             if (context.player() instanceof ServerPlayer player) {
                 BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
+                // Compressed punches throws a wave on EVERY click, whether or not
+                // anything is armed — it is a ranged attack in its own right, not a
+                // bonus on a two-phase release. Fired before the two-phase routing so
+                // holding something armed does not swallow the punch.
+                if (data.isPunchingCompressed()) {
+                    com.minecraft.atlamod.abilities.sound.CompressedPunches.punch(player, data);
+                }
+
                 // Route it to the master handler!
                 com.minecraft.atlamod.AbilityHandler.executeLeftClickPhase(player, data);
             }

@@ -27,9 +27,46 @@ public class AbilityHandler {
     // ==========================================
     //  PHASE 1: instant cast (slot key pressed)
     // ==========================================
+    /**
+     * How long an ability's cooldown actually is for this player.
+     *
+     * Sound boosting takes a quarter off every AIR and SOUND cooldown. Applied here
+     * rather than by the abilities because cooldowns are stamped in five different
+     * places, none of which an ability class touches — asking each one to shorten its
+     * own would be a rule the next ability added would quietly break.
+     */
+    private static int cooldownFor(BendingData data, Ability ability) {
+        int base = ability.getCooldownTicks();
+        if (base <= 0) return base;
+
+        return boostable(ability) ? com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base) : base;
+    }
+
+    /** The same quarter off an ability's charge time. */
+    private static int chargeTicksFor(BendingData data, ChargedAbility ability) {
+        int base = ability.getChargeTicks();
+        if (base <= 0) return base;
+
+        return boostable(ability) ? com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base) : base;
+    }
+
+    /** Whether Sound boosting reaches this ability: air and sound abilities only. */
+    private static boolean boostable(Ability ability) {
+        String element = com.minecraft.atlamod.abilities.ElementPaths.elementOf(ability.getName());
+        return "air".equals(element) || "sound".equals(element);
+    }
+
     public static void executeAbility(ServerPlayer player, BendingData data, String abilityName) {
         Ability ability = AbilityRegistry.get(abilityName);
         if (ability == null) return;
+
+        // Deafen locks its victims out of bending entirely for a few seconds. Checked
+        // at the very top, before anything is spent or stamped.
+        if (data.isBendingLocked()) {
+            player.displayClientMessage(Component.literal(
+                    "§cYou cannot bend right now! (" + ((data.getBendingLockedTicks() + 19) / 20) + "s)"), true);
+            return;
+        }
 
         // Held shapes do NOT start here — they come in through executeAbilityHold().
         // The client can't tell the shapes apart, so it fires UseAbilityPacket AND
@@ -118,7 +155,7 @@ public class AbilityHandler {
 
         // Two-phase cooldowns start on release instead — see TwoPhaseAbility.
         if (ability.getCooldownTicks() > 0 && !(ability instanceof TwoPhaseAbility)) {
-            data.setCooldown(ability.getKey(), ability.getCooldownTicks());
+            data.setCooldown(ability.getKey(), cooldownFor(data, ability));
         }
 
         AbilitySupport.syncData(player, data);
@@ -194,7 +231,7 @@ public class AbilityHandler {
 
             // The cooldown waits for the last shot, not the first.
             if (ability.getCooldownTicks() > 0) {
-                data.setCooldown(ability.getKey(), ability.getCooldownTicks());
+                data.setCooldown(ability.getKey(), cooldownFor(data, ability));
             }
         }
 
@@ -206,6 +243,15 @@ public class AbilityHandler {
     //  PHASE 3: held abilities — channels and charges (slot key held)
     // ==========================================
     public static void executeAbilityHold(ServerPlayer player, BendingData data, String abilityName, boolean isHeld) {
+        // Only a PRESS is refused while locked out. A key RELEASE has to get through,
+        // or a channel that was already running when the lockout landed could never be
+        // let go of and would drain chi until it ran dry.
+        if (isHeld && data.isBendingLocked()) {
+            player.displayClientMessage(Component.literal(
+                    "§cYou cannot bend right now! (" + ((data.getBendingLockedTicks() + 19) / 20) + "s)"), true);
+            return;
+        }
+
         Ability ability = AbilityRegistry.get(abilityName);
 
         // Only when a held ability is STARTING. A key release must never dismount —
@@ -316,7 +362,7 @@ public class AbilityHandler {
         int held = data.getChargeTicks() + 1;
         data.setChargeTicks(held);
 
-        if (held < charged.getChargeTicks()) {
+        if (held < chargeTicksFor(data, charged)) {
             charged.onChargeTick(player, data, held);
             // Every other tick is smooth enough for the meter without flooding packets.
             if (held % 2 == 0) syncChargeStatus(player, data);
@@ -388,7 +434,7 @@ public class AbilityHandler {
         data.setChannelTicks(0);
 
         if (ability.getCooldownTicks() > 0) {
-            data.setCooldown(ability.getKey(), ability.getCooldownTicks());
+            data.setCooldown(ability.getKey(), cooldownFor(data, ability));
         }
 
         setRooted(player, false);
@@ -521,7 +567,9 @@ public class AbilityHandler {
         String charging = data.getActiveChargingAbility();
         if (!charging.isEmpty()) {
             Ability ability = AbilityRegistry.get(charging);
-            int total = (ability instanceof ChargedAbility charged) ? charged.getChargeTicks() : 0;
+            // The SHORTENED total, so the meter fills against the charge the player is
+            // actually serving rather than the ability's unboosted figure.
+            int total = (ability instanceof ChargedAbility charged) ? chargeTicksFor(data, charged) : 0;
             String label = ability != null ? ability.getName() : charging;
 
             PacketDistributor.sendToPlayer(player,
@@ -613,7 +661,7 @@ public class AbilityHandler {
             data.setTwoPhaseShots(0);
 
             if (ability.getCooldownTicks() > 0) {
-                data.setCooldown(ability.getKey(), ability.getCooldownTicks());
+                data.setCooldown(ability.getKey(), cooldownFor(data, ability));
             }
 
             twoPhase.onArmedExpire(player, data);

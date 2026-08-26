@@ -44,7 +44,8 @@ public class AirJump implements ChargedAbility {
      * up is still falling from THIS jump however long that takes. It ends the moment
      * they land; this is only the backstop for a landing that is somehow never seen.
      */
-    private static final int AIR_TIME = 400;
+    /** Also used by Sound Leap, which reuses this whole protection window. */
+    public static final int AIR_TIME = 400;
 
     /**
      * How long to wait for the launch to actually get the player airborne before
@@ -237,6 +238,10 @@ public class AirJump implements ChargedAbility {
      * short of halfway up. Lerping the height and inverting it here is what makes the
      * number on the action bar true.
      */
+    public static double speedForHeight(double height) {
+        return launchSpeedFor(height);
+    }
+
     private static double launchSpeedFor(double height) {
         double low = 0.0;
         double high = 4.0;

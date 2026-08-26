@@ -112,13 +112,13 @@ public class AirPush implements Ability {
             if (toTarget.normalize().dot(look) < CONE_DOT) continue;
 
             living.addEffect(new MobEffectInstance(
-                    ModEffects.DISORIENTATION, DISORIENT_DURATION, 0, false, true, true));
+                    ModEffects.DISORIENTATION, com.minecraft.atlamod.abilities.sound.Sound.duration(data, DISORIENT_DURATION), 0, false, true, true));
 
             // indirectMagic rather than a fire or projectile source: it bypasses
             // armour, so two hearts is two hearts on a geared target, and it keeps
             // clear of the tags other abilities key off (Blue Fire's doubling, Air
             // Aura's projectile blocking).
-            living.hurt(player.damageSources().indirectMagic(player, player), DAMAGE);
+            living.hurt(player.damageSources().indirectMagic(player, player), com.minecraft.atlamod.abilities.sound.Sound.damage(data, DAMAGE));
 
             shove(living, player, look, distance);
 
