@@ -457,19 +457,6 @@ public class BendingData {
     public boolean hasBassBounceLeftGround() { return bassBounceLeftGround; }
     public void setBassBounceLeftGround(boolean left) { this.bassBounceLeftGround = left; }
 
-    // --- EXTRACT ---
-    // Whether the toggle is running, and how long for. Transient like every other
-    // per-second toggle: nobody should come back from a relog to an ability quietly
-    // spending chi they did not choose to spend.
-    private transient boolean extracting = false;
-    private transient int extractTicks = 0;
-
-    public boolean isExtracting() { return extracting; }
-    public void setExtracting(boolean extracting) { this.extracting = extracting; }
-
-    public int getExtractTicks() { return extractTicks; }
-    public void setExtractTicks(int ticks) { this.extractTicks = Math.max(0, ticks); }
-
     // --- COMPRESSED PUNCHES ---
     // Whether the toggle is up. Transient, so a relog switches it off — which is the
     // right answer for something billed by the second: nobody should come back to an

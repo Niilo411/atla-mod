@@ -842,6 +842,13 @@ both at 35 points.
   it a flat damage buff that happened to be called knuckles. Compressed punches wins
   where both are in play, since that is an ability being actively paid for by the
   second where this is a permanent floor.
+- **Extract is a CHANNEL, not a toggle**, and the difference is more than the input:
+  the dispatcher already owns every part of running one — draining the chi spread
+  evenly across each second, trickling the xp, stopping when the chi runs out, and
+  syncing on its own schedule. All of that was being done by hand from the player tick
+  while it was a toggle, along with two transient fields on BendingData; converting it
+  deleted the lot. Its yield counts off `getChannelTicks()`, so letting go and starting
+  again restarts the two seconds rather than resuming a part-paid one.
 - **Extract takes nothing out of the world.** The iron is drawn from the ground in the
   fiction but no block is touched — an ability that really consumed ground would be
   either a duplication glitch or a way to delete terrain depending on which half went

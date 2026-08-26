@@ -933,17 +933,6 @@ public class ServerEvents {
                 }
             }
 
-            if (data.isExtracting()) {
-                if (chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.metal.Extract.CHI_PER_SECOND,
-                        com.minecraft.atlamod.abilities.metal.Extract.XP_PER_SECOND)) {
-                    com.minecraft.atlamod.abilities.metal.Extract.tick(player, data);
-                } else {
-                    data.setExtracting(false);
-                    data.setExtractTicks(0);
-                }
-            }
-
             if (com.minecraft.atlamod.abilities.metal.MetalShields.has(player)) {
                 if (!chargeSoundToggle(player, data,
                         com.minecraft.atlamod.abilities.metal.MetalShield.CHI_PER_SECOND,
