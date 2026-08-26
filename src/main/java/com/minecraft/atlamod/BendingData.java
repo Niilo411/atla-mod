@@ -463,8 +463,14 @@ public class BendingData {
     // ability quietly draining chi they did not choose to spend.
     private transient boolean punchingCompressed = false;
 
+    /** How long it has been up, so it can switch itself off at the thirty second cap. */
+    private transient int compressedPunchTicks = 0;
+
     public boolean isPunchingCompressed() { return punchingCompressed; }
     public void setPunchingCompressed(boolean punching) { this.punchingCompressed = punching; }
+
+    public int getCompressedPunchTicks() { return compressedPunchTicks; }
+    public void setCompressedPunchTicks(int ticks) { this.compressedPunchTicks = Math.max(0, ticks); }
 
     // --- BENDING LOCKOUT ---
     // Ticks left during which this player cannot bend at all. Deafen is the only

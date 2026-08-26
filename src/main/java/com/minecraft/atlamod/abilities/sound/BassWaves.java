@@ -59,6 +59,9 @@ public final class BassWaves {
         int ticksLeft = DURATION;
         int ticks;
 
+        /** Whether the bender has already been let go of, so it happens exactly once. */
+        boolean released;
+
         /** The rings currently travelling outward, as their radii. */
         final List<Double> rings = new ArrayList<>();
 
@@ -85,6 +88,12 @@ public final class BassWaves {
         run.rings.add(0.0);
 
         ACTIVE.add(run);
+
+        // Pinned for as long as it throws. Both halves, like every rooting channel:
+        // the client is told to stop taking movement input, and the server zeroes the
+        // motion every tick below.
+        com.minecraft.atlamod.AbilityHandler.setRooted(player, true);
+
         Sound.boom(level, player.position(), 1.4F);
     }
 
@@ -95,8 +104,20 @@ public final class BassWaves {
 
             Sound.play(run.level, player.position(),
                     net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, 0.7F, 0.6F);
+            release(player);
             ACTIVE.remove(run);
         }
+    }
+
+    /**
+     * Lets the bender move again.
+     *
+     * Every route out of a run goes through here — cancelled, finished, dead, gone —
+     * because ClientRootState is a client static: a release missed on any one of them
+     * would leave a player who simply cannot move.
+     */
+    private static void release(ServerPlayer player) {
+        com.minecraft.atlamod.AbilityHandler.setRooted(player, false);
     }
 
     /** Iterates a SNAPSHOT — waves kill, and a death handler calls back in here. */
@@ -114,9 +135,24 @@ public final class BassWaves {
 
     private static boolean advance(Run run, MinecraftServer server) {
         ServerPlayer owner = server.getPlayerList().getPlayer(run.ownerId);
-        if (owner == null || owner.level() != run.level || !owner.isAlive()) return false;
+        if (owner == null || owner.level() != run.level || !owner.isAlive()) {
+            // Nothing to release: a player who has died, logged out or left the level
+            // gets a fresh RootedPacket on login and respawn anyway, and there is no
+            // connection to send one down here.
+            return false;
+        }
 
         run.ticks++;
+
+        // The server's half of the pin, while it is still THROWING. Waves already in
+        // the air finish travelling on their own, and the bender is free to move the
+        // moment the last one goes out rather than waiting for it to land.
+        if (run.ticksLeft > 0) {
+            com.minecraft.atlamod.AbilityHandler.holdStill(owner);
+        } else if (!run.released) {
+            run.released = true;
+            release(owner);
+        }
 
         // Stop THROWING at fifteen seconds, but let whatever is already travelling
         // finish — a wave cut off halfway would simply vanish in mid-air.
@@ -171,8 +207,14 @@ public final class BassWaves {
         Sound.ring(run.level, owner.position(), to, Math.max(8, (int) (to * 3)));
     }
 
-    /** Called on death, logout and dimension change. */
+    /**
+     * Called on death, logout and dimension change.
+     *
+     * Releases as well as forgetting: a player who changes dimension mid-run is still
+     * connected, and would otherwise arrive on the other side unable to move.
+     */
     public static void forgetPlayer(ServerPlayer player) {
+        if (has(player)) release(player);
         ACTIVE.removeIf(run -> run.ownerId.equals(player.getUUID()));
     }
 

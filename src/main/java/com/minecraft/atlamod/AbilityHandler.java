@@ -605,8 +605,16 @@ public class AbilityHandler {
         PacketDistributor.sendToPlayer(player, new ChargeStatusPacket("", 0, 0, false));
     }
 
-    /** Tells the client whether an ability is holding the player still. */
-    private static void setRooted(ServerPlayer player, boolean rooted) {
+    /**
+     * Tells the client whether an ability is holding the player still.
+     *
+     * Public because rooting is no longer a channel-only affair: Bass waves is a
+     * TOGGLE that pins the bender, and it needs the same two halves every rooted
+     * channel does — this, and holdStill on the server every tick. Server-side alone
+     * leaves the client still trying to walk and being corrected, which rubber-bands
+     * rather than holding still.
+     */
+    public static void setRooted(ServerPlayer player, boolean rooted) {
         PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.RootedPacket(rooted));
     }
 
@@ -617,7 +625,7 @@ public class AbilityHandler {
      * not also make the player hover — being rooted should not mean being suspended
      * in mid-air if the ground is taken out from under them.
      */
-    private static void holdStill(ServerPlayer player) {
+    public static void holdStill(ServerPlayer player) {
         net.minecraft.world.phys.Vec3 motion = player.getDeltaMovement();
         player.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
         // Players ignore server-side velocity unless it is explicitly pushed to them.

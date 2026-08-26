@@ -9,6 +9,11 @@ import net.minecraft.server.level.ServerPlayer;
  * direction, one every four seconds, stunning and wearing down whatever they wash
  * over.
  *
+ * The bender is PINNED while it runs. That is what the ability costs beyond its chi:
+ * fifteen seconds of throwing waves is fifteen seconds of standing still in the middle
+ * of them, so it is something to open a fight with rather than something to fall back
+ * on once one is going badly.
+ *
  * Cancellable mid-run by pressing the keybind again, which the design asks for
  * explicitly. That goes through isActive/deactivate — checked before the cooldown and
  * before anything is spent — rather than through the ordinary cast path, which would
@@ -35,10 +40,17 @@ public class BassWavesAbility implements Ability {
         return 0;
     }
 
-    /** No cooldown: the fifteen seconds it runs for is the whole limit. */
+    /**
+     * Ten seconds, stamped when the waves START.
+     *
+     * Shorter than the fifteen the ability runs for, so by the time it finishes on its
+     * own the cooldown is long gone — it only bites on a run cancelled early, which is
+     * the same shape Tornado has. Cancelling still goes through isActive/deactivate,
+     * so it is never charged for.
+     */
     @Override
     public int getCooldownTicks() {
-        return 0;
+        return 200;
     }
 
     @Override

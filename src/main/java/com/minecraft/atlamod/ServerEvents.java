@@ -870,10 +870,20 @@ public class ServerEvents {
             // here instead, on the same one-second beat, and switch themselves off the
             // moment the chi runs out.
             if (data.isPunchingCompressed()) {
-                if (!chargeSoundToggle(player, data,
+                data.setCompressedPunchTicks(data.getCompressedPunchTicks() + 1);
+
+                boolean outOfTime = data.getCompressedPunchTicks()
+                        >= com.minecraft.atlamod.abilities.sound.CompressedPunches.MAX_TICKS;
+
+                boolean affordable = chargeSoundToggle(player, data,
                         com.minecraft.atlamod.abilities.sound.CompressedPunches.CHI_PER_SECOND,
-                        com.minecraft.atlamod.abilities.sound.CompressedPunches.XP_PER_SECOND)) {
-                    data.setPunchingCompressed(false);
+                        com.minecraft.atlamod.abilities.sound.CompressedPunches.XP_PER_SECOND);
+
+                // Both endings go through the ability's own stop(), so the thirty
+                // second cooldown is stamped whichever one arrives first — running out
+                // of chi must not be a cheaper way to end it than running out of time.
+                if (outOfTime || !affordable) {
+                    com.minecraft.atlamod.abilities.sound.CompressedPunches.stop(player, data);
                 }
             }
 
