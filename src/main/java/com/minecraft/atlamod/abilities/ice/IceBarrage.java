@@ -14,6 +14,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Left / Ice. Five seconds of gathering, and then the sky comes down: huge icicles
  * falling across a thirty block radius, twenty hp each where they land.
@@ -42,7 +45,17 @@ public class IceBarrage implements ChargedAbility {
     /** How long a landed icicle stands before melting. */
     private static final int STAND_TICKS = 200; // 10 seconds
 
-    /** Fewest and most icicles guaranteed to land on each thing caught in the radius. */
+    /**
+     * Most things that can be singled out for a guaranteed hit in one cast.
+     *
+     * The count is rolled fresh each time from 0 up to this, so a barrage in a crowd
+     * picks a handful at random rather than marking every single thing in a thirty
+     * block radius. That cap is the whole difference between a strong ability and one
+     * that simply deletes any group it is aimed at.
+     */
+    private static final int AIMED_TARGETS_MAX = 6;
+
+    /** Fewest and most icicles that land on each target that IS singled out. */
     private static final int AIMED_MIN = 2;
     private static final int AIMED_MAX = 6;
 
@@ -131,9 +144,16 @@ public class IceBarrage implements ChargedAbility {
      *
      * The scattered barrage above is exactly that — scattered — so with bad luck it
      * could miss every single target, which for a five second wind-up on a twenty
-     * second cooldown reads as the ability simply not working. These are aimed:
-     * between two and six per target, spawned just overhead so they cannot be walked
-     * out from under.
+     * second cooldown reads as the ability simply not working. These are aimed,
+     * spawned just overhead so they cannot be walked out from under.
+     *
+     * But only a HANDFUL are singled out: a count between 0 and AIMED_TARGETS_MAX is
+     * rolled per cast, and that many targets are drawn at random from everything in
+     * range. Guaranteeing a hit on every single thing in a thirty block radius would
+     * make the ability an unavoidable wipe of any group; picking a few at random keeps
+     * it a barrage — reliable enough to be worth the wind-up, and still luck as to who
+     * catches the worst of it. A roll of zero is possible, and leaves the cast entirely
+     * to the scattered forty.
      *
      * They PIERCE invulnerability frames, and that is load-bearing. Vanilla ignores a
      * second hit of equal size within ten ticks of the first, so without it only the
@@ -149,10 +169,23 @@ public class IceBarrage implements ChargedAbility {
 
         AABB area = new AABB(centre, centre).inflate(RADIUS);
 
+        List<LivingEntity> inRange = new ArrayList<>();
         for (net.minecraft.world.entity.Entity caught : level.getEntities(player, area)) {
             if (!(caught instanceof LivingEntity living) || !living.isAlive()) continue;
             if (living.position().distanceToSqr(centre) > RADIUS * RADIUS) continue;
+            inRange.add(living);
+        }
 
+        if (inRange.isEmpty()) return;
+
+        // Shuffled and then taken from the front, so the few that are singled out are
+        // drawn without replacement — six DISTINCT targets at most, never the same one
+        // counted twice against the cap.
+        java.util.Collections.shuffle(inRange, new java.util.Random(level.random.nextLong()));
+
+        int singledOut = Math.min(inRange.size(), level.random.nextInt(AIMED_TARGETS_MAX + 1));
+
+        for (LivingEntity living : inRange.subList(0, singledOut)) {
             int count = AIMED_MIN + level.random.nextInt(AIMED_MAX - AIMED_MIN + 1);
 
             for (int i = 0; i < count; i++) {

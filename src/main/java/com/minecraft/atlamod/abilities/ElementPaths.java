@@ -30,7 +30,7 @@ public final class ElementPaths {
         if (element == null) return NONE;
         return switch (element.toLowerCase()) {
             case "fire" -> new String[]{"Fire leap", "Fire whip", "Fireball", "Fire Breath"};
-            case "water" -> new String[]{"Water ball", "Water stream", "Water Bullets"};
+            case "water" -> new String[]{"Water ball", "Water stream", "Water Bullets", "Cold water"};
             case "air" -> new String[]{"Air splinters", "Air cannon", "wind tunnel"};
             case "earth" -> new String[]{"Earth spike", "Splinters", "Earth block", "Earth trap"};
             // The two SUB-elements have only two paths. They are drawn on the tree's

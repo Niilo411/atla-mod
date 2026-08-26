@@ -597,10 +597,14 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
 - Its icicles are scattered by AREA, not by radius — picking a uniform radius bunches
   everything near the caster, since a ring at r=30 holds ten times the ground of one at
   r=3. The square root spreads them evenly.
-- **2 to 6 icicles are AIMED at each thing in the radius**, on top of the scattered
-  forty. The scatter is exactly that — with bad luck a whole barrage could miss
-  everything, which after a five second wind-up on a twenty second cooldown reads as
-  the ability not working. The aimed ones spawn only 3 blocks above the target's head:
+- **0 to 6 targets are SINGLED OUT per cast** and get 2 to 6 aimed icicles each, on top
+  of the scattered forty. The scatter alone is exactly that — with bad luck a whole
+  barrage could miss everything, which after a five second wind-up on a twenty second
+  cooldown reads as the ability not working. But guaranteeing a hit on EVERYTHING in a
+  thirty block radius made it an unavoidable wipe of any group, so the count is rolled
+  fresh each cast and that many targets are drawn at random, WITHOUT replacement — six
+  distinct targets at most. A roll of zero is possible and leaves the cast entirely to
+  the scatter. The aimed ones spawn only 3 blocks above the target's head:
   at 1.6 blocks a tick that lands in about two ticks, and a sprinting player covers
   under 0.3 a tick, so nothing can walk out from under them. No special case in the
   projectile system was needed — just a much shorter drop.
@@ -848,6 +852,20 @@ subcommands are deliberately left ungated as they were):
   disconnect, level unload, and changing dimension mid-carry. The block is out of the
   world while held, so any missed path would silently destroy it — which is a far worse
   failure than an awkward drop.
+- **Cold water (PASSIVE, Water Offensive)**: ice and snow count as a bending source,
+  free like open water, but ONLY the block the bender is standing directly on. Water's
+  whole constraint is supply, and this widens it without removing it — a frozen lake or
+  a snowfield becomes bendable ground where before it was as dry as a desert. The
+  "directly on" rule is what keeps it a passive rather than a free pass: open water
+  works from fifteen blocks, this from zero.
+- It is a third source inside `WaterSupply.tryConsume`, checked BEFORE the canteen so a
+  bender stood on ice does not quietly drain one while surrounded by bendable ground.
+  It reads `BlockTags.ICE` and `BlockTags.SNOW` rather than a list of blocks, and checks
+  the block at the feet as well as the one below — a snow LAYER is walked on rather than
+  stood above, so refusing that would fail on the most obvious case it exists for.
+- **Adding it made water's Offensive path four abilities rather than three**, which
+  means anyone who had "completed" that path no longer has until they buy it. That
+  matters beyond the tree: the Icebending Scroll gates on two completed water paths.
 - Water Offensive path COMPLETE:
   - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on

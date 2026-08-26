@@ -107,6 +107,7 @@ public final class AbilityRegistry {
         register(new WaterBall());
         register(new WaterStream());
         register(new WaterBullets());
+        register(new com.minecraft.atlamod.abilities.water.ColdWater());
 
         // --- WATER : Balanced ---
         register(new WaterManipulation());

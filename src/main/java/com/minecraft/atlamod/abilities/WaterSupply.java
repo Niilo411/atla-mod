@@ -15,6 +15,10 @@ import net.minecraft.world.level.Level;
  * Standing near open water, bending is free. Away from it, every ability drinks a
  * unit from a canteen — and with no canteen and no river, there is nothing to bend
  * and the cast is refused.
+ *
+ * The Cold water passive adds a third source between those two: ice or snow the
+ * bender is standing directly on, which is free like open water but has to be
+ * underfoot rather than merely within fifteen blocks.
  */
 public final class WaterSupply {
 
@@ -33,6 +37,14 @@ public final class WaterSupply {
      */
     public static boolean tryConsume(ServerPlayer player) {
         if (hasWaterNearby(player)) {
+            return true;
+        }
+
+        // Cold water: ice and snow underfoot count as a source, and cost nothing, the
+        // same way open water does. Checked BEFORE the canteen so a bender stood on a
+        // frozen lake does not quietly drain one while surrounded by bendable ground.
+        if (com.minecraft.atlamod.abilities.water.ColdWater.standingOnSource(player,
+                player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA))) {
             return true;
         }
 
