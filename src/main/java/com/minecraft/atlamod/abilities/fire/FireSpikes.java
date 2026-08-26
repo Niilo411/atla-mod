@@ -39,7 +39,7 @@ public class FireSpikes implements ChargedAbility {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 100;
     }
 

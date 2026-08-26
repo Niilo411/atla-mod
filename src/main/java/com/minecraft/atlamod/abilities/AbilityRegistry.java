@@ -159,6 +159,18 @@ public final class AbilityRegistry {
         register(new Earthquake());
         register(new Ravine());
         register(new EarthSink());
+
+        // --- LIGHTNING : Left (the sub-element has two paths, not four) ---
+        register(new com.minecraft.atlamod.abilities.lightning.LightningRedirection());
+        register(new com.minecraft.atlamod.abilities.lightning.LightningAura());
+        register(new com.minecraft.atlamod.abilities.lightning.LightningJump());
+        register(new com.minecraft.atlamod.abilities.lightning.LightningStrength());
+
+        // --- LIGHTNING : Right ---
+        register(new com.minecraft.atlamod.abilities.lightning.LightningBolt());
+        register(new com.minecraft.atlamod.abilities.lightning.LightningBall());
+        register(new com.minecraft.atlamod.abilities.lightning.LightningStun());
+        register(new com.minecraft.atlamod.abilities.lightning.LightningSwarm());
     }
 
     public static void register(Ability ability) {

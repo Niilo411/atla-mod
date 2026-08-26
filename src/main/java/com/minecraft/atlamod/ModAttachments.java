@@ -20,6 +20,21 @@ public class ModAttachments {
                     .build()
     );
 
+    /**
+     * The Avatar cycle. Held by the OVERWORLD, not by a player — whose turn it is
+     * and who currently holds the title are facts about the world, and have to
+     * outlive any one player being logged in.
+     *
+     * No copyOnDeath here: levels do not die.
+     */
+    public static final Supplier<AttachmentType<com.minecraft.atlamod.avatar.AvatarState>> AVATAR_STATE =
+            ATTACHMENT_TYPES.register(
+                    "avatar_state",
+                    () -> AttachmentType.builder(() -> new com.minecraft.atlamod.avatar.AvatarState())
+                            .serialize(com.minecraft.atlamod.avatar.AvatarState.CODEC)
+                            .build()
+            );
+
     public static void register(IEventBus eventBus) {
         ATTACHMENT_TYPES.register(eventBus);
     }

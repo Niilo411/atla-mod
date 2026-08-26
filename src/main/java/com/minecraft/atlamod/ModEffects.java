@@ -25,6 +25,10 @@ public final class ModEffects {
     public static final DeferredHolder<MobEffect, MobEffect> DISORIENTATION =
             EFFECTS.register("disorientation", DisorientationEffect::new);
 
+    /** Stops the victim moving outright. See StunnedEffect. */
+    public static final DeferredHolder<MobEffect, MobEffect> STUNNED =
+            EFFECTS.register("stunned", StunnedEffect::new);
+
     /**
      * Ten points of armor, worn as stone. The bonus is declared here rather than in
      * the effect class because vanilla wants it as an attribute modifier on the

@@ -1,5 +1,6 @@
 package com.minecraft.atlamod.client;
 
+import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.ModAttachments;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -103,6 +104,64 @@ public class ModHudOverlay {
 
             guiGraphics.drawString(mc.font, label,
                     (screenWidth / 2) - (mc.font.width(label) / 2), barY - 11, 0xFFFFFF);
+        }
+
+        // 4. Avatar lives, top right. Only drawn for the Avatar, so it costs nothing
+        //    for everyone else and is unmistakable when it does appear.
+        if (data.isAvatar()) {
+            int screenWidth = mc.getWindow().getGuiScaledWidth();
+
+            String title = "AVATAR";
+            int titleWidth = mc.font.width(title);
+            int right = screenWidth - 8;
+
+            guiGraphics.drawString(mc.font, title, right - titleWidth, 8, 0xFFFFAA00);
+
+            // A heart per life, drawn with the VANILLA heart sprites rather than as
+            // a text glyph: they are the game's own idiom for "lives left", they
+            // follow the player's resource pack, and a font character would depend
+            // on the heart being in whatever font is loaded.
+            //
+            // A spent life leaves its empty container behind, so the row keeps its
+            // width and a loss reads as a heart going out rather than vanishing.
+            int lives = data.getAvatarLives();
+            int heartSize = 9;
+            int spacing = 10;
+            int heartX = right - (spacing * BendingData.AVATAR_LIVES - (spacing - heartSize));
+
+            for (int i = 0; i < BendingData.AVATAR_LIVES; i++) {
+                guiGraphics.blitSprite(
+                        ResourceLocation.withDefaultNamespace(
+                                i < lives ? "hud/heart/full" : "hud/heart/container"),
+                        heartX + (i * spacing), 20, heartSize, heartSize);
+            }
+
+            // The Avatar State's own line, right under the hearts.
+            //
+            // Derived entirely client-side from health and the Avatar flag, both of
+            // which the client already has — the server applies the buffs off the
+            // same two facts, so a packet announcing it would be a second source of
+            // truth that could only ever disagree.
+            if (mc.player.isAlive()
+                    && mc.player.getHealth() < com.minecraft.atlamod.avatar.Avatar.LOW_HEALTH) {
+                String status = "Avatar State Active";
+                guiGraphics.drawString(mc.font, status,
+                        right - mc.font.width(status), 20 + heartSize + 3, 0xFF66CCFF);
+            }
+        }
+
+        // 5. Lightning stun's white-out, drawn over everything else on the HUD
+        //    because it is meant to blind for a moment, not sit behind the bars.
+        if (ClientFlash.isActive()) {
+            // The layer is handed a DeltaTracker, not a float — the partial tick has
+            // to be asked for, and it is the GAME time one, so the fade still runs
+            // while the game is paused rather than freezing lit up.
+            int alpha = (int) (ClientFlash.strength(
+                    partialTick.getGameTimeDeltaPartialTick(false)) * 255.0F);
+            if (alpha > 0) {
+                guiGraphics.fill(0, 0, mc.getWindow().getGuiScaledWidth(),
+                        mc.getWindow().getGuiScaledHeight(), (alpha << 24) | 0xFFFFFF);
+            }
         }
     };
 

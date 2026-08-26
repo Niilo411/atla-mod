@@ -68,7 +68,7 @@ public class AirPull implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 100;
     }
 

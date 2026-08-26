@@ -173,8 +173,9 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   (channeled cone of flame, damages + ignites entities in a 6-block line;
   25 chi/sec, 2 xp/sec, 10s max duration, 15s cooldown after it ends)
 - Fire Defensive path COMPLETE:
-  - Fire Push (6.0 damage, ~6 block knockback in a 60-degree forward cone
-    reaching 8 blocks, 100 chi, 2s cooldown, 5 xp)
+  - Fire Push (6.0 damage, sets everything it catches alight for 5s, ~6 block
+    knockback in a 60-degree forward cone reaching 8 blocks, 100 chi, 2s cooldown,
+    5 xp)
   - Fire Shield (channeled; cancels incoming damage while held EXCEPT fall and
     void/kill, 25 chi/sec = 50 per 2s, 1 xp/sec, no cooldown, no duration cap;
     needs 200 chi banked to START — a gate, not a cost, nothing is deducted for it
@@ -367,6 +368,285 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   `BendingData.getActiveChanneledAbility()` is a general string.
 - Commands: `/bend add|remove <element>` and `/bend level <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- **Picking your element starts you at level 1**, not 0, granted in
+  `ElementChoicePacket`'s handler. Two details there: the "is this their first
+  choice" test has to be read BEFORE `setMainElement`, which sets `hasChosenElement`
+  itself, and the handler has to send `SyncStatsPacket` back — the client sets the
+  element locally for an instant response, but the level is decided server-side and
+  the HUD would otherwise read "Lvl: 0" until the next stat sync. Level 1 also means
+  600 max chi rather than 500, since `getMaxChi()` is `500 + level*100`.
+  Only applies to a FIRST choice, so it can't be farmed by re-sending the packet —
+  which also means saves that had already chosen an element before this existed stay
+  at level 0 and need `/bend level 1`.
+
+## Lightningbending (the first SUB-element)
+
+Not one of the four: it is not chosen at the start, it has only TWO paths instead of
+four, and it is earned rather than picked.
+
+- **Getting it**: a village WEAPONSMITH sells the Lightningbending Scroll for 64
+  copper ingots. Right click to read it. It only opens for a bender who has completed
+  **2 or more fire paths**; anyone else is refused and KEEPS the scroll, because a
+  scroll that burned itself on a failed reading would cost 64 copper to discover a
+  requirement the game never stated. A successful reading calls a bolt down in front
+  of the reader and adds `lightning` to their unlocked elements — the `[Y]` switcher
+  is generic over that list, so it appears there with no extra work.
+- **The trade is registered at weaponsmith levels 1 AND 3.** A villager picks only a
+  couple of trades at random from each level's pool, so a single entry would be a coin
+  flip per weaponsmith. Two entries give a fresh smith a good chance and a levelled one
+  a second, without the same trade appearing twice in one tier.
+- **Two paths map onto the tree's LEFT and RIGHT arms**, so `UpgradeMenuScreen` needed
+  nothing but two lines in `getOffensive`/`getDefensive`. The top and bottom arms come
+  back empty for lightning and simply draw nothing. The existing "finish one path
+  before starting another" rule then applies unchanged, since `isPathComplete` returns
+  false for an empty array and the masterclass gate is never reachable.
+- **The scroll duplicates fire's path lists** (`LightningScrollItem.FIRE_PATHS`) rather
+  than sharing them with the menu, and that is a real trade: `UpgradeMenuScreen` is
+  CLIENT-only and this check must run on the server. Renaming a fire ability now means
+  changing it in two places. Hoisting the whole tree into common code is the proper fix
+  and is a much bigger change than this feature needed.
+- Left path: Lightning redirection, Lightning aura, Lightning Jump, Lightning Strength
+- Right path: Lightning bolt, Lightning ball, Lightning stun, Lightning Swarm
+
+- **`Lightning.java` holds the element's shared parts**: the Lightning Strength damage
+  bonus, and the two ways to put a bolt in the world. `visualStrike` is what nearly
+  everything uses — a real bolt would add five points of damage nobody asked for and
+  set the world alight every time a bender moved. `realStrike` exists for exactly one
+  caller, Lightning bolt's "Storm Caller" upgrade, where calling down actual lightning
+  IS the upgrade.
+- **Lightning Strength's damage bonus is applied BY THE ABILITIES** (`Lightning.damage`),
+  not in the incoming-damage handler where Blue Fire's lives. Blue Fire could be done
+  there because `IS_FIRE` with a player behind it is a usable signature for "a fire
+  ability did this". Lightning damages through `indirectMagic`, which Wind and every
+  projectile in the mod also use — keying off it there would quietly buff half the
+  other elements too.
+- Its other two halves are elsewhere for the same reason: the Speed is topped up from
+  the player tick (`LightningStrength.tick`), and the doubled chi regen is applied in
+  `ServerEvents`' regen block, the only place that knows how much is being handed back.
+- **Stunned is the mod's second custom MobEffect**, and needed to be one for the same
+  reason Disorientation did: nothing in vanilla stops a player walking. It is split in
+  two — the client throws the player's input away in `ClientEvents.onMovementInput`
+  (movement input only exists there, and vanilla syncs the effect to its owner), and
+  `ServerEvents.onEntityTick` zeroes velocity and stops navigation. That server half is
+  the WHOLE of it for mobs, which have no keys to take away. Downward motion is left
+  alone in both, so a stun is not also a hover.
+- **`ScreenFlashPacket` / `ClientFlash`** are the stun's white-out, following
+  `EarthquakePacket` / `ClientShake` exactly: a flash has no server-side existence, so
+  the server can only ask. Counted down on the client TICK, not in the HUD layer, which
+  runs once per FRAME — and the layer is handed a `DeltaTracker`, not a float, so the
+  partial tick has to be asked for.
+- **`BendingProjectiles.Spec` gained a generic `onImpact` hook**, fired from `burst()`
+  — the single place a spent shot already funnels through however it ended (target,
+  wall, or running out of life). That is what "summons lightning on what it hits OR
+  where it lands" needs, and it is a `BiConsumer` rather than a lightning flag so the
+  generic projectile class stays element-agnostic.
+- **Lightning redirection is a CHANNEL and a TWO-PHASE in one class**, and the seam
+  between them is the two phases. `absorb()` is called from `BendingProjectiles.strike`
+  — the only place that knows a bolt was about to land on somebody — and ends the
+  channel BEFORE arming, which is what stops the chi and the xp at phase 2 exactly as
+  the design asks. It returns WITHOUT `burst()`, deliberately: the shot never landed, so
+  a caught Storm Caller bolt must not call real lightning down on the catcher.
+- `AbilityHandler` gained two public helpers for this: `armTwoPhase` (arm without
+  casting, since catching a bolt is not a cast the catcher paid for) and `endChannel`
+  (stop a channel in response to something in the world rather than to a key release).
+- **The caught bolt's strength is remembered on `BendingData.caughtLightning`**, because
+  the shot is gone by the time the left click comes. A redirected bolt hits for whatever
+  it was going to hit the catcher for. Transient, so a relog mid-hold falls back to an
+  ordinary bolt's damage rather than firing for nothing.
+- **Only PROJECTILES can be redirected.** The aura and the ball are fields of current
+  rather than something thrown at anyone, and there is nothing in flight to take hold of.
+- **`LightningBalls` is Tornado's behaviour, not Air spout's**: every ball has an owner
+  and rides their crosshair, so there is no such thing as one that was set down and left.
+  Moved TOWARDS the crosshair at a capped speed rather than snapped to it, or flicking
+  the view would teleport it twenty-five blocks in a tick.
+- It iterates a SNAPSHOT, like every other manager that can kill something — a player
+  killed by a ball fires `LivingDeathEvent`, whose handler calls `forgetPlayer`, which
+  removes from the very list being walked.
+- **A ball does NOT spare its owner**, and passing `null` to `getEntities` is what makes
+  that work — the first argument is the entity to SKIP. It is a hazard hanging in a
+  place, like an Air spout, and steering yours into your own face should hurt.
+- Lightning aura and Lightning ball both damage on an explicit ONE-SECOND beat rather
+  than per tick. Per-tick hits would mostly be swallowed by invulnerability frames, but
+  that is working by accident — the moment anything else resets those frames they would
+  hit far harder than advertised. Same reasoning as wind tunnel.
+- **Lightning Jump walks its path a block at a time** rather than teleporting straight
+  to the far end, which is what stops it being a way through walls: the walk stops at
+  the first square with nowhere to stand, so a jump into a cliff puts the bender against
+  it rather than inside or beyond it. The aim is FLATTENED first — following the pitch
+  would bury them in the floor when looking down.
+- **Lightning Swarm gathers its targets BEFORE striking any of them**, because the
+  damage depends on how many there are. Hitting them as they were found would make the
+  first target's damage depend on nothing and the last one's on everything.
+
+### Lightning upgrades
+
+- **Lightning stun — "Lasting Shock" (10 levels)**: the stun holds 6 seconds instead
+  of 3. The COOLDOWN is deliberately untouched: 6 seconds of hold against 25 of
+  cooldown is still a window rather than a lock, which is the shape the ability keeps
+  however much is spent on it.
+- **Lightning Swarm — "Unbroken Storm" (25 levels)**: every target takes the full 25
+  however many there are, the reach doubles to 20 blocks, and the CHI COST rises from
+  150 to 1000. Priced at more than
+  twice the stun's upgrade because it does not add a number, it REMOVES the ability's
+  own drawback — the sharing was the whole trade, and without it the swarm is "one
+  target hard" and "a crowd hard" at the same time over four times the area.
+- Both read through `data.hasUpgrade(key)` in small helpers (`stunTicks`, `radius`,
+  `damageFor`) rather than inline at the call site, so the base figure and the upgraded
+  one sit next to each other and the constants keep meaning the unupgraded value.
+
+### The lightning wind-up
+
+- **Every lightning ability serves a MINIMUM one-second wind-up**
+  (`Lightning.MINIMUM_CHARGE_TICKS`). Nothing in the element fires on the press. It is
+  a minimum, not a fixed figure — Lightning bolt already takes five seconds and keeps
+  them.
+- **Lightning Strength is the one exception, and barely one**: a passive is never cast,
+  so there is no moment of use to put a wind-up in front of.
+- The four cast shapes became `ChargedAbility` (Jump, stun, Swarm, ball). That needed
+  no client change at all: the client already sends BOTH `UseAbilityPacket` and
+  `AbilityHoldPacket` on every key press, and `executeAbility` refuses charged shapes
+  so the hold path picks them up.
+- **A toggle must switch OFF instantly, so `startCharge` now checks `isActive` at the
+  very top** — before the held-ability guard, the cooldown and the chi check, exactly
+  where `performCast` checks it. Lightning ball costs a second to send out; calling it
+  back is immediate. Switching something off must never be refused, charged for, or
+  made to sit through the wind-up again. The key release that follows lands in
+  `cancelCharge`, which finds no charging ability and returns — the same guard that
+  stops a fired charge double-firing.
+- **Channels get `ChanneledAbility.getWindupTicks()` instead**, because a channel
+  cannot also be a charge: the dispatcher allows only one held shape at a time, and a
+  channel is already "hold the key". So the wind-up is a quiet opening stretch — chi
+  IS still drained and the duration cap IS still counting, `onTick` simply is not
+  called and `onWindupTick` is called instead. Holding through it is a real
+  commitment, not a free run-up. Default 0, so every channel outside lightning is
+  untouched.
+- **`isReady(data)` is worth asking from outside the tick**, and Lightning redirection
+  is why: its `absorb()` refuses during the wind-up, so the catch has to be raised
+  BEFORE the bolt is thrown rather than in reaction to seeing one coming. That is the
+  wind-up doing real work rather than being decoration.
+- Lightning aura's one-second damage beat is measured from the END of the wind-up
+  (`(channelTicks - windup) % HIT_EVERY`), so the first shock lands exactly as the aura
+  comes up instead of wherever the beat happened to fall during it.
+- `Lightning.gather()` draws the wind-up for all six, so the whole element reads the
+  same way while charging.
+
+### `getChiCost` now takes the player's BendingData
+
+- Changed across all 55 abilities so Lightning Swarm can cost 150 ordinarily and
+  **1000 with Unbroken Storm**. Done as a SIGNATURE change rather than an overload with
+  a default — the same call already made for `getChiPerSecond` — so there is only ever
+  one answer to "what does this cost" and no pair of methods that can disagree. The
+  compiler verified every site; the three readers are all in `AbilityHandler`.
+- This is a different mechanism from Mine's, which is still the right one there: Mine's
+  price scales with how long its charge was held, which is not knowable until `execute`
+  runs, so its `getChiCost` is a base and the extra is taken inside the cast. Swarm's
+  price depends only on what the player OWNS, which is knowable up front — so it can be
+  gated and taken the ordinary way, and the "Not enough Chi! (Requires 1000)" message
+  is then correct for free.
+- **An upgraded Swarm is uncastable below level 5**, since `getMaxChi()` is
+  `500 + level*100`. A gate rather than a bug, and the same one Fire Rain and Tsunami
+  have — anyone with 25 levels to spend on the upgrade is long past it.
+
+## The Avatar
+
+Four commands, all op-gated at permission level 2 (the three older `/bend`
+subcommands are deliberately left ungated as they were):
+- `/bend avatar <player>` — names that player the Avatar
+- `/bend avatar cycle start` — begins the cycle at earth
+- `/bend avatar remove` — takes the title off whoever holds it
+- `/bend avatar cycle stop` — ends the cycle and leaves nobody the Avatar
+
+- **The Avatar's state is split in two, and the split is the design.** Per-player
+  facts (are you the Avatar, lives left, which elements you had first) live on
+  `BendingData`, where every check reaches them cheaply and `copyOnDeath` carries
+  them through a death. Facts about the WORLD (is the cycle running, which element
+  it has reached, who holds the title) live on `avatar/AvatarState`, a LEVEL
+  attachment on the overworld — `ModAttachments.AVATAR_STATE`. Same mechanism as
+  `BENDING_DATA` with a level as the holder, so it serialises with the world for
+  free: `ServerLevel`'s constructor calls `LevelAttachmentsSavedData.init`, whose
+  `isDirty()` always returns true, so mutating the state in place is enough to save
+  it. No `SavedData` of our own was needed.
+- **There is only ever ONE Avatar.** `grant` revokes the previous holder first, so
+  naming a second one is a handover rather than a second title.
+- **The title is tracked by UUID as well as by the flag, and the duplication is
+  load-bearing.** The flag is what everything reads, but it lives on the player —
+  which is unreachable while they are logged out. The UUID on `AvatarState` is what
+  lets `/bend avatar remove` and `cycle stop` revoke an OFFLINE Avatar: the command
+  clears the UUID, and `Avatar.checkOnLogin` strips the stale flag the moment they
+  come back.
+- **Becoming the Avatar SNAPSHOTS the elements you already had** (`preAvatarElements`,
+  persisted). Losing it restores exactly that set. The obvious alternative — "keep
+  only the main element" — would quietly destroy anything the player had earned or
+  been granted with `/bend add` beforehand, which is real data loss from what is
+  meant to be a reversible flag.
+- **The cycle runs earth -> fire -> air -> water and then round again**, picking at
+  random among ONLINE players whose `getMainElement()` (their FIRST chosen element)
+  matches. The index wraps via `Math.floorMod` rather than being clamped.
+- **An element nobody can claim is SKIPPED, not waited on.** Earth with no
+  earthbender online moves straight to fire, fire to air, air to water. `findAvatar`
+  runs at most ONE full lap, and that bound is what makes it safe: four advances come
+  back round to where it started, so a lap that finds nobody at all leaves the cycle
+  exactly as it was rather than spinning the index.
+- **The just-fallen Avatar is filtered out of the handover — unless they are the only
+  candidate.** That only bites when the lap comes all the way back to their own
+  element, i.e. nobody online bends anything else. The title should pass ON where it
+  can, but putting them back when they are alone is what stops a single-player world
+  ending up with a running cycle that can never have an Avatar again.
+- **Nobody qualifying AT ALL is a WAIT, not a failure**, and now means exactly that:
+  an empty server, or one where nobody has chosen an element. The search retries
+  every 5 seconds from the server tick, so the title lands on the first qualifying
+  player to log in. `cycle start` says so explicitly rather than reporting success
+  and appearing to do nothing. The search costs a player-list walk only while there
+  is no Avatar; a cycle with one in place does no work at all.
+- **The element is NOT named when the cycle turns on a death.** The search skips
+  past empty elements, so where it lands is not necessarily the next one along —
+  `grant` announces whoever it settles on, and only a search that finds nobody needs
+  a line of its own.
+- **`/bend avatar remove` does NOT stop or advance the cycle.** The Avatar was taken
+  away, not defeated, so the search resumes on the SAME element. `cycle stop` is the
+  command for ending the cycle, and it also sweeps every online player rather than
+  only the tracked one, since "remove all avatars" is what it promises.
+- **Three lives, spent in `LivingDeathEvent`.** The decrement runs on the DYING
+  player's data, which is correct: that event fires before `PlayerEvent.Clone`, so
+  it is carried onto the new body along with everything else. The avatar fields are
+  copied by hand in `Clone` as well as by `copyOnDeath`, because that event also
+  fires on a dimension change where `copyOnDeath` does not — without it, walking
+  into the Nether would cost a player the title.
+- On the third death the title is stripped and, if the cycle is running, it advances
+  to the next element and looks for a new Avatar immediately. A hand-named Avatar who
+  runs out simply stops being one.
+- **The last stand ("Avatar State"): Resistance II, Regeneration II and Glowing
+  below 3 hearts**, taken back off above it. Glowing is what makes an Avatar in
+  trouble unmistakable to everyone else, not just to themselves.
+- **The "Avatar State Active" line is derived entirely CLIENT-SIDE** from the health
+  and the Avatar flag, both of which the client already has. The server applies the
+  buffs off those same two facts, so a packet announcing the state would be a second
+  source of truth that could only ever disagree with the first. It mirrors the
+  server's condition exactly, `isAlive()` included — without that a dead Avatar reads
+  as being in the Avatar State behind the death screen. Drawn right under the lives
+  hearts, top right.
+- Regeneration is only re-applied once the previous instance has
+  EXPIRED, with its duration derived from the amplifier (`50 >> amplifier`) — the
+  same trap Water heal works around, for the same reason: re-adding replaces the
+  instance and resets the counter it heals on, so a per-tick refresh gives a
+  permanent icon that never heals. Resistance is not counter-driven and is simply
+  topped up, but still not every tick, since each `addEffect` is a packet.
+- **The buffs are only removed if we were the ones who applied them** — the
+  amplifier is checked as well as the transient `avatarBuffed` flag, so a potion the
+  player drank is left alone. Water heal and the last stand cooperate rather than
+  fight, since both gate on `getEffect(REGENERATION) == null`.
+- `Avatar.tick` runs for every player every tick and the non-Avatar path is two
+  boolean reads, because taking the buffs off when the title is lost is as much its
+  job as putting them on.
+- **The HUD counter uses the VANILLA heart sprites** (`hud/heart/full` and
+  `hud/heart/container`), not a text glyph: they are the game's own idiom for lives,
+  they follow the player's resource pack, and a spent life leaves its empty container
+  behind so the row keeps its width. Drawn top right, and only for the Avatar.
+- `SyncAvatarPacket` is the client's only source for this — a packet of its own
+  because `SyncBendingDataPacket` is already at the six fields
+  `StreamCodec.composite` takes, the same reason passives and upgrades have theirs.
+  Sent on login, respawn and dimension change as well as on every change, since the
+  client's copy is rebuilt in all three.
 - Water Masterclass path COMPLETE (gated behind the other three):
   - Drown (renamed from the design doc's "Water bubble"; CHARGED up to 5s and fires on
     release like Fire blow. Pops every air bubble and then keeps the victim without air

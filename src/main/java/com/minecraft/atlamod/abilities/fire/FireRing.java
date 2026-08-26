@@ -45,7 +45,7 @@ public class FireRing implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 100;
     }
 

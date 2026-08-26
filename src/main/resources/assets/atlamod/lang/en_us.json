@@ -3,6 +3,8 @@
   "block.atlamod.example_block": "Example Block",
   "item.atlamod.example_item": "Example Item",
   "item.atlamod.water_canteen": "Water Canteen",
+  "item.atlamod.lightning_scroll": "Lightningbending Scroll",
+  "effect.atlamod.stunned": "Stunned",
   "block.atlamod.bending_fire": "Bending Fire",
 
   "effect.atlamod.disorientation": "Disorientation",

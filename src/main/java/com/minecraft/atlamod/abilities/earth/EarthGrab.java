@@ -38,7 +38,7 @@ public class EarthGrab implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 150;
     }
 

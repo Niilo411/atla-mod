@@ -41,7 +41,7 @@ public class WaterSurf implements Ability {
 
     /** Paid per second by Rides while it runs, not for the keypress. */
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 0;
     }
 

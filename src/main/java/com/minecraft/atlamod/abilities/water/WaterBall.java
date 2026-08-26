@@ -48,7 +48,7 @@ public class WaterBall implements ChargedAbility, TwoPhaseAbility {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 50;
     }
 

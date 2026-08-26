@@ -26,7 +26,7 @@ public class FireWhip implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 50;
     }
 

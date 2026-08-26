@@ -51,6 +51,10 @@ public class Atlamod {
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
     // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
+    // Lightningbending's key. Bought from a village weaponsmith, read once, spent.
+    public static final DeferredItem<Item> LIGHTNING_SCROLL = ITEMS.register("lightning_scroll",
+            () -> new LightningScrollItem(new Item.Properties()));
+
     public static final DeferredItem<Item> WATER_CANTEEN = ITEMS.register("water_canteen",
             () -> new WaterCanteenItem(new Item.Properties()));
 
@@ -128,6 +132,14 @@ public class Atlamod {
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
             event.accept(EXAMPLE_BLOCK_ITEM);
+        }
+
+        // The mod's own items belong somewhere reachable in creative. Both are meant
+        // to be earned in survival — the canteen crafted, the scroll bought — but
+        // having to remember an item id to test either is needless friction.
+        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
+            event.accept(WATER_CANTEEN);
+            event.accept(LIGHTNING_SCROLL);
         }
     }
 

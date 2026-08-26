@@ -15,7 +15,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Defensive / Fire. A short forward shove: damages everything in a cone in front
- * of the player and knocks it roughly two blocks back.
+ * of the player, sets it alight, and knocks it roughly six blocks back.
  */
 public class FirePush implements Ability {
 
@@ -47,13 +47,23 @@ public class FirePush implements Ability {
     /** A little lift so targets slide back instead of being pinned by ground friction. */
     private static final double PUSH_LIFT = 0.2;
 
+    /**
+     * How long anything caught in the push burns for, in ticks — 5 seconds, the same
+     * as Fire Whip, which is the closest thing to it: one hit from one cast.
+     *
+     * Set rather than added, so a second push refreshes the burn instead of stacking
+     * it. Anything wearing Fire immunity puts itself out on the next tick, since that
+     * passive clears fire ticks in the player tick — so no check is needed here.
+     */
+    private static final int BURN_TICKS = 100;
+
     @Override
     public String getName() {
         return "Fire Push";
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 100;
     }
 
@@ -103,6 +113,7 @@ public class FirePush implements Ability {
             if (direction.dot(look) < CONE_DOT) continue;
 
             living.hurt(player.damageSources().inFire(), DAMAGE);
+            living.setRemainingFireTicks(BURN_TICKS);
 
             // Push AFTER the damage, so hurt()'s own knockback handling doesn't
             // overwrite it. Direction is away from the player rather than along the

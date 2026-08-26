@@ -35,7 +35,7 @@ public class FireShield implements ChanneledAbility {
 
     /** Paid per second while channeling, not up front. */
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 0;
     }
 

@@ -6,6 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BendingData {
+
+    /**
+     * How many deaths an Avatar gets before the title passes on.
+     *
+     * Declared first because both the CODEC and the field initialiser below use it,
+     * and Java forbids referring to a static field by simple name from anything
+     * textually above its declaration.
+     */
+    public static final int AVATAR_LIVES = 3;
+
     private String mainElement = "";
     private String activeElement = "";
     private boolean hasChosenElement = false;
@@ -14,6 +24,23 @@ public class BendingData {
     private int level = 0;
     private int currentChi = 500;
     private List<String> unlockedAbilities = new ArrayList<>();
+
+    // --- AVATAR ---
+    // Whether this player is currently the Avatar, and how many of their three
+    // lives are left. Persisted, because the Avatar has to survive a restart just
+    // as much as an unlocked element does.
+    private boolean avatar = false;
+    private int avatarLives = AVATAR_LIVES;
+
+    /**
+     * The elements this player had BEFORE the Avatar gave them all four.
+     *
+     * The Avatar unlocks every element, and losing it has to give back exactly what
+     * was there rather than a guess. Falling back to "keep only the main element"
+     * would quietly destroy anything they had earned or been granted beforehand,
+     * which is a real loss from what is supposed to be a reversible flag.
+     */
+    private List<String> preAvatarElements = new ArrayList<>();
 
     // THE FIX: Use explicit "EMPTY" text to stop Minecraft from deleting empty slots!
     private List<String> equippedAbilities = new ArrayList<>(List.of("EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY"));
@@ -155,8 +182,12 @@ public class BendingData {
             Codec.STRING.listOf().optionalFieldOf("unlockedAbilities", new ArrayList<>()).forGetter(BendingData::getUnlockedAbilities),
             Codec.STRING.listOf().optionalFieldOf("equippedAbilities", new ArrayList<>()).forGetter(BendingData::getEquippedAbilities),
             Codec.STRING.listOf().optionalFieldOf("equippedPassives", new ArrayList<>()).forGetter(BendingData::getEquippedPassives),
-            Codec.STRING.listOf().optionalFieldOf("unlockedUpgrades", new ArrayList<>()).forGetter(BendingData::getUnlockedUpgrades)
-    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives, upgrades) -> {
+            Codec.STRING.listOf().optionalFieldOf("unlockedUpgrades", new ArrayList<>()).forGetter(BendingData::getUnlockedUpgrades),
+            Codec.BOOL.optionalFieldOf("avatar", false).forGetter(BendingData::isAvatar),
+            Codec.INT.optionalFieldOf("avatarLives", AVATAR_LIVES).forGetter(BendingData::getAvatarLives),
+            Codec.STRING.listOf().optionalFieldOf("preAvatarElements", new ArrayList<>()).forGetter(BendingData::getPreAvatarElements)
+    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives, upgrades,
+                       isAvatar, lives, preElements) -> {
         BendingData data = new BendingData();
         data.mainElement = main != null ? main : "";
         data.activeElement = active != null ? active : "";
@@ -171,6 +202,10 @@ public class BendingData {
         data.setAllEquippedAbilities(equipped);
         data.setAllEquippedPassives(passives);
         data.setAllUnlockedUpgrades(upgrades);
+
+        data.avatar = isAvatar;
+        data.avatarLives = lives;
+        data.setPreAvatarElements(preElements);
 
         return data;
     }));
@@ -408,9 +443,55 @@ public class BendingData {
     public int getTwoPhaseTicks() { return twoPhaseTicks; }
     public void setTwoPhaseTicks(int ticks) { this.twoPhaseTicks = Math.max(0, ticks); }
 
+    // --- LIGHTNING REDIRECTION ---
+    // How hard the bolt this player CAUGHT will hit when they throw it back.
+    //
+    // Transient, and it has to be remembered somewhere between the catch and the
+    // left click that looses it — the shot that was absorbed is gone by then, so its
+    // strength cannot be asked for again. A redirected bolt hits for whatever it was
+    // going to hit the catcher for, which is what makes redirecting a strong bolt
+    // worth more than redirecting a weak one.
+    private transient float caughtLightning = 0.0F;
+
+    public float getCaughtLightning() { return caughtLightning; }
+    public void setCaughtLightning(float damage) { this.caughtLightning = Math.max(0.0F, damage); }
+
     // Left clicks remaining on an armed two-phase ability (Water Bullets fires three).
     private transient int twoPhaseShots = 0;
 
     public int getTwoPhaseShots() { return twoPhaseShots; }
     public void setTwoPhaseShots(int shots) { this.twoPhaseShots = Math.max(0, shots); }
+
+    // --- AVATAR ACCESSORS ---
+
+    public boolean isAvatar() { return avatar; }
+    public void setAvatar(boolean avatar) { this.avatar = avatar; }
+
+    public int getAvatarLives() { return avatarLives; }
+    public void setAvatarLives(int lives) { this.avatarLives = Math.max(0, lives); }
+
+    public List<String> getPreAvatarElements() {
+        if (preAvatarElements == null) preAvatarElements = new ArrayList<>();
+        return preAvatarElements;
+    }
+
+    public void setPreAvatarElements(List<String> elements) {
+        this.preAvatarElements = new ArrayList<>();
+        if (elements != null) {
+            for (String element : elements) {
+                if (element != null && !element.trim().isEmpty()) this.preAvatarElements.add(element);
+            }
+        }
+    }
+
+    /**
+     * Whether the Avatar's emergency buffs are currently applied.
+     *
+     * Transient on purpose: it exists only so the buffs are taken back off by the
+     * thing that put them on, and a relog simply re-derives it from the health.
+     */
+    private transient boolean avatarBuffed = false;
+
+    public boolean isAvatarBuffed() { return avatarBuffed; }
+    public void setAvatarBuffed(boolean buffed) { this.avatarBuffed = buffed; }
 }

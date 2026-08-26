@@ -61,7 +61,7 @@ public class EarthSink implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 250;
     }
 

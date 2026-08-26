@@ -418,6 +418,12 @@ public class UpgradeMenuScreen extends Screen {
             case "water" -> new String[]{"Water ball", "Water stream", "Water Bullets"};
             case "air" -> new String[]{"Air splinters", "Air cannon", "wind tunnel"};
             case "earth" -> new String[]{"Earth spike", "Splinters", "Earth block", "Earth trap"};
+            // Lightning is a SUB-element with only two paths. They are drawn on the
+            // tree's left and right arms, so the existing four-armed layout needs no
+            // change at all — the top and bottom arms simply come back empty and
+            // nothing is drawn there.
+            case "lightning" -> new String[]{
+                    "Lightning redirection", "Lightning aura", "Lightning Jump", "Lightning Strength"};
             default -> new String[0];
         };
     }
@@ -429,6 +435,8 @@ public class UpgradeMenuScreen extends Screen {
             case "water" -> new String[]{"Water shield", "Water push", "Water heal"};
             case "air" -> new String[]{"Air pull", "Air jump", "Air Aura", "Wind"};
             case "earth" -> new String[]{"Earth wall", "Earth pillar", "Earth armor"};
+            case "lightning" -> new String[]{
+                    "Lightning bolt", "Lightning ball", "Lightning stun", "Lightning Swarm"};
             default -> new String[0];
         };
     }

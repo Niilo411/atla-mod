@@ -26,6 +26,7 @@ public class ClientEvents {
         // Counted down here rather than in the camera event, which fires once per FRAME
         // and would run the shake down at whatever rate the machine happens to render.
         ClientShake.tick();
+        ClientFlash.tick();
 
         // 1. Safely open the menu if the server flagged it AND no other screen is open
         if (needsToOpenMenu && mc.screen == null && mc.level != null && mc.player != null) {
@@ -170,6 +171,22 @@ public class ClientEvents {
      */
     @SubscribeEvent
     public static void onMovementInput(net.neoforged.neoforge.client.event.MovementInputUpdateEvent event) {
+        // Stunned comes FIRST and returns: there is nothing to reverse once the
+        // input has been thrown away, and a victim carrying both effects should be
+        // held still rather than held still backwards.
+        if (event.getEntity().hasEffect(com.minecraft.atlamod.ModEffects.STUNNED)) {
+            net.minecraft.client.player.Input stunned = event.getInput();
+            stunned.forwardImpulse = 0.0F;
+            stunned.leftImpulse = 0.0F;
+            stunned.up = false;
+            stunned.down = false;
+            stunned.left = false;
+            stunned.right = false;
+            stunned.jumping = false;
+            stunned.shiftKeyDown = false;
+            return;
+        }
+
         if (!event.getEntity().hasEffect(com.minecraft.atlamod.ModEffects.DISORIENTATION)) return;
 
         net.minecraft.client.player.Input input = event.getInput();
@@ -196,6 +213,7 @@ public class ClientEvents {
     public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         ClientEarthArmor.clear();
         ClientShake.clear();
+        ClientFlash.clear();
     }
 
     /**

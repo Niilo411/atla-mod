@@ -58,7 +58,7 @@ public class EarthTrap implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 150;
     }
 

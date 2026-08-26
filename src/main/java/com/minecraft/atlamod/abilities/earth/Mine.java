@@ -96,7 +96,7 @@ public class Mine implements ChargedAbility {
 
     /** The base only. The rest is charged in execute, once the charge is known. */
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return BASE_CHI;
     }
 

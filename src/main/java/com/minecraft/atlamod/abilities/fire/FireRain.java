@@ -60,7 +60,7 @@ public class FireRain implements Ability {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 1000;
     }
 

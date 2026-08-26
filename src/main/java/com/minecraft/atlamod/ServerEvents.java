@@ -36,6 +36,12 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.earth.EarthWalls.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.earth.EarthTraps.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.earth.EarthGrabs.tickAll(event.getServer());
+
+        com.minecraft.atlamod.abilities.lightning.LightningBalls.tickAll(event.getServer());
+
+        // Keeps a running cycle looking for an Avatar when nobody holds the title.
+        // Rate-limited inside, and does nothing at all once one is in place.
+        com.minecraft.atlamod.avatar.Avatar.tickCycle(event.getServer());
     }
 
     /**
@@ -57,8 +63,33 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.earth.EarthWalls.forgetLevel(level);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetLevel(level);
             com.minecraft.atlamod.abilities.earth.EarthGrabs.forgetLevel(level);
+            com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetLevel(level);
         }
     }
+    /**
+     * Puts the Lightningbending Scroll in the weaponsmith's book, for 64 copper.
+     *
+     * Offered at levels 1 AND 3 rather than at one level, because a villager picks
+     * only a couple of trades at random from each level's pool — one entry would be
+     * a coin flip per weaponsmith. Two entries give a fresh smith a good chance of
+     * having it and a levelled one a second, without the same trade showing up twice
+     * in the same tier.
+     */
+    @SubscribeEvent
+    public static void onVillagerTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.WEAPONSMITH) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.COPPER_INGOT, 64),
+                    new net.minecraft.world.item.ItemStack(Atlamod.LIGHTNING_SCROLL.get()),
+                    2,   // how many times it can be bought before restocking
+                    12,  // villager xp for the trade
+                    0.05F));
+        }
+    }
+
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("bend")
@@ -133,6 +164,96 @@ public class ServerEvents {
                                 })
                         )
                 )
+                // AVATAR COMMANDS
+                //
+                // Op-gated, unlike the three above. Naming the Avatar decides who on
+                // the server holds every element at once, which is not something any
+                // player should be able to hand themselves.
+                //
+                // "cycle" is a literal and the player is an argument, so Brigadier
+                // tries the literal first and there is no ambiguity between
+                // "/bend avatar cycle ..." and "/bend avatar <player>" even for a
+                // player unlucky enough to be called "cycle".
+                .then(Commands.literal("avatar")
+                        .requires(source -> source.hasPermission(2))
+
+                        // /bend avatar cycle start|stop
+                        .then(Commands.literal("cycle")
+                                .then(Commands.literal("start")
+                                        .executes(context -> {
+                                            var server = context.getSource().getServer();
+                                            com.minecraft.atlamod.avatar.Avatar.startCycle(server);
+
+                                            var state = com.minecraft.atlamod.avatar.Avatar.state(server);
+                                            if (state.hasAvatar()) {
+                                                context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                                        "Avatar cycle started at " + state.getCycleElement() + "."), true);
+                                            } else {
+                                                // Not a failure. The search already skipped
+                                                // every element in turn, so reaching here
+                                                // means nobody online could be the Avatar at
+                                                // all — the cycle is running and will take
+                                                // the first qualifying player to turn up.
+                                                // Said plainly so it doesn't read as the
+                                                // command having done nothing.
+                                                context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                                        "Avatar cycle started, but nobody online has chosen an element. "
+                                                                + "Waiting — it rests on " + state.getCycleElement() + "."), true);
+                                            }
+                                            return 1;
+                                        })
+                                )
+                                .then(Commands.literal("stop")
+                                        .executes(context -> {
+                                            com.minecraft.atlamod.avatar.Avatar.stopCycle(
+                                                    context.getSource().getServer());
+                                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                                    "Avatar cycle stopped. Nobody is the Avatar."), true);
+                                            return 1;
+                                        })
+                                )
+                        )
+
+                        // /bend avatar remove
+                        .then(Commands.literal("remove")
+                                .executes(context -> {
+                                    var server = context.getSource().getServer();
+                                    var state = com.minecraft.atlamod.avatar.Avatar.state(server);
+
+                                    if (!state.hasAvatar()) {
+                                        context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                                                "There is no Avatar."));
+                                        return 0;
+                                    }
+
+                                    com.minecraft.atlamod.avatar.Avatar.revokeCurrent(server);
+                                    context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                            "The Avatar has been removed."), true);
+
+                                    // A running cycle keeps running: the Avatar was taken
+                                    // away, not defeated, so the search resumes on the SAME
+                                    // element rather than moving on. "cycle stop" is the
+                                    // command for ending the cycle itself.
+                                    com.minecraft.atlamod.avatar.Avatar.findAvatar(server);
+                                    return 1;
+                                })
+                        )
+
+                        // /bend avatar <player>
+                        .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                                .executes(context -> {
+                                    ServerPlayer target = net.minecraft.commands.arguments.EntityArgument
+                                            .getPlayer(context, "player");
+
+                                    com.minecraft.atlamod.avatar.Avatar.grant(
+                                            context.getSource().getServer(), target);
+
+                                    context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                            target.getGameProfile().getName() + " is now the Avatar."), true);
+                                    return 1;
+                                })
+                        )
+                )
         );
     }
 
@@ -152,6 +273,40 @@ public class ServerEvents {
      * EarthTraps drops the seat from its list BEFORE releasing anyone, so a genuine
      * release is never caught by this.
      */
+    /**
+     * Holds anything Stunned completely still.
+     *
+     * This is the server's half of the effect, and for MOBS it is the whole of it: a
+     * mob has no movement keys to throw away, so the client-side block in
+     * ClientEvents does nothing for it and the server has to stop it directly.
+     * Zeroing the velocity alone is not enough either — a pathfinding mob simply sets
+     * a new one next tick — so the navigation is stopped as well.
+     *
+     * For PLAYERS this is the same belt-and-braces pairing the shields' rooting uses:
+     * the client already refuses its own input, and the server zeroing the velocity
+     * covers momentum the player was already carrying when the stun landed.
+     *
+     * Downward motion is deliberately left alone in both cases, so a stun is not also
+     * a hover — a victim stunned in mid-air still falls.
+     */
+    @SubscribeEvent
+    public static void onEntityTick(net.neoforged.neoforge.event.tick.EntityTickEvent.Post event) {
+        if (!(event.getEntity() instanceof net.minecraft.world.entity.LivingEntity living)) return;
+        if (living.level().isClientSide()) return;
+        if (!living.hasEffect(com.minecraft.atlamod.ModEffects.STUNNED)) return;
+
+        net.minecraft.world.phys.Vec3 motion = living.getDeltaMovement();
+        living.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
+
+        if (living instanceof net.minecraft.world.entity.Mob mob) {
+            mob.getNavigation().stop();
+            mob.setTarget(null);
+        } else if (living instanceof ServerPlayer stunnedPlayer) {
+            // A player's client owns their position, so it has to be told.
+            stunnedPlayer.hurtMarked = true;
+        }
+    }
+
     @SubscribeEvent
     public static void onDismount(net.neoforged.neoforge.event.entity.EntityMountEvent event) {
         if (!event.isDismounting()) return;
@@ -186,6 +341,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetPlayer(player);
         }
     }
 
@@ -208,6 +364,12 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetPlayer(player);
+
+            // One of the Avatar's three lives. Deliberately last: it can strip the
+            // title and pass the cycle on, and the cleanup above should run for a
+            // dying Avatar exactly as it does for anyone else.
+            com.minecraft.atlamod.avatar.Avatar.onDeath(player);
         }
     }
     @SubscribeEvent
@@ -251,6 +413,11 @@ public class ServerEvents {
                     && (player.getAbilities().mayfly || player.getAbilities().flying)) {
                 com.minecraft.atlamod.abilities.fire.FireRocket.stopFlight(player);
             }
+
+            // Fills in the HUD's lives counter, and takes the title off anyone who
+            // comes back still flagged when the world says somebody else has it —
+            // which is how the title is revoked from a player who was OFFLINE.
+            com.minecraft.atlamod.avatar.Avatar.checkOnLogin(player);
         }
     }
     @SubscribeEvent
@@ -281,6 +448,13 @@ public class ServerEvents {
         // walking into the Nether would silently unequip every passive.
         newData.setAllEquippedPassives(oldData.getEquippedPassives());
 
+        // The Avatar too. copyOnDeath covers a death, but this event also fires on a
+        // dimension change, where it does not — without this, walking into the Nether
+        // would quietly cost a player the title along with the elements it granted.
+        newData.setAvatar(oldData.isAvatar());
+        newData.setAvatarLives(oldData.getAvatarLives());
+        newData.setPreAvatarElements(oldData.getPreAvatarElements());
+
         event.getEntity().setData(ModAttachments.BENDING_DATA, newData);
     }
 
@@ -293,6 +467,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
             com.minecraft.atlamod.abilities.air.AirSpouts.forgetPlayer(player);
             com.minecraft.atlamod.abilities.earth.EarthTraps.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.lightning.LightningBalls.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -310,6 +485,10 @@ public class ServerEvents {
                     data.getLevel(),
                     data.getCurrentChi()
             ));
+
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.SyncAvatarPacket(
+                            data.isAvatar(), data.getAvatarLives()));
         }
     }
 
@@ -465,6 +644,16 @@ public class ServerEvents {
                     // Divide max Chi by 100 to get exactly 1% regen per second (100 seconds to full)
                     int regenAmount = Math.max(1, data.getMaxChi() / 100);
 
+                    // Lightning Strength doubles it, which is what turns the usual
+                    // 100 seconds to a full pool into the 50 the passive promises.
+                    // Applied here because this is the only place that knows how much
+                    // is being handed back.
+                    if (data.hasPassiveEquipped(
+                            com.minecraft.atlamod.abilities.lightning.LightningStrength.KEY)) {
+                        regenAmount *= com.minecraft.atlamod.abilities.lightning
+                                .LightningStrength.CHI_REGEN_MULTIPLIER;
+                    }
+
                     data.setCurrentChi(Math.min(data.getMaxChi(), data.getCurrentChi() + regenAmount));
 
                     // Save the data and sync it to the UI
@@ -559,6 +748,18 @@ public class ServerEvents {
             // or the chi runs out is as much this call's job as granting it.
             com.minecraft.atlamod.abilities.air.Flight.tick(player, data);
 
+            // --- LIGHTNING STRENGTH PASSIVE ---
+            // Runs unconditionally, like Flight: taking the Speed back off when the
+            // passive is unequipped is as much this call's job as granting it.
+            com.minecraft.atlamod.abilities.lightning.LightningStrength.tick(player, data);
+
+            // --- AVATAR LAST STAND ---
+            // Resistance and Regeneration below three hearts, taken back off above
+            // it. Runs unconditionally: taking the buffs away when the Avatar heals
+            // up — or loses the title outright — is as much this call's job as
+            // granting them.
+            com.minecraft.atlamod.avatar.Avatar.tick(player, data);
+
             // --- EARTH ARMOR VISUAL ---
             // Broadcast only when it changes. Effects are synced to their owner alone,
             // so onlookers learn about the stone suit from here or not at all.
@@ -614,6 +815,13 @@ public class ServerEvents {
                 // but the menu shows every slot empty after a death.
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                         new com.minecraft.atlamod.network.SyncPassivesPacket(data.getEquippedPassives()));
+
+                // The lives counter needs the same treatment as the passives: the
+                // server still knows, but the client's copy is rebuilt on respawn,
+                // and a death is exactly when that number has just changed.
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                        new com.minecraft.atlamod.network.SyncAvatarPacket(
+                                data.isAvatar(), data.getAvatarLives()));
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncUpgradesPacket(data.getUnlockedUpgrades()));
 

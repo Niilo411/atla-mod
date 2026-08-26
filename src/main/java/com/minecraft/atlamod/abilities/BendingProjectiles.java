@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -78,7 +79,10 @@ public final class BendingProjectiles {
          * The only style that is not particles: Earth block throws the very block it
          * pulled out of the ground, and it has to look like one the whole way.
          */
-        BLOCK
+        BLOCK,
+
+        /** A streak of live current, drawn with sparks and a bright core. */
+        LIGHTNING
     }
 
     /**
@@ -94,19 +98,42 @@ public final class BendingProjectiles {
     public record Spec(double speed, int lifetime, float damage, double hitRadius,
                        double knockback, Style style,
                        @Nullable Supplier<MobEffectInstance> onHit,
-                       boolean piercesInvulnerability) {
+                       boolean piercesInvulnerability,
+                       @Nullable BiConsumer<ServerLevel, Vec3> onImpact) {
 
         /** A shot that only hits, with no lingering effect. */
         public Spec(double speed, int lifetime, float damage, double hitRadius,
                     double knockback, Style style) {
-            this(speed, lifetime, damage, hitRadius, knockback, style, null, false);
+            this(speed, lifetime, damage, hitRadius, knockback, style, null, false, null);
         }
 
         /** A shot with a lingering effect, on vanilla's ordinary damage timing. */
         public Spec(double speed, int lifetime, float damage, double hitRadius,
                     double knockback, Style style,
                     @Nullable Supplier<MobEffectInstance> onHit) {
-            this(speed, lifetime, damage, hitRadius, knockback, style, onHit, false);
+            this(speed, lifetime, damage, hitRadius, knockback, style, onHit, false, null);
+        }
+
+        /** A shot that pierces invulnerability frames, with no impact hook. */
+        public Spec(double speed, int lifetime, float damage, double hitRadius,
+                    double knockback, Style style,
+                    @Nullable Supplier<MobEffectInstance> onHit,
+                    boolean piercesInvulnerability) {
+            this(speed, lifetime, damage, hitRadius, knockback, style,
+                    onHit, piercesInvulnerability, null);
+        }
+
+        /**
+         * The same shot, but with something left behind wherever it ends.
+         *
+         * {@code onImpact} runs on EVERY way a shot can finish — hitting a target,
+         * hitting a wall, or simply running out of life — because "where it lands" has
+         * to mean the same thing in all three. Lightning bolt's upgrade is the only
+         * user so far, and calls down a real bolt there.
+         */
+        public Spec withImpact(@Nullable BiConsumer<ServerLevel, Vec3> impact) {
+            return new Spec(speed, lifetime, damage, hitRadius, knockback, style,
+                    onHit, piercesInvulnerability, impact);
         }
     }
 
@@ -215,6 +242,20 @@ public final class BendingProjectiles {
         for (Entity target : shot.level.getEntities(owner, hitbox)) {
             if (!(target instanceof LivingEntity living) || !living.isAlive()) continue;
 
+            // Lightning redirection: a bender standing ready CATCHES the bolt instead
+            // of wearing it. This is the only place that knows a shot was about to
+            // land on somebody, which is why the check has to live here.
+            //
+            // Returns without burst(), deliberately: the shot never landed, so its
+            // impact hook must not fire — a caught Storm Caller bolt should not call
+            // real lightning down on the catcher's head.
+            if (shot.spec.style() == Style.LIGHTNING
+                    && living instanceof ServerPlayer victim
+                    && com.minecraft.atlamod.abilities.lightning.LightningRedirection
+                            .absorb(victim, shot.spec.damage())) {
+                return true;
+            }
+
             if (owner != null) {
                 // Vanilla ignores a second hit of equal size within ten ticks of the
                 // first, which for an ability whose whole point is landing several
@@ -264,6 +305,12 @@ public final class BendingProjectiles {
                 // as one sharp fragment travelling rather than a trail of dust.
                 shot.level.sendParticles(STONE_CHIP, x, y, z, 4, 0.04, 0.04, 0.04, 0.0);
             }
+            case LIGHTNING -> {
+                // A bright core with sparks thrown off it, so the shot reads as a
+                // streak of current rather than a glowing dot.
+                shot.level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 6, 0.12, 0.12, 0.12, 0.06);
+                shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.02, 0.02, 0.02, 0.0);
+            }
             case BLOCK -> {
                 // Nothing is drawn: the block IS the entity, just moved along.
                 if (shot.display != null && shot.display.isAlive()) {
@@ -312,6 +359,13 @@ public final class BendingProjectiles {
         double y = shot.pos.y;
         double z = shot.pos.z;
 
+        // Hooked here rather than at each of the three call sites, because burst() is
+        // already the single place a spent shot funnels through however it ended —
+        // target, wall, or running out of life.
+        if (shot.spec.onImpact() != null) {
+            shot.spec.onImpact().accept(shot.level, shot.pos);
+        }
+
         switch (shot.spec.style()) {
             case WATER -> {
                 shot.level.sendParticles(ParticleTypes.SPLASH, x, y, z, 40, 0.6, 0.6, 0.6, 0.12);
@@ -323,6 +377,12 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(STONE_CHIP, x, y, z, 25, 0.25, 0.25, 0.25, 0.16);
                 shot.level.playSound(null, x, y, z,
                         SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.0F, 1.4F);
+            }
+            case LIGHTNING -> {
+                shot.level.sendParticles(ParticleTypes.ELECTRIC_SPARK, x, y, z, 45, 0.5, 0.5, 0.5, 0.35);
+                shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 8, 0.3, 0.3, 0.3, 0.05);
+                shot.level.playSound(null, x, y, z,
+                        SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.9F, 1.5F);
             }
             case BLOCK -> landBlock(shot, x, y, z);
             case AIR -> {

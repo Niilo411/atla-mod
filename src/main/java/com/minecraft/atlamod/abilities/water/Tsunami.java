@@ -38,7 +38,7 @@ public class Tsunami implements ChargedAbility {
     }
 
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 750;
     }
 

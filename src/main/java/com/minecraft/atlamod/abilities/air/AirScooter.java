@@ -44,7 +44,7 @@ public class AirScooter implements Ability {
      * ride runs; billing anything here would be a toll on the keypress instead.
      */
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 0;
     }
 

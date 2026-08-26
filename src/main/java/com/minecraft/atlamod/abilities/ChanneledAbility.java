@@ -113,6 +113,40 @@ public interface ChanneledAbility extends Ability {
         return 0;
     }
 
+    /**
+     * How long the channel must run before it starts DOING anything, in ticks.
+     *
+     * A channel's wind-up cannot be a ChargedAbility — the dispatcher allows only one
+     * held shape at a time, and a channel is already "hold the key". So it is a
+     * quiet opening stretch instead: chi is still drained and the key is still held,
+     * but onTick is not called and the ability has no effect until it elapses.
+     *
+     * 0, the default, means the channel works from its first tick, which is every
+     * channel outside lightningbending.
+     */
+    default int getWindupTicks() {
+        return 0;
+    }
+
+    /**
+     * Drawn during the wind-up, in place of onTick.
+     *
+     * @param ticksHeld how far the wind-up has got, from 1
+     */
+    default void onWindupTick(ServerPlayer player, BendingData data, int ticksHeld) {
+    }
+
+    /**
+     * Whether the channel is past its wind-up and actually working.
+     *
+     * Worth asking from outside as well as in: Lightning redirection cannot catch a
+     * bolt until its own current is up, and the check for that lives in the
+     * projectile code rather than in the tick.
+     */
+    default boolean isReady(BendingData data) {
+        return data.getChannelTicks() >= getWindupTicks();
+    }
+
     void onStart(ServerPlayer player, BendingData data);
 
     void onTick(ServerPlayer player, BendingData data);

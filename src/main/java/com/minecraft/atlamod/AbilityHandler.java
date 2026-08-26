@@ -103,7 +103,7 @@ public class AbilityHandler {
             return;
         }
 
-        if (!AbilitySupport.consumeChiAndGiveXp(player, data, ability.getChiCost(), ability.getXpReward())) {
+        if (!AbilitySupport.consumeChiAndGiveXp(player, data, ability.getChiCost(data), ability.getXpReward())) {
             return;
         }
 
@@ -122,6 +122,45 @@ public class AbilityHandler {
         }
 
         AbilitySupport.syncData(player, data);
+    }
+
+    /**
+     * Arms a two-phase ability WITHOUT casting it.
+     *
+     * The ordinary route into the armed state is performCast, which also gates on
+     * cooldown and spends chi. Lightning redirection needs the state without either:
+     * catching a bolt somebody else threw is not a cast the catcher paid for, and it
+     * happens when the bolt arrives rather than when a key is pressed.
+     */
+    public static void armTwoPhase(ServerPlayer player, BendingData data, TwoPhaseAbility ability) {
+        data.setActiveTwoPhaseAbility(ability.getKey());
+        data.setTwoPhaseTicks(ability.getArmedDurationTicks());
+        data.setTwoPhaseShots(ability.getShots());
+
+        AbilitySupport.syncData(player, data);
+        syncChargeStatus(player, data);
+    }
+
+    /**
+     * Ends whatever channel is running, exactly as releasing the key would — cooldown,
+     * rooting and onStop included.
+     *
+     * Public so an ability can end its own channel in response to something that
+     * happened in the world rather than to the key coming up. Every exit route going
+     * through stopChannel is what keeps the cooldown uniform.
+     */
+    public static void endChannel(ServerPlayer player, BendingData data) {
+        String key = data.getActiveChanneledAbility();
+        if (key.isEmpty()) return;
+
+        if (AbilityRegistry.get(key) instanceof ChanneledAbility channeled) {
+            stopChannel(player, data, channeled);
+        } else {
+            // Unknown ability recorded — clear the stuck flag rather than leaving the
+            // player permanently mid-channel.
+            data.setActiveChanneledAbility("");
+            data.setChannelTicks(0);
+        }
     }
 
     // ==========================================
@@ -195,6 +234,18 @@ public class AbilityHandler {
     }
 
     private static void startCharge(ServerPlayer player, BendingData data, ChargedAbility ability) {
+        // A toggle that is already ON goes off immediately, and this is checked at the
+        // very TOP — before the held-ability guard, the cooldown and the chi check —
+        // exactly as performCast does it. Switching something off must never be
+        // refused, must never be charged for, and must never make the player sit
+        // through the wind-up again: Lightning ball costs a second to send out, but
+        // calling it back should be instant.
+        if (ability.isActive(player, data)) {
+            ability.deactivate(player, data);
+            AbilitySupport.syncData(player, data);
+            return;
+        }
+
         // One held ability at a time, of either shape.
         if (data.isCharging() || data.isChanneling()) return;
 
@@ -209,9 +260,9 @@ public class AbilityHandler {
 
         // Chi is only CHECKED here — it is spent when the cast actually lands, so
         // winding up and letting go early costs the player nothing.
-        if (data.getCurrentChi() < ability.getChiCost()) {
+        if (data.getCurrentChi() < ability.getChiCost(data)) {
             player.displayClientMessage(Component.literal(
-                    "§cNot enough Chi! (Requires " + ability.getChiCost() + ")"), true);
+                    "§cNot enough Chi! (Requires " + ability.getChiCost(data) + ")"), true);
             return;
         }
 
@@ -384,7 +435,16 @@ public class AbilityHandler {
         AbilitySupport.grantXp(data, xpForTick(channeled, data));
 
         if (channeled.rootsPlayer(data)) holdStill(player);
-        channeled.onTick(player, data);
+
+        // The wind-up is a quiet opening stretch, not a pause: chi is already gone by
+        // this point and the duration cap is already counting, so holding the key
+        // through it is a real commitment rather than a free run-up.
+        if (channeled.isReady(data)) {
+            channeled.onTick(player, data);
+        } else {
+            channeled.onWindupTick(player, data, data.getChannelTicks() + 1);
+        }
+
         data.setChannelTicks(data.getChannelTicks() + 1);
 
         // Sync every 4 ticks instead of every tick — keeps the Chi bar responsive

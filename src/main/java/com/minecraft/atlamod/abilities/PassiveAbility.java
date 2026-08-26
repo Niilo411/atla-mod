@@ -17,7 +17,7 @@ public interface PassiveAbility extends Ability {
     String getDescription();
 
     @Override
-    default int getChiCost() {
+    default int getChiCost(BendingData data) {
         return 0;
     }
 

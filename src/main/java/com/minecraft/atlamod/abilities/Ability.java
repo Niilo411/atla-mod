@@ -14,7 +14,16 @@ public interface Ability {
     String getName();
 
     /** Chi consumed once, up front. Channeled abilities usually return 0 and drain per tick instead. */
-    int getChiCost();
+    /**
+     * Chi consumed once, up front.
+     *
+     * Takes the player's data because a cost can depend on what they own: Lightning
+     * Swarm's "Unbroken Storm" upgrade raises its price from 150 to 1000. Done as a
+     * signature change rather than an overload with a default — the same call made for
+     * getChiPerSecond — so there is only ever ONE answer to "what does this cost" and
+     * no pair of methods that can disagree with each other.
+     */
+    int getChiCost(BendingData data);
 
     /** XP granted once on a successful cast. */
     int getXpReward();

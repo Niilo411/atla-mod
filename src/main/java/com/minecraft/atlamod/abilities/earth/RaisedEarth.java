@@ -53,7 +53,7 @@ public abstract class RaisedEarth implements ChanneledAbility {
 
     /** Channels are not billed through the cast path; see onStart. */
     @Override
-    public int getChiCost() {
+    public int getChiCost(BendingData data) {
         return 0;
     }
 

@@ -23,12 +23,35 @@ public class ModNetworking {
                         var player = context.player();
                         if (player != null) {
                             var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+
+                            // Read BEFORE setMainElement, which sets the flag itself —
+                            // asking afterwards would always say they had already chosen.
+                            boolean firstChoice = !data.hasChosenElement();
+
                             data.setMainElement(payload.element());
                             data.setActiveElement(payload.element());
                             if (!data.getUnlockedElements().contains(payload.element())) {
                                 data.getUnlockedElements().add(payload.element());
                             }
+
+                            // Picking your element starts you at level 1 rather than 0.
+                            // Gated on it being the FIRST choice so re-sending this packet
+                            // can't be used to farm levels, and taken as a floor rather
+                            // than an assignment so it can never demote anyone.
+                            if (firstChoice) {
+                                data.setLevel(Math.max(data.getLevel(), 1));
+                            }
+
                             player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+
+                            // The client's own copy of the level has to be told: it set
+                            // the element locally for an instant response, but the level
+                            // is decided here, and without this the HUD reads "Lvl: 0"
+                            // until something else happens to sync stats.
+                            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(serverPlayer,
+                                        new SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
+                            }
                         }
                     });
                 }
@@ -221,6 +244,34 @@ public class ModNetworking {
                 BuyUpgradePacket.TYPE,
                 BuyUpgradePacket.STREAM_CODEC,
                 BuyUpgradePacket::handle
+        );
+
+        // --- SCREEN FLASH (Server -> Client) : Lightning stun's white-out ---
+        registrar.playToClient(
+                ScreenFlashPacket.TYPE,
+                ScreenFlashPacket.STREAM_CODEC,
+                (ScreenFlashPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() ->
+                            com.minecraft.atlamod.client.ClientFlash.start(payload.ticks()));
+                }
+        );
+
+        // --- SYNC AVATAR (Server -> Client) : drives the HUD lives counter ---
+        // Top-level inside register(), NOT nested in another handler's lambda.
+        registrar.playToClient(
+                SyncAvatarPacket.TYPE,
+                SyncAvatarPacket.STREAM_CODEC,
+                (SyncAvatarPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setAvatar(payload.avatar());
+                            data.setAvatarLives(payload.lives());
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+                        }
+                    });
+                }
         );
 
         // --- SYNC UPGRADES (Server -> Client) ---
