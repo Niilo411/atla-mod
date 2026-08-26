@@ -771,6 +771,90 @@ halves live in three places because no single hook could carry all of them:
 - **Sound wall's costs** (10 chi/sec, 100 to raise, 1 xp/sec) — the design gives it no
   numbers at all. Flagged INVENTED in the source, like Ice Bomb's.
 
+## Metalbending (the fourth SUB-element)
+
+Same shape as the other three: two paths, not chosen at the start, unlocked with a
+scroll gated behind two completed paths of the parent element — EARTH here, as metal
+is refined out of earth.
+
+- **Getting it**: a village MASON sells the Metalbending Scroll for 4 iron blocks, at
+  trade levels 1 and 3. Reading it lays a 2x2 floor of unbreakable metal under the
+  reader that gives the ground back after fifteen seconds, and destroys the scroll.
+- Left path: Metal armor, Crush, Metal shield, Extract
+- Right path: Tough knuckles, Bullets, Stone walls, Armor pierce
+
+- **`BendingMetalBlock` is a block of our own because it has to be UNBREAKABLE.** Every
+  metal ability that places blocks is borrowing them and takes them back, and a bender
+  who could mine their own shield would have an infinite iron supply — the same
+  argument earthbending makes for never leaving raised ground behind. Negative destroy
+  speed and a huge blast resistance is how vanilla makes bedrock unbreakable, and it is
+  what this borrows. It wears vanilla's iron block texture, so it needs no art.
+- **`MetalWorks` differs from `IceWorks` in one way that matters: it does NOT only fill
+  air.** Metal is laid OVER whatever is there, so it remembers the block it replaced and
+  puts that exact block back rather than leaving a hole. That makes it
+  `EarthWorks.openFor`'s shape rather than `IceWorks`'.
+- It refuses to lay over another ability's metal, which is not paranoia: the second
+  block's timer would restore the FIRST one's metal as "the original", and the ground
+  would turn to iron a cast at a time. Block entities and fluids are refused for the
+  usual reasons.
+- **A level unloading RESTORES rather than drops**, which matters more here than for ice
+  or earth: a floor of unbreakable metal made permanent by leaving the dimension could
+  not be removed by anything in the game.
+
+### Metal armor needed TWO effects, and the reason is arithmetic
+
+Vanilla scales an ADD_VALUE attribute modifier by `(amplifier + 1)`, so one
+registration can only ever produce a base and its double. Iron's 15 points and
+diamond's 20 are not in that relationship and no base gives both — so
+`METAL_ARMOR` (15) and `METAL_ARMOR_DIAMOND` (20) are separate registrations, and the
+Diamond Plating upgrade swaps which is applied rather than raising an amplifier. The
+other is removed first, or buying the upgrade mid-suit would leave a bender wearing
+both at 35 points.
+
+### The rest
+
+- **Metal shield is Sound wall's heavier twin**, priced identically at the design's
+  request, and the difference is what it is MADE of: sound is particles that shove
+  things back, this is REAL blocks that collide the way any wall does — no pushing
+  logic at all. Being real blocks is also what gives it the throw.
+- It is a TOGGLE and a TWO-PHASE at once, which nothing else in the mod is: the slot
+  key raises and lowers it, the left click throws it.
+- **The shield is rebuilt from scratch every tick** — plates taken back and laid again
+  wherever it now is. Simpler than working out which blocks moved, and it means the
+  ground is always given back correctly however fast the crosshair swings.
+- **The THROW is drawn with particles, not by flying the real blocks.** Moving a
+  five-by-three wall through the world a step at a time would be fifteen block updates
+  a tick, and the moment it crossed anything it would either overwrite it or stop dead.
+- **Bullets pierce invulnerability frames, which is not optional at twenty shots.**
+  Vanilla ignores a second hit of equal size within ten ticks, so without it nineteen
+  of the twenty would be discarded and the ability would deal 2 rather than 40.
+- **Armor pierce is deliberately NOT gated on having a target**, which makes it the one
+  precision ability in the mod that charges for a miss. Every other one refuses the
+  cast when nothing is in view so aiming at the sky is free; an ability whose whole
+  identity is being hard to land would have no teeth if the game refunded every failure.
+  Its tolerance is 0.4 against the usual 2.0 — "needs perfect precision" has to be true
+  of the hitbox, not just the description.
+- It DESTROYS the armour rather than dropping it, which is the design's word and the
+  right one: dropping would let the victim pick their own set straight back up and hand
+  an attacker a free one off anybody they hit.
+- **Tough knuckles only applies to an EMPTY hand**, and is raised TO rather than set:
+  the passive is about punching, and letting it apply while holding a weapon would make
+  it a flat damage buff that happened to be called knuckles. Compressed punches wins
+  where both are in play, since that is an ability being actively paid for by the
+  second where this is a permanent floor.
+- **Extract takes nothing out of the world.** The iron is drawn from the ground in the
+  fiction but no block is touched — an ability that really consumed ground would be
+  either a duplication glitch or a way to delete terrain depending on which half went
+  wrong. Mine remains earthbending's ability for actually digging.
+- **Crush pins its victims before the walls close**, and that gap is the only warning
+  anyone gets. It starts three blocks out rather than at the bender's feet, so they are
+  not standing inside their own crush.
+
+### Figures that were NOT in the design
+
+- **Crush's chi, xp, cooldown and damage** — the design gives this ability no numbers at
+  all. Flagged INVENTED in the source, like Ice Bomb's and Sound wall's.
+
 ## The Avatar
 
 Four commands, all op-gated at permission level 2 (the three older `/bend`

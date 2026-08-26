@@ -44,6 +44,10 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.ice.FreezingBeams.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.sound.BassWaves.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.sound.SoundWalls.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.metal.MetalShields.tickAll(event.getServer());
+        // Ticked LAST of the metal pair: the shields hand their own blocks back
+        // through MetalWorks, so anything they release still gets settled here.
+        com.minecraft.atlamod.abilities.metal.MetalWorks.tickAll(event.getServer());
 
         // Keeps a running cycle looking for an Avatar when nobody holds the title.
         // Rate-limited inside, and does nothing at all once one is in place.
@@ -75,6 +79,8 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.FreezingBeams.forgetLevel(level);
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetLevel(level);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetLevel(level);
+            com.minecraft.atlamod.abilities.metal.MetalShields.forgetLevel(level);
+            com.minecraft.atlamod.abilities.metal.MetalWorks.forgetLevel(level);
             // Melts LAST: the two above hand their own blocks back through IceWorks,
             // so anything they release still gets settled by this sweep.
             com.minecraft.atlamod.abilities.ice.IceWorks.forgetLevel(level);
@@ -120,6 +126,27 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(
                             net.minecraft.world.item.Items.HEART_OF_THE_SEA, 1),
                     new net.minecraft.world.item.ItemStack(Atlamod.ICE_SCROLL.get()),
+                    2,
+                    12,
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Metalbending Scroll in the mason's book, for 4 iron blocks.
+     *
+     * Same two levels as the other three scrolls, for the same reason: a villager
+     * picks only a couple of trades at random from each level's pool.
+     */
+    @SubscribeEvent
+    public static void onMasonTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.MASON) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.IRON_BLOCK, 4),
+                    new net.minecraft.world.item.ItemStack(Atlamod.METAL_SCROLL.get()),
                     2,
                     12,
                     0.05F));
@@ -404,6 +431,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
         }
     }
 
@@ -437,6 +465,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -545,6 +574,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(player);
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -658,9 +688,25 @@ public class ServerEvents {
                 && !event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
 
             BendingData puncherData = puncher.getData(ModAttachments.BENDING_DATA);
+
             if (puncherData.isPunchingCompressed()) {
+                // Compressed punches wins, because it is an ability being actively
+                // held up and paid for by the second, where Tough knuckles is a
+                // permanent floor. They are not added together.
                 event.setAmount(com.minecraft.atlamod.abilities.sound.Sound.damage(puncherData,
                         com.minecraft.atlamod.abilities.sound.CompressedPunches.PUNCH_DAMAGE));
+
+            } else if (puncherData.hasPassiveEquipped(
+                    com.minecraft.atlamod.abilities.metal.ToughKnuckles.KEY)
+                    && puncher.getMainHandItem().isEmpty()) {
+
+                // Tough knuckles replaces what an EMPTY hand is worth, and only an
+                // empty one: the passive is about punching, and letting it apply while
+                // holding a weapon would make it a flat damage buff that happened to
+                // be called knuckles. Raised to, never lowered from — a bare fist is
+                // already worth more than this to somebody with a Strength potion.
+                event.setAmount(Math.max(event.getAmount(),
+                        com.minecraft.atlamod.abilities.metal.ToughKnuckles.PUNCH_DAMAGE));
             }
         }
 
@@ -884,6 +930,25 @@ public class ServerEvents {
                 // of chi must not be a cheaper way to end it than running out of time.
                 if (outOfTime || !affordable) {
                     com.minecraft.atlamod.abilities.sound.CompressedPunches.stop(player, data);
+                }
+            }
+
+            if (data.isExtracting()) {
+                if (chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.metal.Extract.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.metal.Extract.XP_PER_SECOND)) {
+                    com.minecraft.atlamod.abilities.metal.Extract.tick(player, data);
+                } else {
+                    data.setExtracting(false);
+                    data.setExtractTicks(0);
+                }
+            }
+
+            if (com.minecraft.atlamod.abilities.metal.MetalShields.has(player)) {
+                if (!chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.metal.MetalShield.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.metal.MetalShield.XP_PER_SECOND)) {
+                    com.minecraft.atlamod.abilities.metal.MetalShields.drop(player);
                 }
             }
 

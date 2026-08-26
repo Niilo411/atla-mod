@@ -41,6 +41,8 @@ public final class ElementPaths {
             case "ice" -> new String[]{"icicles", "Freeze", "Ice over", "Ice barrage"};
             case "sound" -> new String[]{
                     "Bass Bounce", "Sound boosting", "Sound wall", "Sound Leap"};
+            case "metal" -> new String[]{
+                    "Metal armor", "Crush", "Metal shield", "Extract"};
             default -> NONE;
         };
     }
@@ -58,6 +60,8 @@ public final class ElementPaths {
             case "ice" -> new String[]{"Ice sphere", "Ice Bomb", "Freezing Beam", "Ice Breath"};
             case "sound" -> new String[]{
                     "Roar", "Deafen", "Compressed punches", "Bass waves"};
+            case "metal" -> new String[]{
+                    "Tough knuckles", "Bullets", "Stone walls", "Armor pierce"};
             default -> NONE;
         };
     }
@@ -126,7 +130,7 @@ public final class ElementPaths {
 
     /** Every element with a tree, in no particular order. */
     private static final String[] ELEMENTS = {
-            "fire", "water", "air", "earth", "lightning", "ice", "sound"
+            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal"
     };
 
     /**

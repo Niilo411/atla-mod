@@ -51,6 +51,19 @@ public class Atlamod {
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
     // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
+    // Metalbending's blocks: unbreakable, and always taken back. No BlockItem —
+    // nothing should ever hold one.
+    public static final DeferredBlock<Block> BENDING_METAL = BLOCKS.register("bending_metal",
+            () -> new BendingMetalBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(-1.0F, 3600000.0F)
+                    .sound(net.minecraft.world.level.block.SoundType.METAL)
+                    .noLootTable()));
+
+    // Metalbending's key. Bought from a village mason, read once, spent.
+    public static final DeferredItem<Item> METAL_SCROLL = ITEMS.register("metal_scroll",
+            () -> new MetalScrollItem(new Item.Properties()));
+
     // Soundbending's key. Bought from a village fletcher, read once, spent.
     public static final DeferredItem<Item> SOUND_SCROLL = ITEMS.register("sound_scroll",
             () -> new SoundScrollItem(new Item.Properties()));
@@ -150,6 +163,7 @@ public class Atlamod {
             event.accept(LIGHTNING_SCROLL);
             event.accept(ICE_SCROLL);
             event.accept(SOUND_SCROLL);
+            event.accept(METAL_SCROLL);
         }
     }
 

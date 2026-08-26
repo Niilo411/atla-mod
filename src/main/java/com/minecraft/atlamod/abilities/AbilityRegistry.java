@@ -196,6 +196,18 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.sound.SoundBoosting());
         register(new com.minecraft.atlamod.abilities.sound.SoundWall());
         register(new com.minecraft.atlamod.abilities.sound.SoundLeap());
+
+        // --- METAL : Left (the fourth sub-element, two paths again) ---
+        register(new com.minecraft.atlamod.abilities.metal.MetalArmor());
+        register(new com.minecraft.atlamod.abilities.metal.Crush());
+        register(new com.minecraft.atlamod.abilities.metal.MetalShield());
+        register(new com.minecraft.atlamod.abilities.metal.Extract());
+
+        // --- METAL : Right ---
+        register(new com.minecraft.atlamod.abilities.metal.ToughKnuckles());
+        register(new com.minecraft.atlamod.abilities.metal.Bullets());
+        register(new com.minecraft.atlamod.abilities.metal.StoneWalls());
+        register(new com.minecraft.atlamod.abilities.metal.ArmorPierce());
     }
 
     public static void register(Ability ability) {

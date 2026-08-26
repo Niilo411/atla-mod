@@ -48,6 +48,32 @@ public final class ModEffects {
                     10.0,
                     net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
 
+    /**
+     * A suit of iron: 15 points of armor, exactly a full iron set.
+     *
+     * TWO separate effects rather than one with two amplifiers, and the reason is
+     * arithmetic: vanilla scales an ADD_VALUE modifier by (amplifier + 1), so a single
+     * registration can only ever produce a base and its double. Iron's 15 and
+     * diamond's 20 are not in that relationship, and there is no base that gives both.
+     * Two registrations give each of them its exact figure.
+     */
+    public static final DeferredHolder<MobEffect, MobEffect> METAL_ARMOR =
+            EFFECTS.register("metal_armor", () -> new MetalArmorEffect().addAttributeModifier(
+                    net.minecraft.world.entity.ai.attributes.Attributes.ARMOR,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                            Atlamod.MODID, "metal_armor"),
+                    15.0,
+                    net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
+
+    /** The same suit in diamond: 20 points, once Diamond Plating is bought. */
+    public static final DeferredHolder<MobEffect, MobEffect> METAL_ARMOR_DIAMOND =
+            EFFECTS.register("metal_armor_diamond", () -> new MetalArmorEffect().addAttributeModifier(
+                    net.minecraft.world.entity.ai.attributes.Attributes.ARMOR,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                            Atlamod.MODID, "metal_armor_diamond"),
+                    20.0,
+                    net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
+
     private ModEffects() {
     }
 

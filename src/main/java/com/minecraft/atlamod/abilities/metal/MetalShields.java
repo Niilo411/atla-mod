@@ -1,0 +1,231 @@
+package com.minecraft.atlamod.abilities.metal;
+
+import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.ModAttachments;
+import com.minecraft.atlamod.ModEffects;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Every metal shield standing in the world.
+ *
+ * Sound wall's heavier twin, and the difference is what it is MADE of: the sound wall
+ * is particles that push things back, where this is REAL blocks. That makes it
+ * genuinely solid — it collides the way any wall does, with no pushing logic at all —
+ * and it is why it has to be built out of the unbreakable metal block and taken back
+ * afterwards.
+ *
+ * Being real blocks also gives it the throw. There is a wall there to send forward,
+ * so the left click picks it up and hurls it.
+ */
+public final class MetalShields {
+
+    /** How far in front of the bender the shield hangs. */
+    private static final double DISTANCE = 2.0;
+
+    /** Half the shield's width, in blocks. */
+    private static final int HALF_WIDTH = 2;
+
+    /** How tall it stands, from the bender's feet. */
+    private static final int HEIGHT = 3;
+
+    /** How long the blocks are lent for. Re-lent every time the shield moves. */
+    private static final int LEND_TICKS = 40;
+
+    /** What the thrown shield hits for. */
+    private static final float THROW_DAMAGE = 4.0F;
+
+    /** Two seconds of Stunned on whatever it hits. */
+    private static final int THROW_STUN = 40;
+
+    /** How far the thrown shield travels, and how fast. */
+    private static final double THROW_REACH = 12.0;
+    private static final double THROW_SPEED = 0.8;
+
+    private static final List<Shield> ACTIVE = new ArrayList<>();
+
+    private MetalShields() {
+    }
+
+    private static final class Shield {
+        final ServerLevel level;
+        final UUID ownerId;
+
+        /** Where the plates are standing right now, so they can be taken back. */
+        final List<BlockPos> plates = new ArrayList<>();
+
+        Shield(ServerLevel level, UUID ownerId) {
+            this.level = level;
+            this.ownerId = ownerId;
+        }
+    }
+
+    public static boolean has(ServerPlayer player) {
+        for (Shield shield : ACTIVE) {
+            if (shield.ownerId.equals(player.getUUID())) return true;
+        }
+        return false;
+    }
+
+    public static void raise(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel level)) return;
+        if (has(player)) return;
+
+        ACTIVE.add(new Shield(level, player.getUUID()));
+        Metal.scrape(level, player.position(), 1.0F, 0.9F);
+    }
+
+    /** Takes the shield down and gives the ground back. */
+    public static void drop(ServerPlayer player) {
+        for (Shield shield : List.copyOf(ACTIVE)) {
+            if (!shield.ownerId.equals(player.getUUID())) continue;
+
+            clear(shield);
+            ACTIVE.remove(shield);
+            Metal.scrape(shield.level, player.position(), 0.8F, 1.4F);
+        }
+    }
+
+    /**
+     * Hurls the shield forward, which is what the left click does.
+     *
+     * The plates come down first and the throw is drawn with particles rather than by
+     * flying the real blocks. Moving a five-by-three wall of blocks through the world
+     * a step at a time would be fifteen block updates a tick, and the moment it passed
+     * over anything it would either overwrite it or stop dead.
+     */
+    public static void hurl(ServerPlayer player) {
+        for (Shield shield : List.copyOf(ACTIVE)) {
+            if (!shield.ownerId.equals(player.getUUID())) continue;
+
+            BendingData data = player.getData(ModAttachments.BENDING_DATA);
+
+            clear(shield);
+            ACTIVE.remove(shield);
+
+            fly(shield.level, player, data);
+            return;
+        }
+    }
+
+    /** Walks the thrown shield out, hitting the first thing in its way. */
+    private static void fly(ServerLevel level, ServerPlayer owner, BendingData data) {
+        Vec3 look = owner.getLookAngle();
+        Vec3 at = owner.getEyePosition().add(look.scale(DISTANCE));
+
+        float damage = Metal.damage(data, THROW_DAMAGE);
+
+        for (double travelled = 0.0; travelled < THROW_REACH; travelled += THROW_SPEED) {
+            at = at.add(look.scale(THROW_SPEED));
+
+            if (level.getBlockState(BlockPos.containing(at)).isSolid()) break;
+
+            Metal.spark(level, at, 6, 0.4);
+
+            AABB hitbox = new AABB(at, at).inflate(1.5, 1.5, 1.5);
+            boolean struck = false;
+
+            for (Entity caught : level.getEntities(owner, hitbox)) {
+                if (!(caught instanceof LivingEntity living) || !living.isAlive()) continue;
+
+                living.hurt(owner.damageSources().indirectMagic(owner, owner), damage);
+                living.addEffect(new MobEffectInstance(
+                        ModEffects.STUNNED, THROW_STUN, 0, false, true, true));
+
+                living.setDeltaMovement(look.x * 0.6, 0.3, look.z * 0.6);
+                living.hurtMarked = true;
+                struck = true;
+            }
+
+            if (struck) break;
+        }
+
+        Metal.clang(level, at, 1.4F, 0.8F);
+        Metal.spark(level, at, 30, 0.6);
+    }
+
+    /** Iterates a SNAPSHOT, like every other manager that touches entities. */
+    public static void tickAll(MinecraftServer server) {
+        if (ACTIVE.isEmpty()) return;
+
+        for (Shield shield : List.copyOf(ACTIVE)) {
+            if (!ACTIVE.contains(shield)) continue;
+
+            if (!advance(shield, server)) {
+                clear(shield);
+                ACTIVE.remove(shield);
+            }
+        }
+    }
+
+    private static boolean advance(Shield shield, MinecraftServer server) {
+        ServerPlayer owner = server.getPlayerList().getPlayer(shield.ownerId);
+        if (owner == null || owner.level() != shield.level || !owner.isAlive()) return false;
+
+        // Follows the crosshair, flattened to the horizontal — looking up should aim
+        // the shield, not tip it over the bender's head.
+        Vec3 look = owner.getLookAngle();
+        Vec3 facing = new Vec3(look.x, 0.0, look.z);
+        if (facing.lengthSqr() < 1.0E-4) facing = new Vec3(0.0, 0.0, 1.0);
+        facing = facing.normalize();
+
+        Vec3 across = new Vec3(-facing.z, 0.0, facing.x);
+        Vec3 centre = owner.position().add(facing.scale(DISTANCE));
+
+        // Rebuilt from scratch each tick: the plates are taken back and laid again
+        // wherever the shield now is. Simpler than working out which blocks moved, and
+        // it means the ground is always given back correctly however fast it swings.
+        clear(shield);
+
+        for (int w = -HALF_WIDTH; w <= HALF_WIDTH; w++) {
+            for (int h = 0; h < HEIGHT; h++) {
+                BlockPos plate = BlockPos.containing(
+                        centre.add(across.scale(w)).add(0.0, h, 0.0));
+
+                if (MetalWorks.lay(shield.level, plate, LEND_TICKS)) {
+                    shield.plates.add(plate);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /** Gives back every block this shield is currently borrowing. */
+    private static void clear(Shield shield) {
+        if (shield.plates.isEmpty()) return;
+
+        MetalWorks.restoreNow(shield.level, List.copyOf(shield.plates));
+        shield.plates.clear();
+    }
+
+    /** Called on death, logout and dimension change. */
+    public static void forgetPlayer(ServerPlayer player) {
+        for (Shield shield : List.copyOf(ACTIVE)) {
+            if (!shield.ownerId.equals(player.getUUID())) continue;
+
+            clear(shield);
+            ACTIVE.remove(shield);
+        }
+    }
+
+    public static void forgetLevel(ServerLevel level) {
+        for (Shield shield : List.copyOf(ACTIVE)) {
+            if (shield.level != level) continue;
+
+            clear(shield);
+            ACTIVE.remove(shield);
+        }
+    }
+}
