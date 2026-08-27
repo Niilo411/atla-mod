@@ -1,0 +1,101 @@
+package com.minecraft.atlamod.abilities.blood;
+
+import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.Ability;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+
+import java.util.List;
+
+/**
+ * Right / Blood. Everything alive within ten blocks in front is dragged in, frozen,
+ * and held as a wall between the bender and whatever comes next -- and whatever the
+ * wall stops is dealt to the bodies making it.
+ *
+ * The only ability in the mod whose cost is XP rather than chi, which is what the
+ * design asks for and what makes it feel like something spent rather than something
+ * channelled. It pays 10 back, so the true price is 90.
+ *
+ * A bigger wall spreads a blow further, since absorbed damage is split evenly across
+ * whoever is still standing in it. That is the only reason to gather more than one.
+ *
+ * The shield itself lives in {@link FleshShields}.
+ */
+public class FleshShield implements Ability {
+
+    /** Registry key. */
+    public static final String KEY = "flesh shield";
+
+    /** What raising one costs, in ordinary bending XP. */
+    public static final int XP_COST = 100;
+
+    @Override
+    public String getName() {
+        return "Flesh shield";
+    }
+
+    /** Nothing at all: this one is paid for in XP. See canStart and execute. */
+    @Override
+    public int getChiCost(BendingData data) {
+        return 0;
+    }
+
+    @Override
+    public int getXpReward() {
+        return 10;
+    }
+
+    @Override
+    public int getCooldownTicks() {
+        return 1200; // 60 seconds
+    }
+
+    /** Up already: the next press takes it down. */
+    @Override
+    public boolean isActive(ServerPlayer player, BendingData data) {
+        return FleshShields.has(player);
+    }
+
+    @Override
+    public void deactivate(ServerPlayer player, BendingData data) {
+        FleshShields.drop(player);
+    }
+
+    /**
+     * Refuses without the XP to pay, or with nothing in front worth taking.
+     *
+     * Both checked before anything is spent. The second matters more than usual here:
+     * a shield of nobody would cost 100 xp and produce nothing at all.
+     */
+    @Override
+    public boolean canStart(ServerPlayer player, BendingData data) {
+        if (data.getXp() < XP_COST) {
+            player.displayClientMessage(Component.literal(
+                    "Not enough XP! (Requires " + XP_COST + ")")
+                    .withStyle(ChatFormatting.DARK_RED), true);
+            return false;
+        }
+
+        if (FleshShields.candidates(player).isEmpty()) {
+            player.displayClientMessage(Component.literal(
+                    "There is nobody to take.").withStyle(ChatFormatting.DARK_RED), true);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public void execute(ServerPlayer player, BendingData data) {
+        List<LivingEntity> bodies = FleshShields.candidates(player);
+        if (bodies.isEmpty()) return;
+
+        // Taken here rather than by the dispatcher, which only knows how to spend chi.
+        data.setXp(Math.max(0, data.getXp() - XP_COST));
+
+        FleshShields.raise(player, bodies);
+        Blood.grantXp(player, data, getXpReward());
+    }
+}

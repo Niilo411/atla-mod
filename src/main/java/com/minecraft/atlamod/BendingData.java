@@ -185,9 +185,11 @@ public class BendingData {
             Codec.STRING.listOf().optionalFieldOf("unlockedUpgrades", new ArrayList<>()).forGetter(BendingData::getUnlockedUpgrades),
             Codec.BOOL.optionalFieldOf("avatar", false).forGetter(BendingData::isAvatar),
             Codec.INT.optionalFieldOf("avatarLives", AVATAR_LIVES).forGetter(BendingData::getAvatarLives),
-            Codec.STRING.listOf().optionalFieldOf("preAvatarElements", new ArrayList<>()).forGetter(BendingData::getPreAvatarElements)
+            Codec.STRING.listOf().optionalFieldOf("preAvatarElements", new ArrayList<>()).forGetter(BendingData::getPreAvatarElements),
+            Codec.INT.optionalFieldOf("bloodXp", 0).forGetter(BendingData::getBloodXp),
+            Codec.INT.optionalFieldOf("bloodLevel", 0).forGetter(BendingData::getBloodLevel)
     ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives, upgrades,
-                       isAvatar, lives, preElements) -> {
+                       isAvatar, lives, preElements, bloodXp, bloodLevel) -> {
         BendingData data = new BendingData();
         data.mainElement = main != null ? main : "";
         data.activeElement = active != null ? active : "";
@@ -206,6 +208,9 @@ public class BendingData {
         data.avatar = isAvatar;
         data.avatarLives = lives;
         data.setPreAvatarElements(preElements);
+
+        data.bloodXp = bloodXp;
+        data.bloodLevel = bloodLevel;
 
         return data;
     }));
@@ -471,6 +476,24 @@ public class BendingData {
 
     public int getCompressedPunchTicks() { return compressedPunchTicks; }
     public void setCompressedPunchTicks(int ticks) { this.compressedPunchTicks = Math.max(0, ticks); }
+
+    // --- BLOODBENDING ---
+    // A SECOND experience track, entirely separate from the main one.
+    //
+    // Bloodbending is the only element with its own level, and it has to be its own
+    // number rather than a share of the ordinary one: Blood strength decides who may
+    // bend whom by comparing the two players' blood levels, and a figure that also
+    // went up from firebending would make that comparison meaningless.
+    //
+    // Persisted, like the main xp and level, since it is earned over a long time.
+    private int bloodXp = 0;
+    private int bloodLevel = 0;
+
+    public int getBloodXp() { return bloodXp; }
+    public void setBloodXp(int xp) { this.bloodXp = Math.max(0, xp); }
+
+    public int getBloodLevel() { return bloodLevel; }
+    public void setBloodLevel(int level) { this.bloodLevel = Math.max(0, level); }
 
     // --- COMBUSTION SCROLL ---
     // Ticks left in which explosions cannot touch this player at all.

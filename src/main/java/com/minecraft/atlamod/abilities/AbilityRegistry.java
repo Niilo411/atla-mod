@@ -217,6 +217,16 @@ public final class AbilityRegistry {
 
         // --- COMBUSTION : Right (the design has only this one so far) ---
         register(new com.minecraft.atlamod.abilities.combustion.CombustionResistance());
+
+        // --- BLOOD : Left (the sixth sub-element) ---
+        register(new com.minecraft.atlamod.abilities.blood.BloodFreeze());
+        register(new com.minecraft.atlamod.abilities.blood.BloodSlow());
+        register(new com.minecraft.atlamod.abilities.blood.BloodSuck());
+        register(new com.minecraft.atlamod.abilities.blood.BloodManipulation());
+
+        // --- BLOOD : Right (the design has only these two so far) ---
+        register(new com.minecraft.atlamod.abilities.blood.BloodStrength());
+        register(new com.minecraft.atlamod.abilities.blood.FleshShield());
     }
 
     public static void register(Ability ability) {

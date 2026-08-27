@@ -46,6 +46,8 @@ public final class ElementPaths {
             case "combustion" -> new String[]{
                     "Combustion bombardment", "Explosive combustion",
                     "Combustion Beam", "Combustion nuke"};
+            case "blood" -> new String[]{
+                    "Blood freeze", "Blood Slow", "Blood suck", "Blood manipulation"};
             default -> NONE;
         };
     }
@@ -68,6 +70,9 @@ public final class ElementPaths {
             // The design has only one ability on combustion's right path so far, and
             // says "Wip" beneath it. One is enough for the tree to draw an arm.
             case "combustion" -> new String[]{"Combustion resistance"};
+            // The design has two on blood's right path so far and says "wip" for the
+            // third. Two is enough for the tree to draw an arm.
+            case "blood" -> new String[]{"Blood strength", "Flesh shield"};
             default -> NONE;
         };
     }
@@ -136,7 +141,7 @@ public final class ElementPaths {
 
     /** Every element with a tree, in no particular order. */
     private static final String[] ELEMENTS = {
-            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion"
+            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion", "blood"
     };
 
     /**

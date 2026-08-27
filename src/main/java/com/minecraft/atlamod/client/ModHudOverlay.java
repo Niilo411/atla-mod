@@ -106,6 +106,18 @@ public class ModHudOverlay {
                     (screenWidth / 2) - (mc.font.width(label) / 2), barY - 11, 0xFFFFFF);
         }
 
+        // 3b. Bloodbending level, top LEFT — but only for somebody carrying Blood
+        //     strength, since that passive is what the number is for. Without it the
+        //     level still accumulates and simply is not shown.
+        if (data.hasPassiveEquipped(com.minecraft.atlamod.abilities.blood.BloodStrength.KEY)) {
+            String bloodText = "Blood Lvl: " + data.getBloodLevel();
+            guiGraphics.drawString(mc.font, bloodText, 8, 8, 0xFFCC2222);
+
+            String bloodXp = data.getBloodXp() + "/"
+                    + com.minecraft.atlamod.abilities.blood.Blood.XP_PER_LEVEL;
+            guiGraphics.drawString(mc.font, bloodXp, 8, 19, 0xFF883333);
+        }
+
         // 4. Avatar lives, top right. Only drawn for the Avatar, so it costs nothing
         //    for everyone else and is unmistakable when it does appear.
         if (data.isAvatar()) {

@@ -1022,6 +1022,85 @@ The steepest of the five, and the only one that can kill its own bender by accid
 - **Everything about Combustion resistance** — the design names it and says "Wip". The
   reading taken is the obvious one, and all of it is flagged INVENTED in the source.
 
+## Bloodbending (the sixth SUB-element)
+
+The only element with a rule about who it may be used ON, and the only one with an
+experience track of its own.
+
+- **Getting it**: a village CLERIC sells the Bloodbending Scroll for 5 rabbit feet, at
+  trade levels 1 and 3. Reading it needs **ALL FOUR** waterbending paths — like the
+  combustion scroll and unlike the other four, because bloodbending is the end of the
+  water road rather than a branch off it. It burns itself and rains blood over a 5x5
+  patch, which is purely particles: the element is unpleasant enough without the unlock
+  being a hazard.
+- Left path: Blood freeze, Blood Slow, Blood suck, Blood manipulation
+- Right path: Blood strength, Flesh shield (the design says "wip" for a third)
+
+### A SECOND experience track
+
+- **`BendingData.bloodXp` / `bloodLevel` are entirely separate from the ordinary
+  level**, and have to be: Blood strength decides who may bend whom by comparing two
+  players' blood levels, and a figure that also went up from firebending would make the
+  comparison meaningless. 200 blood xp is a blood level, the same rate the main track
+  uses.
+- **Bloodbending abilities pay into it and NOT the ordinary one.** Every channel among
+  them returns 0 from `getXpPerSecond` and calls `Blood.grantXp` from its own `onTick`
+  instead — the dispatcher's trickle goes to the main level, which is the wrong pot.
+- It needed its own packet (`SyncBloodPacket`), like the passives, upgrades and Avatar
+  ones, because `SyncBendingDataPacket` is already at the six fields
+  `StreamCodec.composite` takes. Synced on login, respawn and dimension change, and
+  every time xp is earned.
+- Persisted, and copied by hand in `PlayerEvent.Clone` as well as by `copyOnDeath` —
+  that event also fires on a dimension change, where `copyOnDeath` does not.
+
+### The pecking order
+
+- **`Blood.canBend` is the single place the rule lives**, and every bloodbending ability
+  that picks a target calls it, so the next one added cannot forget. A lower-level
+  bloodbender cannot touch a higher-level one; mobs have no blood level and are always
+  fair game.
+- **The protection is tied to the TARGET carrying Blood strength**, not merely having
+  unlocked it. The level accumulates either way, but a passive that worked from the
+  inventory would not be a passive — and it makes the defence a real choice of slot.
+  That reading is an INTERPRETATION: the design does not say.
+- A refusal is TOLD rather than silent, because "nothing happened" is indistinguishable
+  from a broken ability and the reason is something the caster can act on.
+
+### The rest
+
+- **Blood freeze needs a tracker for its BLEEDING, not for its hold.** The hold is a
+  Stunned effect and needs no help; two hp a second for two seconds has to land twice,
+  once a second, rather than as one blow on the cast. `BloodHolds` is that, and nothing
+  more.
+- **Blood Slow re-aims every tick; Blood manipulation does NOT.** That difference is
+  deliberate — a sweep across a group wants to follow the crosshair, where a puppet
+  dropped by glancing away would be unusable for the thing it exists to do.
+- **`BloodPuppets` is deliberately not a ticking tracker.** A puppet lives exactly as
+  long as the channel holding it, so the ability drives it from its own `onTick` and
+  this only remembers who holds whom. Every other bloodbending manager ticks because it
+  outlives its cast.
+- **Blood suck heals directly rather than through Regeneration.** Re-applying that
+  effect every tick breaks it outright — the trap Water heal documents — and a straight
+  trade should land exactly when the damage does rather than on a beat of its own.
+- At 100 chi a second it is the most expensive channel in the mod, and it has to be: a
+  trade of somebody else's health for your own has no ceiling but what it costs to run.
+- **Flesh shield is the only ability in the mod paid for in XP rather than chi**, which
+  is what the design asks for. Taken in `execute`, since the dispatcher only knows how
+  to spend chi. It refuses for free when there is nobody to take or not enough xp.
+- **Absorbed damage is split evenly across whoever is still alive in the wall**, so a
+  bigger shield spreads a blow further — the only reason to gather more than one body.
+  Invulnerability frames are cleared before each, or most of a simultaneous hit on the
+  whole wall would be discarded.
+- A shield of corpses is no shield: with nobody left alive the blow lands on the bender.
+- The pecking order applies to being MADE into a shield too — a stronger bloodbender is
+  not somebody's cover.
+
+### Figures that were NOT in the design
+
+- **Blood Slow's slowness level** (IV) and **Blood freeze's reach** — the design gives
+  neither.
+- **Whether Blood strength must be EQUIPPED to protect** — see above.
+
 ## The Avatar
 
 Four commands, covered by the permission gate on the `/bend` root:

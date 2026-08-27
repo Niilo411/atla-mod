@@ -256,6 +256,23 @@ public class ModNetworking {
                 }
         );
 
+        // --- SYNC BLOOD (Server -> Client) : drives the HUD blood level ---
+        registrar.playToClient(
+                SyncBloodPacket.TYPE,
+                SyncBloodPacket.STREAM_CODEC,
+                (SyncBloodPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        var player = context.player();
+                        if (player != null) {
+                            var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
+                            data.setBloodXp(payload.bloodXp());
+                            data.setBloodLevel(payload.bloodLevel());
+                            player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
+                        }
+                    });
+                }
+        );
+
         // --- SYNC AVATAR (Server -> Client) : drives the HUD lives counter ---
         // Top-level inside register(), NOT nested in another handler's lambda.
         registrar.playToClient(

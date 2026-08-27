@@ -46,6 +46,8 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.sound.SoundWalls.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.metal.MetalShields.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.combustion.CombustionBeams.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.blood.BloodHolds.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.blood.FleshShields.tickAll(event.getServer());
         // Ticked LAST of the metal pair: the shields hand their own blocks back
         // through MetalWorks, so anything they release still gets settled here.
         com.minecraft.atlamod.abilities.metal.MetalWorks.tickAll(event.getServer());
@@ -82,6 +84,9 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetLevel(level);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetLevel(level);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetLevel(level);
+            com.minecraft.atlamod.abilities.blood.BloodHolds.forgetLevel(level);
+            com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetLevel(level);
+            com.minecraft.atlamod.abilities.blood.FleshShields.forgetLevel(level);
             com.minecraft.atlamod.abilities.metal.MetalWorks.forgetLevel(level);
             // Melts LAST: the two above hand their own blocks back through IceWorks,
             // so anything they release still gets settled by this sweep.
@@ -128,6 +133,27 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(
                             net.minecraft.world.item.Items.HEART_OF_THE_SEA, 1),
                     new net.minecraft.world.item.ItemStack(Atlamod.ICE_SCROLL.get()),
+                    2,
+                    12,
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Bloodbending Scroll in the cleric's book, for 5 rabbit feet.
+     *
+     * Same two levels as the other five scrolls, for the same reason: a villager picks
+     * only a couple of trades at random from each level's pool.
+     */
+    @SubscribeEvent
+    public static void onClericTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.CLERIC) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.RABBIT_FOOT, 5),
+                    new net.minecraft.world.item.ItemStack(Atlamod.BLOOD_SCROLL.get()),
                     2,
                     12,
                     0.05F));
@@ -465,6 +491,9 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
         }
     }
 
@@ -500,6 +529,9 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -553,6 +585,8 @@ public class ServerEvents {
             // comes back still flagged when the world says somebody else has it —
             // which is how the title is revoked from a player who was OFFLINE.
             com.minecraft.atlamod.avatar.Avatar.checkOnLogin(player);
+
+            com.minecraft.atlamod.abilities.blood.Blood.sync(player, data);
         }
     }
     @SubscribeEvent
@@ -590,6 +624,12 @@ public class ServerEvents {
         newData.setAvatarLives(oldData.getAvatarLives());
         newData.setPreAvatarElements(oldData.getPreAvatarElements());
 
+        // The blood track too, for the same reason: this event fires on a dimension
+        // change where copyOnDeath does not, and walking into the Nether should not
+        // cost a bloodbender their standing.
+        newData.setBloodXp(oldData.getBloodXp());
+        newData.setBloodLevel(oldData.getBloodLevel());
+
         event.getEntity().setData(ModAttachments.BENDING_DATA, newData);
     }
 
@@ -610,6 +650,9 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -631,6 +674,8 @@ public class ServerEvents {
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncAvatarPacket(
                             data.isAvatar(), data.getAvatarLives()));
+
+            com.minecraft.atlamod.abilities.blood.Blood.sync(player, data);
         }
     }
 
@@ -708,6 +753,20 @@ public class ServerEvents {
                 event.setCanceled(true);
                 return;
             }
+        }
+
+        // Flesh shield: the wall of bodies takes the blow instead, split between
+        // whoever is still standing in it.
+        //
+        // Checked here rather than in the ability because this is where damage is
+        // decided, and it RETURNS rather than falling through — a blow the shield ate
+        // never reached the bender, so none of the rules below it apply.
+        if (event.getEntity() instanceof ServerPlayer shielded
+                && !event.getSource().is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)
+                && com.minecraft.atlamod.abilities.blood.FleshShields.absorb(
+                        shielded, event.getAmount(), event.getSource())) {
+            event.setCanceled(true);
+            return;
         }
 
         // The Combustionbending Scroll spares its own reader. Checked BEFORE the
@@ -1126,6 +1185,8 @@ public class ServerEvents {
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                         new com.minecraft.atlamod.network.SyncAvatarPacket(
                                 data.isAvatar(), data.getAvatarLives()));
+
+                com.minecraft.atlamod.abilities.blood.Blood.sync(player, data);
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncUpgradesPacket(data.getUnlockedUpgrades()));
 
