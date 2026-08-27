@@ -85,7 +85,17 @@ public final class BendingProjectiles {
         LIGHTNING,
 
         /** A shard of ice, drawn with frost and a hard white core. */
-        ICE
+        ICE,
+
+        /**
+         * A combustion charge: a hard white core trailing smoke.
+         *
+         * Unlike every other style this one is meant to leave a LINE behind it rather
+         * than a puff at its current position — the white stripe is combustionbending's
+         * signature, so the particles are given no velocity at all and simply hang
+         * where the shot passed.
+         */
+        COMBUSTION
     }
 
     /**
@@ -344,6 +354,12 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 3, 0.06, 0.06, 0.06, 0.0);
                 shot.level.sendParticles(ParticleTypes.ITEM_SNOWBALL, x, y, z, 2, 0.05, 0.05, 0.05, 0.0);
             }
+            case COMBUSTION -> {
+                // Motionless, so the stripe stays exactly where the shot went rather
+                // than drifting apart behind it.
+                shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
+                shot.level.sendParticles(ParticleTypes.SMOKE, x, y, z, 2, 0.04, 0.04, 0.04, 0.0);
+            }
             case BLOCK -> {
                 // Nothing is drawn: the block IS the entity, just moved along.
                 if (shot.display != null && shot.display.isAlive()) {
@@ -416,6 +432,12 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 8, 0.3, 0.3, 0.3, 0.05);
                 shot.level.playSound(null, x, y, z,
                         SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.9F, 1.5F);
+            }
+            case COMBUSTION -> {
+                // The blast itself is left to whatever explosion the ability sets off
+                // through its impact hook; this is only the flash.
+                shot.level.sendParticles(ParticleTypes.FLASH, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
+                shot.level.sendParticles(ParticleTypes.LARGE_SMOKE, x, y, z, 20, 0.5, 0.5, 0.5, 0.05);
             }
             case ICE -> {
                 shot.level.sendParticles(ParticleTypes.SNOWFLAKE, x, y, z, 30, 0.35, 0.35, 0.35, 0.2);

@@ -43,6 +43,9 @@ public final class ElementPaths {
                     "Bass Bounce", "Sound boosting", "Sound wall", "Sound Leap"};
             case "metal" -> new String[]{
                     "Metal armor", "Crush", "Metal shield", "Extract"};
+            case "combustion" -> new String[]{
+                    "Combustion bombardment", "Explosive combustion",
+                    "Combustion Beam", "Combustion nuke"};
             default -> NONE;
         };
     }
@@ -62,6 +65,9 @@ public final class ElementPaths {
                     "Roar", "Deafen", "Compressed punches", "Bass waves"};
             case "metal" -> new String[]{
                     "Tough knuckles", "Bullets", "Stone walls", "Armor pierce"};
+            // The design has only one ability on combustion's right path so far, and
+            // says "Wip" beneath it. One is enough for the tree to draw an arm.
+            case "combustion" -> new String[]{"Combustion resistance"};
             default -> NONE;
         };
     }
@@ -130,7 +136,7 @@ public final class ElementPaths {
 
     /** Every element with a tree, in no particular order. */
     private static final String[] ELEMENTS = {
-            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal"
+            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion"
     };
 
     /**

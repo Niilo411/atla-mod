@@ -45,6 +45,7 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.sound.BassWaves.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.sound.SoundWalls.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.metal.MetalShields.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.combustion.CombustionBeams.tickAll(event.getServer());
         // Ticked LAST of the metal pair: the shields hand their own blocks back
         // through MetalWorks, so anything they release still gets settled here.
         com.minecraft.atlamod.abilities.metal.MetalWorks.tickAll(event.getServer());
@@ -80,6 +81,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetLevel(level);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetLevel(level);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetLevel(level);
+            com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetLevel(level);
             com.minecraft.atlamod.abilities.metal.MetalWorks.forgetLevel(level);
             // Melts LAST: the two above hand their own blocks back through IceWorks,
             // so anything they release still gets settled by this sweep.
@@ -126,6 +128,27 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(
                             net.minecraft.world.item.Items.HEART_OF_THE_SEA, 1),
                     new net.minecraft.world.item.ItemStack(Atlamod.ICE_SCROLL.get()),
+                    2,
+                    12,
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Combustionbending Scroll in the armorer's book, for 32 gunpowder.
+     *
+     * Same two levels as the other four scrolls, for the same reason: a villager picks
+     * only a couple of trades at random from each level's pool.
+     */
+    @SubscribeEvent
+    public static void onArmorerTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.ARMORER) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.GUNPOWDER, 32),
+                    new net.minecraft.world.item.ItemStack(Atlamod.COMBUSTION_SCROLL.get()),
                     2,
                     12,
                     0.05F));
@@ -441,6 +464,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
         }
     }
 
@@ -475,6 +499,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -584,6 +609,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.sound.BassWaves.forgetPlayer(player);
             com.minecraft.atlamod.abilities.sound.SoundWalls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -681,6 +707,23 @@ public class ServerEvents {
                             com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
                 event.setCanceled(true);
                 return;
+            }
+        }
+
+        // Combustion resistance: explosions do a quarter of their damage.
+        //
+        // Done here because vanilla has no explosion-resistance attribute to modify —
+        // blast protection is an enchantment, not a number anything can be given. The
+        // whole IS_EXPLOSION tag rather than a list of sources, so a bender's own
+        // charges, their misfires, TNT, creepers and beds are all covered at once.
+        if (event.getEntity() instanceof ServerPlayer blasted
+                && event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
+
+            BendingData blastedData = blasted.getData(ModAttachments.BENDING_DATA);
+            if (blastedData.hasPassiveEquipped(
+                    com.minecraft.atlamod.abilities.combustion.CombustionResistance.KEY)) {
+                event.setAmount(event.getAmount()
+                        * com.minecraft.atlamod.abilities.combustion.CombustionResistance.DAMAGE_MULTIPLIER);
             }
         }
 

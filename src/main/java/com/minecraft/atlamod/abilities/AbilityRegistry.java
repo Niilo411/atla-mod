@@ -208,6 +208,15 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.metal.Bullets());
         register(new com.minecraft.atlamod.abilities.metal.StoneWalls());
         register(new com.minecraft.atlamod.abilities.metal.ArmorPierce());
+
+        // --- COMBUSTION : Left (the fifth sub-element) ---
+        register(new com.minecraft.atlamod.abilities.combustion.CombustionBombardment());
+        register(new com.minecraft.atlamod.abilities.combustion.ExplosiveCombustion());
+        register(new com.minecraft.atlamod.abilities.combustion.CombustionBeam());
+        register(new com.minecraft.atlamod.abilities.combustion.CombustionNuke());
+
+        // --- COMBUSTION : Right (the design has only this one so far) ---
+        register(new com.minecraft.atlamod.abilities.combustion.CombustionResistance());
     }
 
     public static void register(Ability ability) {

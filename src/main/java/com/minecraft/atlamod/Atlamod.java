@@ -51,6 +51,10 @@ public class Atlamod {
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
     // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
+    // Combustionbending's key. Bought from a village armorer, read once, spent.
+    public static final DeferredItem<Item> COMBUSTION_SCROLL = ITEMS.register("combustion_scroll",
+            () -> new CombustionScrollItem(new Item.Properties()));
+
     // Metalbending's blocks: unbreakable, and always taken back. No BlockItem —
     // nothing should ever hold one.
     public static final DeferredBlock<Block> BENDING_METAL = BLOCKS.register("bending_metal",
@@ -164,6 +168,7 @@ public class Atlamod {
             event.accept(ICE_SCROLL);
             event.accept(SOUND_SCROLL);
             event.accept(METAL_SCROLL);
+            event.accept(COMBUSTION_SCROLL);
         }
     }
 

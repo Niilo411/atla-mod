@@ -933,6 +933,79 @@ both at 35 points.
 - **Crush's chi, xp, cooldown and damage** — the design gives this ability no numbers at
   all. Flagged INVENTED in the source, like Ice Bomb's and Sound wall's.
 
+## Combustionbending (the fifth SUB-element)
+
+The steepest of the five, and the only one that can kill its own bender by accident.
+
+- **Getting it**: a village ARMORER sells the Combustionbending Scroll for 32
+  gunpowder, at trade levels 1 and 3. Reading it needs **ALL FOUR** firebending paths,
+  not the two every other scroll asks for — combustion is the end of the fire road
+  rather than a branch off it. It destroys the scroll and sets four sticks of primed
+  TNT down in a square around the reader.
+- **Those four sticks are REAL primed TNT with a full fuse.** The design asks for them,
+  and the element blows its own bender up for hesitating, so being given a few seconds
+  to run is the introduction. Placed at the CORNERS rather than underfoot, so a reader
+  who moves lives — the point is the fright, not the death.
+- Left path: Combustion bombardment, Explosive combustion, Combustion Beam,
+  Combustion nuke
+- Right path: Combustion resistance (the design says "Wip" beneath it)
+
+### The misfire is the element
+
+- **Every combustion ability serves a MINIMUM two second wind-up**
+  (`Combustion.MINIMUM_CHARGE_TICKS`), the same shape lightning has.
+- **Letting go early is a MISFIRE**, and this is what makes the element its own thing.
+  Every other charged ability in the mod treats an abandoned charge as free — chi is
+  only checked at the start and taken when the cast lands. Combustion instead drops one
+  primed TNT on the bender with a ten tick fuse. Raising a charge is a commitment made
+  before the key goes down rather than after.
+- Implemented per ability through `onChargeCancel`, which the dispatcher already calls
+  on an early release. No dispatcher change was needed.
+- **The toggle is exempt from its own misfire, and had to be.** Combustion Beam's second
+  press goes through `isActive`/`deactivate`, which is checked at the very top of
+  `startCharge` — before the cooldown, before the chi, and crucially before the wind-up.
+  A cancel that reached `onChargeCancel` would blow the bender up for switching their
+  own ability off.
+- Combustion resistance is the other exception and barely one: a passive is never cast,
+  so there is no moment of use to put a wind-up in front of.
+
+### The rest
+
+- **`Style.COMBUSTION` is the first projectile style meant to leave a LINE**, not a puff
+  at the shot's current position. Its particles are given no velocity at all, so the
+  white stripe stays exactly where the charge went — which is the element's signature
+  and the reason it could not reuse an existing style.
+- **The two projectile abilities carry no damage of their own.** Both pass 0 and do
+  their work through the `onImpact` hook, setting off a real explosion where they land:
+  an explosion already damages what is near it, and a shot that also hit for a figure of
+  its own would be counting the same blow twice.
+- **Explosion powers are interpretation, not specification.** One stick of TNT is power
+  4.0, and radius goes roughly as the power rather than as its cube — so "4 tnt" is 8.0
+  and "7 tnt" is 12.0 rather than 16 and 28. Both are flagged in the source.
+- **Combustion Beam eats one block every six ticks**, not a tunnel at once. The design
+  says "slowly" and it is the right call: a beam that deleted a corridor instantly would
+  be a digging tool, where taking a block at a time makes it something to hold on a
+  target while it works. Blocks are DESTROYED rather than dropped, the same call Earth
+  dig makes and for the same reason.
+- **Combustion nuke's four blasts start a quarter of the way out**, not at the bender's
+  feet. At power 12 a blast underneath them is simply suicide, so the loop runs from 1
+  rather than 0.
+- Its ten second wind-up plays a rising tone once a second. Anything within range of
+  four twelve-power explosions deserves to hear it coming.
+- **Combustion resistance is applied in the damage handler**, because vanilla has no
+  explosion-resistance attribute to modify — blast protection is an enchantment, not a
+  number anything can be given. Keyed on the whole `IS_EXPLOSION` tag, so a bender's own
+  charges, their misfires, TNT, creepers and beds are all covered at once.
+- It is deliberately NOT immunity. A bender who could ignore their own nuke would have
+  the wind-up as its only cost, and a misfire that could be shrugged off would stop
+  being a reason to finish what you started.
+
+### Figures that were NOT in the design
+
+- **Combustion bombardment's blast size** — the design gives it a count but no power.
+- **Everything about Combustion resistance** — the design names it and says "Wip". The
+  reading taken is the obvious one, and all of it is flagged INVENTED in the source.
+
 ## The Avatar
 
 Four commands, covered by the permission gate on the `/bend` root:
