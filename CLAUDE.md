@@ -1091,6 +1091,15 @@ experience track of its own.
   briefly built that way and taken in `execute`, since the dispatcher only knows how to
   spend chi. It now goes through the ordinary path like everything else, and refuses
   for free when there is nobody to take.
+- **The wall follows the crosshair**, rebuilt every tick wherever the bender now points,
+  which is Metal shield's behaviour done with bodies instead of blocks. It stands 30
+  seconds and can be put down at any point in them through `isActive`/`deactivate`.
+- **Mobs are moved with `setPos`, players with a rate-limited teleport.** A mob is
+  simulated on the server so setPos is free and rigid; a player's position lives on
+  their own client and the only way to override it is a teleport packet. Sending twenty
+  of those a second is exactly the rubber-banding Fire Rocket's old height cap suffered,
+  so a player body is only teleported once it has actually drifted half a block out of
+  its slot — which, while Stunned, means when the BENDER turns rather than every tick.
 - **Absorbed damage is split evenly across whoever is still alive in the wall**, so a
   bigger shield spreads a blow further — the only reason to gather more than one body.
   Invulnerability frames are cleared before each, or most of a simultaneous hit on the

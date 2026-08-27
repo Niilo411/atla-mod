@@ -22,9 +22,12 @@ import java.util.UUID;
  * held between them and whatever comes next — and whatever the shield stops is dealt
  * to the bodies making it instead.
  *
- * The most unpleasant ability in the mod on purpose. It is also the only one whose
- * cost is XP rather than chi, which is what the design asks for and what makes it feel
- * like something spent rather than something channelled.
+ * The most unpleasant ability in the mod on purpose.
+ *
+ * The wall FOLLOWS THE CROSSHAIR, rebuilt every tick wherever the bender now points —
+ * the same behaviour Metal shield has, so the two read as one idea done with blocks and
+ * with bodies. It stands thirty seconds and can be put down at any point in them by
+ * pressing the key again.
  */
 public final class FleshShields {
 
@@ -42,6 +45,15 @@ public final class FleshShields {
 
     /** How far apart the bodies are spaced across the wall. */
     private static final double SPACING = 1.1;
+
+    /**
+     * How far a PLAYER body may drift from its slot before it is teleported back.
+     *
+     * Half a block: close enough that the wall never visibly sags, far enough that a
+     * body already standing still is left alone rather than being sent a teleport
+     * packet twenty times a second.
+     */
+    private static final double SNAP_TOLERANCE = 0.5;
 
     private static final List<Shield> ACTIVE = new ArrayList<>();
 
@@ -182,9 +194,9 @@ public final class FleshShields {
         Vec3 across = new Vec3(-heading.z, 0.0, heading.x);
         Vec3 centre = owner.position().add(heading.scale(DISTANCE));
 
-        // Laid out in a row across the bender's front, following the crosshair. Held
-        // by setting position outright rather than by velocity: they are frozen, and a
-        // shield that drifted would stop being between the bender and anything.
+        // Laid out in a row across the bender's front and rebuilt every tick wherever
+        // the crosshair now points — the same behaviour Metal shield has, so the two
+        // read as the same idea done with blocks and with bodies.
         List<LivingEntity> alive = new ArrayList<>();
         for (LivingEntity body : shield.bodies) {
             if (body.isAlive()) alive.add(body);
@@ -195,18 +207,43 @@ public final class FleshShields {
             LivingEntity body = alive.get(i);
 
             double offset = (i - (alive.size() - 1) / 2.0) * SPACING;
-            Vec3 spot = centre.add(across.scale(offset));
+            Vec3 spot = centre.add(across.scale(offset)).with(
+                    net.minecraft.core.Direction.Axis.Y, owner.getY());
 
-            body.teleportTo(spot.x, owner.getY(), spot.z);
-            body.setDeltaMovement(Vec3.ZERO);
-            body.fallDistance = 0.0F;
-
-            if (body instanceof Player) body.hurtMarked = true;
-
+            place(body, spot);
             Blood.wrench(shield.level, body, 1);
         }
 
         return true;
+    }
+
+    /**
+     * Puts one body where the wall wants it.
+     *
+     * The two halves are different because moving a MOB and moving a PLAYER cost
+     * completely different things. A mob is simulated on the server, so setPos is free
+     * and rigid. A player's position lives on their own client, and the only way to
+     * override it is a teleport packet — twenty of those a second is exactly the
+     * rubber-banding that made Fire Rocket's old height cap feel so bad.
+     *
+     * So a player is only teleported when they have actually drifted out of their slot,
+     * which while Stunned means when the BENDER turns rather than every tick. The
+     * result tracks the crosshair as rigidly as the metal shield does, at a fraction of
+     * the packets.
+     */
+    private static void place(LivingEntity body, Vec3 spot) {
+        body.setDeltaMovement(Vec3.ZERO);
+        body.fallDistance = 0.0F;
+
+        if (!(body instanceof Player)) {
+            body.setPos(spot.x, spot.y, spot.z);
+            return;
+        }
+
+        if (body.position().distanceToSqr(spot) > SNAP_TOLERANCE * SNAP_TOLERANCE) {
+            body.teleportTo(spot.x, spot.y, spot.z);
+        }
+        body.hurtMarked = true;
     }
 
     /** Lets the bodies go. */
