@@ -41,10 +41,14 @@ public class BloodFreeze implements ChargedAbility {
         return 100;
     }
 
+    /** Zero: the xp is paid into the BLOOD track instead, in execute. */
     @Override
     public int getXpReward() {
-        return 10;
+        return 0;
     }
+
+    /** What the cast pays into the BLOOD track. */
+    private static final int BLOOD_XP = 10;
 
     @Override
     public int getCooldownTicks() {
@@ -93,6 +97,6 @@ public class BloodFreeze implements ChargedAbility {
         Blood.wrench(level, target, 30);
         Blood.squelch(level, target.position(), 1.0F, 0.7F);
 
-        Blood.grantXp(player, data, getXpReward());
+        Blood.grantXp(player, data, BLOOD_XP);
     }
 }

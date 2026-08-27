@@ -1043,9 +1043,12 @@ experience track of its own.
   players' blood levels, and a figure that also went up from firebending would make the
   comparison meaningless. 200 blood xp is a blood level, the same rate the main track
   uses.
-- **Bloodbending abilities pay into it and NOT the ordinary one.** Every channel among
-  them returns 0 from `getXpPerSecond` and calls `Blood.grantXp` from its own `onTick`
-  instead — the dispatcher's trickle goes to the main level, which is the wrong pot.
+- **Bloodbending abilities pay into it and NOT the ordinary one.** Every one of them
+  returns 0 from `getXpPerSecond` (channels) or `getXpReward` (casts) and calls
+  `Blood.grantXp` itself instead — the dispatcher's reward goes to the main level,
+  which is the wrong pot. Blood freeze and Flesh shield briefly paid 10 into BOTH, by
+  returning a reward AND granting the same figure to blood; each now has its own
+  `BLOOD_XP` constant so the two cannot be confused again.
 - It needed its own packet (`SyncBloodPacket`), like the passives, upgrades and Avatar
   ones, because `SyncBendingDataPacket` is already at the six fields
   `StreamCodec.composite` takes. Synced on login, respawn and dimension change, and
@@ -1084,9 +1087,10 @@ experience track of its own.
   trade should land exactly when the damage does rather than on a beat of its own.
 - At 100 chi a second it is the most expensive channel in the mod, and it has to be: a
   trade of somebody else's health for your own has no ceiling but what it costs to run.
-- **Flesh shield is the only ability in the mod paid for in XP rather than chi**, which
-  is what the design asks for. Taken in `execute`, since the dispatcher only knows how
-  to spend chi. It refuses for free when there is nobody to take or not enough xp.
+- **Flesh shield costs 100 CHI.** The design doc said xp, which was a typo — it was
+  briefly built that way and taken in `execute`, since the dispatcher only knows how to
+  spend chi. It now goes through the ordinary path like everything else, and refuses
+  for free when there is nobody to take.
 - **Absorbed damage is split evenly across whoever is still alive in the wall**, so a
   bigger shield spreads a blow further — the only reason to gather more than one body.
   Invulnerability frames are cleared before each, or most of a simultaneous hit on the

@@ -28,23 +28,29 @@ public class FleshShield implements Ability {
     /** Registry key. */
     public static final String KEY = "flesh shield";
 
-    /** What raising one costs, in ordinary bending XP. */
-    public static final int XP_COST = 100;
+    /** What the cast pays into the BLOOD track. */
+    private static final int BLOOD_XP = 10;
 
     @Override
     public String getName() {
         return "Flesh shield";
     }
 
-    /** Nothing at all: this one is paid for in XP. See canStart and execute. */
     @Override
     public int getChiCost(BendingData data) {
-        return 0;
+        return 100;
     }
 
+    /**
+     * Zero, deliberately: the xp is paid into the BLOOD track instead, in execute.
+     *
+     * The dispatcher's reward goes to the ordinary level, and bloodbending's whole
+     * point is that its abilities feed a separate one — the same reason every
+     * bloodbending channel returns 0 from getXpPerSecond.
+     */
     @Override
     public int getXpReward() {
-        return 10;
+        return 0;
     }
 
     @Override
@@ -64,20 +70,13 @@ public class FleshShield implements Ability {
     }
 
     /**
-     * Refuses without the XP to pay, or with nothing in front worth taking.
+     * Refuses with nothing in front worth taking.
      *
-     * Both checked before anything is spent. The second matters more than usual here:
-     * a shield of nobody would cost 100 xp and produce nothing at all.
+     * Checked before chi is spent, so a shield of nobody costs nothing rather than 100
+     * chi for an empty wall. The chi itself is the dispatcher's to gate.
      */
     @Override
     public boolean canStart(ServerPlayer player, BendingData data) {
-        if (data.getXp() < XP_COST) {
-            player.displayClientMessage(Component.literal(
-                    "Not enough XP! (Requires " + XP_COST + ")")
-                    .withStyle(ChatFormatting.DARK_RED), true);
-            return false;
-        }
-
         if (FleshShields.candidates(player).isEmpty()) {
             player.displayClientMessage(Component.literal(
                     "There is nobody to take.").withStyle(ChatFormatting.DARK_RED), true);
@@ -92,10 +91,7 @@ public class FleshShield implements Ability {
         List<LivingEntity> bodies = FleshShields.candidates(player);
         if (bodies.isEmpty()) return;
 
-        // Taken here rather than by the dispatcher, which only knows how to spend chi.
-        data.setXp(Math.max(0, data.getXp() - XP_COST));
-
         FleshShields.raise(player, bodies);
-        Blood.grantXp(player, data, getXpReward());
+        Blood.grantXp(player, data, BLOOD_XP);
     }
 }
