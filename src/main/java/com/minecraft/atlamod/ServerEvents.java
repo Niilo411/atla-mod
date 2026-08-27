@@ -48,6 +48,15 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.combustion.CombustionBeams.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.blood.BloodHolds.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.blood.FleshShields.tickAll(event.getServer());
+
+        com.minecraft.atlamod.abilities.lava.LavaRivers.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.lava.LavaGeysers.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.lava.LavaTsunamis.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.lava.LavaRains.tickAll(event.getServer());
+        // Ticked LAST of the lava group, for the reason MetalWorks and IceWorks are:
+        // the four above pour their own blocks through LavaWorks, so anything they lay
+        // this tick is already on its timer by the time the sweep runs.
+        com.minecraft.atlamod.abilities.lava.LavaWorks.tickAll(event.getServer());
         // Ticked LAST of the metal pair: the shields hand their own blocks back
         // through MetalWorks, so anything they release still gets settled here.
         com.minecraft.atlamod.abilities.metal.MetalWorks.tickAll(event.getServer());
@@ -88,6 +97,17 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetLevel(level);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetLevel(level);
             com.minecraft.atlamod.abilities.metal.MetalWorks.forgetLevel(level);
+
+            com.minecraft.atlamod.abilities.lava.LavaRivers.forgetLevel(level);
+            com.minecraft.atlamod.abilities.lava.LavaGeysers.forgetLevel(level);
+            com.minecraft.atlamod.abilities.lava.LavaTsunamis.forgetLevel(level);
+            com.minecraft.atlamod.abilities.lava.LavaRains.forgetLevel(level);
+            // Cools LAST: the four above hand their own blocks back through LavaWorks,
+            // so anything they release still gets settled by this sweep. It matters more
+            // here than anywhere else — lava left behind in an unloading level would be
+            // an unbreakable block nothing in the game could ever remove.
+            com.minecraft.atlamod.abilities.lava.LavaWorks.forgetLevel(level);
+
             // Melts LAST: the two above hand their own blocks back through IceWorks,
             // so anything they release still gets settled by this sweep.
             com.minecraft.atlamod.abilities.ice.IceWorks.forgetLevel(level);
@@ -154,6 +174,27 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(
                             net.minecraft.world.item.Items.RABBIT_FOOT, 5),
                     new net.minecraft.world.item.ItemStack(Atlamod.BLOOD_SCROLL.get()),
+                    2,
+                    12,
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Lavabending Scroll in the shepherd's book, for 5 nether bricks.
+     *
+     * Same two levels as the other six scrolls, for the same reason: a villager picks
+     * only a couple of trades at random from each level's pool.
+     */
+    @SubscribeEvent
+    public static void onShepherdTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.SHEPHERD) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.NETHER_BRICK, 5),
+                    new net.minecraft.world.item.ItemStack(Atlamod.LAVA_SCROLL.get()),
                     2,
                     12,
                     0.05F));
@@ -494,6 +535,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
         }
     }
 
@@ -532,6 +574,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -653,6 +696,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -750,6 +794,20 @@ public class ServerEvents {
             if (event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)
                     && data.hasPassiveEquipped(
                             com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
+                event.setCanceled(true);
+                return;
+            }
+
+            // Lava resistance: lava alone cannot touch them.
+            //
+            // Deliberately ONE damage type rather than the IS_FIRE tag Fire immunity
+            // uses — the design's word is "Lava only", so a lavabender wearing this
+            // still burns in an ordinary fire and still cooks on magma. Our own lava
+            // hurts through vanilla's own lava source (see Lava.scorch), so this one
+            // check covers real lava and every lava ability at once.
+            if (event.getSource().is(net.minecraft.world.damagesource.DamageTypes.LAVA)
+                    && data.hasPassiveEquipped(
+                            com.minecraft.atlamod.abilities.lava.LavaResistance.KEY)) {
                 event.setCanceled(true);
                 return;
             }
@@ -897,6 +955,23 @@ public class ServerEvents {
             // flames taking nothing, which reads as a bug rather than as immunity.
             if (player.isOnFire() && data.hasPassiveEquipped(
                     com.minecraft.atlamod.abilities.fire.FireImmunity.KEY)) {
+                player.clearFire();
+            }
+
+            // --- LAVA RESISTANCE PASSIVE ---
+            // The other half of it. Damage is cancelled in the damage handler, but
+            // burning is separate from being hurt by it — without this a bender stands
+            // in lava taking nothing while visibly ablaze, which reads as a bug rather
+            // than as protection. The same split Fire immunity needs.
+            //
+            // Only while they are actually IN lava, which is what keeps this "lava
+            // only" instead of a quiet second copy of Fire immunity: they leave with
+            // nothing alight because it was cleared on the way, but an ordinary fire
+            // still sets them burning and this never touches it. Our own lava never
+            // ignites them in the first place (see Lava.scorch), so this is really
+            // about the real stuff.
+            if (player.isInLava() && data.hasPassiveEquipped(
+                    com.minecraft.atlamod.abilities.lava.LavaResistance.KEY)) {
                 player.clearFire();
             }
 

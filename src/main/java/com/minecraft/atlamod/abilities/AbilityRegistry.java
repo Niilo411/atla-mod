@@ -227,6 +227,18 @@ public final class AbilityRegistry {
         // --- BLOOD : Right (the design has only these two so far) ---
         register(new com.minecraft.atlamod.abilities.blood.BloodStrength());
         register(new com.minecraft.atlamod.abilities.blood.FleshShield());
+
+        // --- LAVA : Left (the seventh sub-element, out of earth) ---
+        register(new com.minecraft.atlamod.abilities.lava.LavaRiver());
+        register(new com.minecraft.atlamod.abilities.lava.LavaGeyser());
+        register(new com.minecraft.atlamod.abilities.lava.LavaSinkhole());
+        register(new com.minecraft.atlamod.abilities.lava.LavaTsunami());
+
+        // --- LAVA : Right ---
+        register(new com.minecraft.atlamod.abilities.lava.LavaWall());
+        register(new com.minecraft.atlamod.abilities.lava.LavaResistance());
+        register(new com.minecraft.atlamod.abilities.lava.LavaThrow());
+        register(new com.minecraft.atlamod.abilities.lava.LavaRain());
     }
 
     public static void register(Ability ability) {

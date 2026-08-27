@@ -1114,6 +1114,161 @@ experience track of its own.
   neither.
 - **Whether Blood strength must be EQUIPPED to protect** — see above.
 
+## Lavabending (the seventh SUB-element)
+
+The second element to come out of earthbending, and the one with the most dangerous
+material in the game to hand.
+
+- **Getting it**: a village SHEPHERD sells the Lavabending Scroll for 5 nether bricks,
+  at trade levels 1 and 3. Reading it needs **ALL FOUR** earthbending paths — like the
+  combustion and blood scrolls and unlike the first four, because lava is the end of the
+  earth road rather than a branch off it. It burns itself and sets four blocks of
+  temporary lava down around the reader, which cool away after five seconds.
+- Those four blocks are OUR lava, not the real thing, so they take nothing with them.
+  That is the opposite call to the combustion scroll's four sticks of live TNT, and
+  deliberately so: a misfire is combustion's whole character, where lavabending's is
+  that the lava is always given back.
+- Left path: Lava river, Lava geyser, Lava sinkhole, Lava tsunami
+- Right path: Lava wall, Lava resistance, Lava throw, lava rain
+
+### The block is the element
+
+- **`BendingLavaBlock` exists because REAL LAVA FLOWS**, and that single fact decides
+  the shape of everything else. Placing a lava source spawns flowing lava into every
+  space beside and below it, none of which any tracker knows about — so a "temporary"
+  wall of real lava would leave a permanent lava field behind it, burn down whatever was
+  nearby, and be impossible to take back. Tsunami's flooding note documents the same trap
+  for water, where the timing could just about be worked around at five ticks; lava's
+  spread delay is thirty, and nothing in this element is short enough to beat it.
+- So it does not flow, does not spread, and schedules itself no tick. Everything else
+  about it is deliberately lava: **no collision** so things fall in rather than standing
+  on it, light level 15, and it burns and hurts whatever is inside it through
+  `entityInside`. It wears vanilla's `lava_still` texture on a plain cube, which ships
+  animated, so the block animates for free and needs no art.
+- **It is UNBREAKABLE**, for the same reason `BendingMetalBlock` is: every ability that
+  places it is borrowing it, and a bender who could mine their own lava would have an
+  infinite supply.
+- **`noCollission` also settles two questions that would otherwise need code.** An empty
+  collision shape makes `isSolid()` false, so `Lava.footing` never treats our own lava as
+  ground and a wave cannot climb its own back; and it makes `blocksMotion()` false, so
+  nothing suffocates in it — Minecraft only smothers something inside a block that blocks
+  motion.
+- **`LavaWorks` is lavabending's `IceWorks`** and keeps the same rule, which matters more
+  here than anywhere else in the mod: an ability may only ever fill AIR, and whatever it
+  fills it takes back. Lava is the one material a bender could use to erase a build
+  outright.
+- What it does NOT share with IceWorks is the material question, because there isn't one.
+  Ice has to be PACKED ice or it melts to water and floods somebody's build; our lava is
+  a block of our own that does nothing on its own at all.
+
+### Lava throw is the one exception, and it is the design's word
+
+- **Lava throw places REAL vanilla lava and does not go through `LavaWorks`.** The design
+  says "permanent" in so many words, so its four blobs leave lava that flows, spreads,
+  and will never be taken away. It is the only ability in the element that changes the
+  world, and it is priced for it — four blocks, and five seconds before another four.
+- Real lava also means the blobs only ever land in AIR. A blob that overwrote whatever it
+  struck would make a five second cooldown into a demolition tool. Landing against
+  something solid therefore only burns, which is the honest outcome: the lava hit the
+  wall rather than becoming it.
+
+### No element-wide wind-up
+
+Lightning has one and combustion has one because the design gave every ability in those
+elements a charge. The lava design gives a charge time to exactly two of its eight — Lava
+throw's two seconds and lava rain's five — so the other six go off on the press like
+ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one out.
+
+### Lava resistance is deliberately NOT Fire immunity
+
+- The design's words are "fire resistance to Lava only", and the "only" is the whole
+  ability. Fire immunity over in the fire masterclass cancels the entire `IS_FIRE` tag;
+  this cancels exactly ONE damage type, so a lavabender wearing it still burns in an
+  ordinary fire, still takes a Fire Breath in the face, and still cooks on magma. What
+  they can do is walk through their own work — which an element whose every ability drops
+  a hazard at the bender's own feet needs. It is Combustion resistance's counterpart, not
+  Fire immunity's.
+- **One damage type covers everything because `Lava.scorch` uses vanilla's own lava
+  source.** Our block hurts through `damageSources().lava()` rather than through a bending
+  source, so the passive is one check against `DamageTypes.LAVA` instead of a list of
+  ability names — and our lava is indistinguishable from the real thing to everything else
+  in the game as a bonus.
+- **Two halves, in two places, exactly as Fire immunity needs.** Damage is cancelled in
+  the damage handler; the BURNING is cleared in the player tick, because cancelling only
+  the damage leaves a bender standing in lava taking nothing while visibly ablaze. The
+  fire ticks are cleared only while they are actually IN lava, which is what keeps it
+  "lava only" — and they leave with nothing alight because it was cleared on the way, so
+  stepping out is clean without the check ever reaching beyond lava.
+
+### The rest
+
+- **Lava river lays its trail and keeps it; Lava tsunami carries its wall along.** That is
+  the difference between the two shapes and it is worth knowing which is which. The river
+  hands every block straight to `LavaWorks` with its own timer, so it drains from the near
+  end first exactly as it was laid; the wave is `Tsunamis`' moving BODY, laid at the front
+  and taken up at the back, and keeps its own slices because it takes them up on its own
+  schedule as it moves rather than on a timer each was given.
+- **The lava wave does NOT have water's flooding invariant.** That whole comment —
+  `BODY_DEPTH * ADVANCE_EVERY` must stay under 5 — exists because vanilla water schedules
+  itself to spread five ticks after placement and `UPDATE_CLIENTS` does not suppress that.
+  Our lava schedules itself nothing, so the body is three slices deep at a step every two
+  ticks with no risk at all. That freedom is exactly what the custom block bought.
+- **A river stops at a wall rather than skipping it.** If the MIDDLE column can find no
+  footing the river ends there; only the two side columns are allowed to fail
+  individually. Its ground scan is asymmetric on purpose (1 up, 4 down) — lava pours
+  downhill happily and climbs nothing.
+- **A geyser has no owner**, the same distinction `AirSpouts` draws between a Tornado and
+  a placed spout: it is a hazard put in a place with a clock of its own, so it keeps
+  erupting whether or not the bender is still standing there, still in the level, or still
+  logged in. And it throws EVERYONE — `null` to `getEntities` is what makes that work,
+  since that argument is the entity to SKIP.
+- **Lava geyser is Air spout's shape** (arm the slot, one geyser per left click) because
+  "create 3" wants three PLACED things. A cast that dropped all three at once would bunch
+  them within a couple of blocks and give the bender no say in where any went.
+- **Lava sinkhole borrows BOTH halves**: the pit is dug with `EarthWorks.openFor`, which
+  is Earth sink's own trick, and the lava is poured in with `LavaWorks`. Both are given
+  back.
+- **Its two timers are NOT the same length, and that is load-bearing.** EarthWorks only
+  closes a hole back up into EMPTY space — somebody may have built in it. So the lava has
+  to be gone BEFORE the ground returns, or the ground would find our own lava in the way,
+  refuse to close, and leave a permanent pit. Lava 300 ticks, ground 320.
+- **lava rain caps each puddle TWICE** — at five seconds, and again at whatever is left of
+  the storm. The second cap is what makes the design's "after that it all disappears" true
+  exactly: a drop landing in the storm's last second leaves lava for one second. It also
+  means the puddles cool continuously instead of every one of them vanishing on the same
+  tick, which would be both a visible pop and a spike of block updates.
+- Its drops are scattered by AREA, not by radius — the square root, the same trick Ice
+  barrage uses, since a ring at r=15 holds five times the ground of one at r=3. Two drops
+  a tick rather than enough to fill the circle: seven hundred columns of light-emitting
+  block alive at once would be asking the light engine to relight the neighbourhood every
+  tick.
+- **A rain drop leaves no puddle if the space is taken, and there is no fallback.** Our
+  lava does not block a projectile, so a drop landing where an earlier one has already
+  puddled falls straight through it and reports the puddle's own position; retrying a
+  block higher would stack a second one on top and a storm would build towers.
+- **lava rain does not spare its caster's feet.** The drops themselves skip the owner —
+  that falls out of how `BendingProjectiles` picks targets — but the lava they leave is
+  lava, and a bender standing in the middle of their own storm burns in it. Which is what
+  Lava resistance is for, and pairs the two the way Fire Rain pairs with Fire immunity.
+- **`Style.LAVA`** was added to `BendingProjectiles` for the throw and the rain. Its
+  particles are given no velocity because the LAVA particle already falls on its own, so a
+  blob leaves a short trail without a second style having to be invented for one. Both
+  users carry their real payload in the impact hook rather than in the style.
+- **Lava tsunami's four hp is the BONUS, not the damage.** The lava does its own work
+  through the block for as long as anything is inside it; the four is what the wave adds
+  on top for being hit by it.
+
+### Figures that were NOT in the design
+
+- **Lava wall's height** (3) — the design gives it none.
+- **Lava river's reach** (20 blocks) and **how long its lava lasts** (15s) — the design
+  gives neither.
+- **Lava geyser's reach** (20 blocks) and **how often it erupts** (every 2s) — the design
+  says only "spews out lava".
+- **Lava sinkhole's reach** (20 blocks), **width** (5 across) and **depth** (4).
+- **Combustion bombardment's blast size** is the nearest precedent for all of these:
+  named but unnumbered in the design, so flagged INVENTED in the source.
+
 ## The Avatar
 
 Four commands, covered by the permission gate on the `/bend` root:
@@ -2120,7 +2275,8 @@ Four commands, covered by the permission gate on the `/bend` root:
 - **FIRE IS COMPLETE — all 16 abilities across all 4 paths.**
 - **WATER IS COMPLETE — all 12 abilities across all 4 paths.**
 - **EARTH IS COMPLETE — all 13 abilities across all 4 paths.**
-- **ALL FOUR ELEMENTS ARE BUILT**, 54 registrations in `AbilityRegistry.bootstrap()`.
+- **ALL FOUR ELEMENTS ARE BUILT**, and seven sub-elements on top of them — 106
+  registrations in `AbilityRegistry.bootstrap()`.
   Everything from here is tuning, upgrades and polish rather than new paths.
 - Previously built with Gemini; switched to Claude as primary coding partner because
   Gemini was getting inconsistent on a project this size

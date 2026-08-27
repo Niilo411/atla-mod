@@ -48,6 +48,8 @@ public final class ElementPaths {
                     "Combustion Beam", "Combustion nuke"};
             case "blood" -> new String[]{
                     "Blood freeze", "Blood Slow", "Blood suck", "Blood manipulation"};
+            case "lava" -> new String[]{
+                    "Lava river", "Lava geyser", "Lava sinkhole", "Lava tsunami"};
             default -> NONE;
         };
     }
@@ -73,6 +75,8 @@ public final class ElementPaths {
             // The design has two on blood's right path so far and says "wip" for the
             // third. Two is enough for the tree to draw an arm.
             case "blood" -> new String[]{"Blood strength", "Flesh shield"};
+            case "lava" -> new String[]{
+                    "Lava wall", "Lava resistance", "Lava throw", "lava rain"};
             default -> NONE;
         };
     }
@@ -141,7 +145,8 @@ public final class ElementPaths {
 
     /** Every element with a tree, in no particular order. */
     private static final String[] ELEMENTS = {
-            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion", "blood"
+            "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion",
+            "blood", "lava"
     };
 
     /**

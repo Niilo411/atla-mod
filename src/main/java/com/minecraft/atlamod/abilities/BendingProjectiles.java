@@ -95,7 +95,10 @@ public final class BendingProjectiles {
          * signature, so the particles are given no velocity at all and simply hang
          * where the shot passed.
          */
-        COMBUSTION
+        COMBUSTION,
+
+        /** A blob of molten rock, trailing droplets and smoke as it goes. */
+        LAVA
     }
 
     /**
@@ -360,6 +363,14 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.END_ROD, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
                 shot.level.sendParticles(ParticleTypes.SMOKE, x, y, z, 2, 0.04, 0.04, 0.04, 0.0);
             }
+            case LAVA -> {
+                // Molten, and visibly dripping: the LAVA particle already falls on its
+                // own, so a blob leaves a short trail behind it without a second style
+                // having to be invented for one.
+                shot.level.sendParticles(ParticleTypes.LAVA, x, y, z, 2, 0.12, 0.12, 0.12, 0.0);
+                shot.level.sendParticles(ParticleTypes.FLAME, x, y, z, 3, 0.1, 0.1, 0.1, 0.01);
+                shot.level.sendParticles(ParticleTypes.SMOKE, x, y, z, 2, 0.1, 0.1, 0.1, 0.01);
+            }
             case BLOCK -> {
                 // Nothing is drawn: the block IS the entity, just moved along.
                 if (shot.display != null && shot.display.isAlive()) {
@@ -444,6 +455,16 @@ public final class BendingProjectiles {
                 shot.level.sendParticles(ParticleTypes.ITEM_SNOWBALL, x, y, z, 15, 0.3, 0.3, 0.3, 0.25);
                 shot.level.playSound(null, x, y, z,
                         SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.7F, 1.4F);
+            }
+            case LAVA -> {
+                // Whatever the shot leaves behind is its impact hook's business — real
+                // lava for a throw, a temporary puddle for a rain drop. This is only
+                // the splash.
+                shot.level.sendParticles(ParticleTypes.LAVA, x, y, z, 25, 0.4, 0.4, 0.4, 0.0);
+                shot.level.sendParticles(ParticleTypes.FLAME, x, y, z, 20, 0.4, 0.4, 0.4, 0.06);
+                shot.level.sendParticles(ParticleTypes.LARGE_SMOKE, x, y, z, 10, 0.4, 0.4, 0.4, 0.03);
+                shot.level.playSound(null, x, y, z,
+                        SoundEvents.LAVA_EXTINGUISH, SoundSource.PLAYERS, 0.8F, 0.8F);
             }
             case BLOCK -> landBlock(shot, x, y, z);
             case AIR -> {

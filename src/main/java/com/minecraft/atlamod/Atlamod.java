@@ -55,6 +55,27 @@ public class Atlamod {
     public static final DeferredItem<Item> BLOOD_SCROLL = ITEMS.register("blood_scroll",
             () -> new BloodScrollItem(new Item.Properties()));
 
+    // Lavabending's lava: never flows, never spreads, and always taken back. It is
+    // UNBREAKABLE for the same reason BENDING_METAL is — every ability that places it
+    // is borrowing it. No BlockItem: nothing should ever hold one.
+    //
+    // noCollission is what makes it behave like lava rather than like a glowing wall:
+    // things fall into it rather than standing on it, and nothing suffocates in it,
+    // since vanilla only smothers something inside a block that blocks motion.
+    public static final DeferredBlock<Block> BENDING_LAVA = BLOCKS.register("bending_lava",
+            () -> new BendingLavaBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.FIRE)
+                    .noCollission()
+                    .strength(-1.0F, 3600000.0F)
+                    .lightLevel(state -> 15)
+                    .sound(net.minecraft.world.level.block.SoundType.STONE)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
+                    .noLootTable()));
+
+    // Lavabending's key. Bought from a village shepherd, read once, spent.
+    public static final DeferredItem<Item> LAVA_SCROLL = ITEMS.register("lava_scroll",
+            () -> new LavaScrollItem(new Item.Properties()));
+
     // Combustionbending's key. Bought from a village armorer, read once, spent.
     public static final DeferredItem<Item> COMBUSTION_SCROLL = ITEMS.register("combustion_scroll",
             () -> new CombustionScrollItem(new Item.Properties()));
@@ -174,6 +195,7 @@ public class Atlamod {
             event.accept(METAL_SCROLL);
             event.accept(COMBUSTION_SCROLL);
             event.accept(BLOOD_SCROLL);
+            event.accept(LAVA_SCROLL);
         }
     }
 
