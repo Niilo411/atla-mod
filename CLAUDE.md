@@ -942,10 +942,26 @@ The steepest of the five, and the only one that can kill its own bender by accid
   not the two every other scroll asks for — combustion is the end of the fire road
   rather than a branch off it. It destroys the scroll and sets four sticks of primed
   TNT down in a square around the reader.
-- **Those four sticks are REAL primed TNT with a full fuse.** The design asks for them,
-  and the element blows its own bender up for hesitating, so being given a few seconds
-  to run is the introduction. Placed at the CORNERS rather than underfoot, so a reader
-  who moves lives — the point is the fright, not the death.
+- **Those four sticks are REAL primed TNT with a full fuse**, and they will wreck the
+  ground and anything else standing there — but NOT the reader. A short blast-immunity
+  window (`BendingData.blastImmuneTicks`, 140 ticks, comfortably past a TNT fuse) is
+  set as the scroll is read and checked first in the damage handler. Blowing up the
+  person who just finished all four fire paths is a poor reward; frightening everything
+  around them is the point.
+- **Combustion Beam is billed by the SECOND** (15 chi/sec) from the player tick, the
+  same way Sound wall and Metal shield are, and switches itself off when the chi runs
+  out. A toggle that cost a lump sum and then ran forever would have no limit beyond
+  the bender remembering to stop.
+- **Combustion nuke costs 1000 chi**, which makes it uncastable below level 5 since
+  `getMaxChi()` is `500 + level*100` — the same gate Fire Rain, Tsunami and an upgraded
+  Lightning Swarm have.
+- **`UpgradeMenuScreen.drawFitted` shrinks a name to fit its box** rather than letting
+  it spill over its neighbours. Every slot and list row in the equip and passive tabs is
+  70 pixels wide, which is comfortable for "Ignite" and hopeless for "Combustion
+  bombardment" — at full size that one is nearly twice the width of its own box and runs
+  straight through the two beside it. Scaled through the pose stack, since there is only
+  one font; anything still too wide at half size is cut and given an ellipsis, so a row
+  is never wider than the thing it labels.
 - Left path: Combustion bombardment, Explosive combustion, Combustion Beam,
   Combustion nuke
 - Right path: Combustion resistance (the design says "Wip" beneath it)

@@ -472,6 +472,20 @@ public class BendingData {
     public int getCompressedPunchTicks() { return compressedPunchTicks; }
     public void setCompressedPunchTicks(int ticks) { this.compressedPunchTicks = Math.max(0, ticks); }
 
+    // --- COMBUSTION SCROLL ---
+    // Ticks left in which explosions cannot touch this player at all.
+    //
+    // Only the Combustionbending Scroll sets it. The four sticks it puts down are real
+    // primed TNT and are meant to frighten everything nearby, but blowing up the person
+    // who just earned the element is a poor reward — so they are spared, and only them.
+    //
+    // Transient: the window is a few seconds and a relog through it is not worth
+    // persisting.
+    private transient int blastImmuneTicks = 0;
+
+    public int getBlastImmuneTicks() { return blastImmuneTicks; }
+    public void setBlastImmuneTicks(int ticks) { this.blastImmuneTicks = Math.max(0, ticks); }
+
     // --- BENDING LOCKOUT ---
     // Ticks left during which this player cannot bend at all. Deafen is the only
     // thing that sets it.

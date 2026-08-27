@@ -226,7 +226,7 @@ public class UpgradeMenuScreen extends Screen {
 
             String equipped = data.getEquippedAbility(i);
             if (!equipped.isEmpty()) {
-                graphics.drawCenteredString(this.font, "§e" + equipped, x + 35, y + 20, 0xFFFFFF);
+                drawFitted(graphics, "§e" + equipped, x + 35, y + 20, 66, 0xFFFFFF);
             }
         }
 
@@ -248,7 +248,7 @@ public class UpgradeMenuScreen extends Screen {
 
             graphics.fill(ax, ay, ax + 70, ay + 20, 0xFF222222);
             graphics.renderOutline(ax, ay, 70, 20, 0xFF777777);
-            graphics.drawCenteredString(this.font, ability, ax + 35, ay + 6, 0xFFFFFF);
+            drawFitted(graphics, ability, ax + 35, ay + 6, 66, 0xFFFFFF);
         }
         drawTabs(graphics);
     }
@@ -454,6 +454,56 @@ public class UpgradeMenuScreen extends Screen {
         };
     }
 
+    /**
+     * How narrow a name may be squeezed before it is cut short instead.
+     *
+     * Below about half size the font stops being readable at all, so past that point
+     * trimming the name is kinder than shrinking it further.
+     */
+    private static final float MIN_LABEL_SCALE = 0.5F;
+
+    /**
+     * Draws a name centred in a box, shrinking it to fit rather than letting it spill
+     * out over its neighbours.
+     *
+     * Every slot and list row in the equip and passive tabs is 70 pixels wide, which is
+     * comfortable for "Ignite" and hopeless for "Combustion bombardment" — at full size
+     * that one is nearly twice the width of its own box and runs straight through the
+     * two beside it.
+     *
+     * Scaled through the pose stack rather than by picking a smaller font, because
+     * there is only one font: the transform is what makes an arbitrary name fit an
+     * arbitrary box. Anything still too wide at the minimum scale is cut and given an
+     * ellipsis, so the row is never wider than the thing it is labelling.
+     */
+    private void drawFitted(GuiGraphics graphics, String text, int centerX, int y,
+                            int maxWidth, int colour) {
+        int width = this.font.width(text);
+
+        if (width <= maxWidth) {
+            graphics.drawCenteredString(this.font, text, centerX, y, colour);
+            return;
+        }
+
+        float scale = Math.max(MIN_LABEL_SCALE, maxWidth / (float) width);
+
+        // Still over even squeezed as far as it goes: take characters off the end
+        // until what is left fits at that scale.
+        String shown = text;
+        while (this.font.width(shown + "...") * scale > maxWidth && shown.length() > 1) {
+            shown = shown.substring(0, shown.length() - 1);
+        }
+        if (!shown.equals(text)) shown = shown + "...";
+
+        graphics.pose().pushPose();
+        graphics.pose().translate(centerX, y, 0.0F);
+        graphics.pose().scale(scale, scale, 1.0F);
+
+        graphics.drawString(this.font, shown, -this.font.width(shown) / 2, 0, colour);
+
+        graphics.pose().popPose();
+    }
+
     /** Left edge of tab {@code index}, laid out as one centred row. */
     private int tabX(int index) {
         int totalWidth = (TAB_W * TAB_NAMES.length) + (6 * (TAB_NAMES.length - 1));
@@ -537,8 +587,8 @@ public class UpgradeMenuScreen extends Screen {
             graphics.renderOutline(sx, sy, 70, 40, filled ? 0xFFFFAA33 : 0xFF555555);
 
             graphics.drawCenteredString(this.font, "Slot " + (i + 1), sx + 35, sy + 5, 0xAAAAAA);
-            graphics.drawCenteredString(this.font, filled ? equipped : "- empty -",
-                    sx + 35, sy + 20, filled ? 0xFFCC66 : 0x666666);
+            drawFitted(graphics, filled ? equipped : "- empty -",
+                    sx + 35, sy + 20, 66, filled ? 0xFFCC66 : 0x666666);
         }
 
         graphics.drawCenteredString(this.font,
@@ -565,7 +615,7 @@ public class UpgradeMenuScreen extends Screen {
             boolean selected = passive.equals(selectedPassiveToEquip);
             graphics.fill(ax, ay, ax + 70, ay + 20, selected ? 0xFF554400 : 0xFF222222);
             graphics.renderOutline(ax, ay, 70, 20, selected ? 0xFFFFAA33 : 0xFF777777);
-            graphics.drawCenteredString(this.font, passive, ax + 35, ay + 6, 0xFFFFFF);
+            drawFitted(graphics, passive, ax + 35, ay + 6, 66, 0xFFFFFF);
 
             // Hovering shows what the passive actually does.
             if (mouseX >= ax && mouseX <= ax + 70 && mouseY >= ay && mouseY <= ay + 20) {

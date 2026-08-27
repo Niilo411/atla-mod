@@ -42,6 +42,14 @@ public class CombustionScrollItem extends Item {
     /** How far out to each corner the TNT is set, in blocks. */
     private static final int SQUARE = 2;
 
+    /**
+     * How long the reader is untouchable by explosions, in ticks.
+     *
+     * Comfortably longer than a TNT fuse (80), so all four go off inside the window
+     * however the timing falls.
+     */
+    private static final int IMMUNE_TICKS = 140;
+
     public CombustionScrollItem(Properties properties) {
         super(properties.stacksTo(1));
     }
@@ -87,6 +95,13 @@ public class CombustionScrollItem extends Item {
                 data.getEquippedAbilities()));
 
         if (level instanceof ServerLevel serverLevel) {
+            // The reader is spared their own welcome. The four sticks are real and will
+            // wreck the ground and anything else standing there, but blowing up the
+            // person who just earned the element is a poor reward for finishing all
+            // four fire paths.
+            data.setBlastImmuneTicks(IMMUNE_TICKS);
+            serverPlayer.setData(ModAttachments.BENDING_DATA, data);
+
             ring(serverLevel, serverPlayer);
         }
 

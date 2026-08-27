@@ -25,14 +25,26 @@ public class CombustionBeam implements ChargedAbility {
         return "Combustion Beam";
     }
 
+    /** Chi drained per second while it is up. */
+    public static final int CHI_PER_SECOND = 15;
+
+    /** XP paid per second while it is up. */
+    public static final int XP_PER_SECOND = 1;
+
+    /**
+     * Nothing up front: the beam is billed by the SECOND from the player tick, the same
+     * way Sound wall and Metal shield are, and switches itself off when the chi runs
+     * out. A toggle that cost a lump sum and then ran forever would have no limit at
+     * all beyond the bender remembering to stop.
+     */
     @Override
     public int getChiCost(BendingData data) {
-        return 100;
+        return 0;
     }
 
     @Override
     public int getXpReward() {
-        return 10;
+        return 0; // Paid by the second instead.
     }
 
     @Override

@@ -710,6 +710,15 @@ public class ServerEvents {
             }
         }
 
+        // The Combustionbending Scroll spares its own reader. Checked BEFORE the
+        // resistance passive below, because this is a flat no rather than a reduction.
+        if (event.getEntity() instanceof ServerPlayer reader
+                && event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
+                && reader.getData(ModAttachments.BENDING_DATA).getBlastImmuneTicks() > 0) {
+            event.setCanceled(true);
+            return;
+        }
+
         // Combustion resistance: explosions do a quarter of their damage.
         //
         // Done here because vanilla has no explosion-resistance attribute to modify —
@@ -957,6 +966,11 @@ public class ServerEvents {
             // or the chi runs out is as much this call's job as granting it.
             com.minecraft.atlamod.abilities.air.Flight.tick(player, data);
 
+            // --- COMBUSTION SCROLL BLAST IMMUNITY ---
+            if (data.getBlastImmuneTicks() > 0) {
+                data.setBlastImmuneTicks(data.getBlastImmuneTicks() - 1);
+            }
+
             // --- BENDING LOCKOUT (Deafen) ---
             if (data.getBendingLockedTicks() > 0) {
                 data.setBendingLockedTicks(data.getBendingLockedTicks() - 1);
@@ -982,6 +996,14 @@ public class ServerEvents {
                 // of chi must not be a cheaper way to end it than running out of time.
                 if (outOfTime || !affordable) {
                     com.minecraft.atlamod.abilities.sound.CompressedPunches.stop(player, data);
+                }
+            }
+
+            if (com.minecraft.atlamod.abilities.combustion.CombustionBeams.has(player)) {
+                if (!chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.combustion.CombustionBeam.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.combustion.CombustionBeam.XP_PER_SECOND)) {
+                    com.minecraft.atlamod.abilities.combustion.CombustionBeams.stop(player);
                 }
             }
 

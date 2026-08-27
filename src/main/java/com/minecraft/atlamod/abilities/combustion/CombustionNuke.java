@@ -44,7 +44,7 @@ public class CombustionNuke implements ChargedAbility {
 
     @Override
     public int getChiCost(BendingData data) {
-        return 200;
+        return 1000;
     }
 
     @Override
@@ -52,10 +52,14 @@ public class CombustionNuke implements ChargedAbility {
         return 20;
     }
 
-    /** One second, as specced. The ten second wind-up is the real limit. */
+    /**
+     * Two seconds. The ten second wind-up and the 1000 chi are the real limits — at
+     * that price it is uncastable below level 5, since getMaxChi is 500 + level*100.
+     * A gate rather than a bug, and the same one Fire Rain and Tsunami have.
+     */
     @Override
     public int getCooldownTicks() {
-        return 20;
+        return 40;
     }
 
     @Override
