@@ -19,7 +19,7 @@ import java.util.UUID;
  * Every freezing beam currently running.
  *
  * The beam is a ball of ice that floats beside the bender and fires a continuous line
- * down their crosshair for twenty seconds — so it needs to outlive the click that
+ * down their crosshair for ten seconds — so it needs to outlive the click that
  * started it, which is why it is tracked here rather than being done inside the
  * ability.
  *
@@ -30,7 +30,7 @@ import java.util.UUID;
 public final class FreezingBeams {
 
     /** How long the beam runs once started. */
-    public static final int DURATION = 400; // 20 seconds
+    public static final int DURATION = 200; // 10 seconds
 
     /** How far the beam reaches, in blocks. */
     private static final double REACH = 25.0;

@@ -37,6 +37,19 @@ public class EarthPillar extends RaisedEarth {
         return 1;
     }
 
+    /**
+     * Half again as fast as a wall — thirteen ticks a block against twenty.
+     *
+     * A wall is cover, and taking its time coming up is part of what it is; a pillar
+     * is a step, and a bender who wants to be four blocks higher wants to be there
+     * now. Nothing else about the raise changes, so a full seven-block pillar still
+     * costs the same held key, just less of it.
+     */
+    @Override
+    protected int ticksPerLayer() {
+        return 13;
+    }
+
     /** One column, standing where the wall's middle would have been. */
     @Override
     protected List<BlockPos> surfaces(ServerPlayer player) {

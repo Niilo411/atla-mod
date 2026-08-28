@@ -32,7 +32,7 @@ import java.util.UUID;
 public final class MetalShields {
 
     /** How far in front of the bender the shield hangs. */
-    private static final double DISTANCE = 2.0;
+    private static final double DISTANCE = 3.0;
 
     /** Half the shield's width, in blocks — three columns across. */
     private static final int HALF_WIDTH = 1;

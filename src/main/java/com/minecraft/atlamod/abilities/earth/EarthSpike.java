@@ -90,7 +90,7 @@ public class EarthSpike implements Ability {
 
     @Override
     public int getCooldownTicks() {
-        return 0;
+        return 20; // 1 second
     }
 
     /** Refused for free when there is no ground where the bender is looking. */

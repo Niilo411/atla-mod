@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.Blocks;
  *
  * Waterbending's Water Sphere holds the sea BACK; this one is the opposite idea, and
  * the opposite use: it is cover. The bender is sealed inside something that has to be
- * broken through, which is why it needs five seconds to raise and cannot be thrown up
+ * broken through, which is why it needs a wind-up to raise and cannot be thrown up
  * the moment trouble arrives.
  *
  * The shell is hollow, and deliberately so — the two blocks the bender occupies are
@@ -58,7 +58,7 @@ public class IceSphere implements ChargedAbility {
 
     @Override
     public int getChargeTicks() {
-        return 100; // 5 seconds
+        return 40; // 2 seconds
     }
 
     @Override

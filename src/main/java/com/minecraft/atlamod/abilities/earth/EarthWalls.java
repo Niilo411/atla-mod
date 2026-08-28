@@ -30,8 +30,15 @@ public final class EarthWalls {
     /** Tallest a wall will grow, however long the key is held. */
     public static final int MAX_LAYERS = 7;
 
-    /** One block per second of holding. */
-    private static final int TICKS_PER_LAYER = 20;
+    /**
+     * One block per second of holding — the ordinary rate, and Earth wall's.
+     *
+     * A wall is not the only thing raised through here any more, so this is a DEFAULT
+     * rather than the rate: Earth pillar comes up half again as fast, on the grounds
+     * that one column is a step to stand on and waiting seven seconds for it defeats
+     * the point. Each wall carries its own figure — see {@link #begin}.
+     */
+    public static final int TICKS_PER_LAYER = 20;
 
     /** How long a finished wall stands before it sinks. */
     private static final int STAND_TICKS = 600; // 30 seconds
@@ -57,17 +64,22 @@ public final class EarthWalls {
         /** What was actually placed, layer by layer, so it can be taken back exactly. */
         final List<List<BlockPos>> layers = new ArrayList<>();
 
+        /** How long this particular raise takes per layer. See TICKS_PER_LAYER. */
+        final int ticksPerLayer;
+
         boolean growing = true;
         int sinceLayer;
         int standTicks;
         boolean sinking;
         int sinceSink;
 
-        Wall(ServerLevel level, UUID ownerId, List<BlockPos> surfaces, List<BlockState> materials) {
+        Wall(ServerLevel level, UUID ownerId, List<BlockPos> surfaces, List<BlockState> materials,
+             int ticksPerLayer) {
             this.level = level;
             this.ownerId = ownerId;
             this.surfaces = surfaces;
             this.materials = materials;
+            this.ticksPerLayer = ticksPerLayer;
         }
     }
 
@@ -77,7 +89,8 @@ public final class EarthWalls {
      *
      * @return false if there was nowhere to put it, in which case nothing was changed
      */
-    public static boolean begin(ServerPlayer player, List<BlockPos> surfaces, List<BlockState> materials) {
+    public static boolean begin(ServerPlayer player, List<BlockPos> surfaces, List<BlockState> materials,
+                                int ticksPerLayer) {
         if (!(player.level() instanceof ServerLevel level)) return false;
         if (surfaces.isEmpty()) return false;
 
@@ -85,7 +98,7 @@ public final class EarthWalls {
         // leave the first one growing forever with nothing to stop it.
         stopGrowing(player);
 
-        Wall wall = new Wall(level, player.getUUID(), surfaces, materials);
+        Wall wall = new Wall(level, player.getUUID(), surfaces, materials, ticksPerLayer);
         if (!addLayer(wall)) return false;
 
         ACTIVE.add(wall);
@@ -125,7 +138,7 @@ public final class EarthWalls {
             // of the key, so the wall finishes at whatever height it reached.
             if (server.getPlayerList().getPlayer(wall.ownerId) == null) {
                 finishGrowing(wall);
-            } else if (++wall.sinceLayer >= TICKS_PER_LAYER) {
+            } else if (++wall.sinceLayer >= wall.ticksPerLayer) {
                 wall.sinceLayer = 0;
                 if (!addLayer(wall) || wall.layers.size() >= MAX_LAYERS) {
                     finishGrowing(wall);

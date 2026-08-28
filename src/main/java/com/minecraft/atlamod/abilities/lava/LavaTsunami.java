@@ -1,7 +1,8 @@
 package com.minecraft.atlamod.abilities.lava;
 
 import com.minecraft.atlamod.BendingData;
-import com.minecraft.atlamod.abilities.Ability;
+import com.minecraft.atlamod.abilities.ChargedAbility;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 
@@ -16,7 +17,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * The wave takes its own lava up behind itself as it travels — see {@link LavaTsunamis}.
  */
-public class LavaTsunami implements Ability {
+public class LavaTsunami implements ChargedAbility {
 
     /** How far it rolls, in blocks. The design's thirty. */
     private static final int RANGE = 30;
@@ -45,6 +46,35 @@ public class LavaTsunami implements Ability {
     @Override
     public int getCooldownTicks() {
         return 800; // 40 seconds
+    }
+
+    /**
+     * Five seconds of gathering before the wave goes anywhere.
+     *
+     * The heaviest thing in the element and now the slowest to start, which is the
+     * point: thirty blocks of moving lava should be something anyone nearby can see
+     * coming and get out of the way of. Letting go early simply cancels, and costs
+     * nothing — this is not combustion, and there is no misfire in lavabending.
+     */
+    @Override
+    public int getChargeTicks() {
+        return 100; // 5 seconds
+    }
+
+    /** The ground shaking itself loose, building as the wave gathers. */
+    @Override
+    public void onChargeTick(ServerPlayer player, BendingData data, int ticksHeld) {
+        ServerLevel level = (ServerLevel) player.level();
+
+        double progress = ticksHeld / (double) getChargeTicks();
+        Vec3 ahead = player.position().add(Lava.flatLook(player).scale(OFFSET));
+
+        Lava.spatter(level, ahead, 4 + (int) (progress * 12), 1.0 + (progress * 3.0));
+
+        // Once a second, so five seconds of holding still has a shape to it.
+        if (ticksHeld % 20 == 0) {
+            Lava.roar(level, player.position(), 1.2F, 0.5F + (float) progress * 0.4F);
+        }
     }
 
     @Override

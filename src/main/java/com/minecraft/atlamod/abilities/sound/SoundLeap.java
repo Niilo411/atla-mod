@@ -41,7 +41,7 @@ public class SoundLeap implements ChargedAbility {
         return 5;
     }
 
-    /** None at all, as specced. The five second wind-up is the whole limit. */
+    /** None at all, as specced. The three second wind-up is the whole limit. */
     @Override
     public int getCooldownTicks() {
         return 0;
@@ -49,7 +49,7 @@ public class SoundLeap implements ChargedAbility {
 
     @Override
     public int getChargeTicks() {
-        return 100; // 5 seconds
+        return 60; // 3 seconds
     }
 
     @Override

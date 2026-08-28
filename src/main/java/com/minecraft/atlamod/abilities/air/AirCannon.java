@@ -46,6 +46,32 @@ public class AirCannon implements ChargedAbility, TwoPhaseAbility {
     private static final BendingProjectiles.Spec SHOT = new BendingProjectiles.Spec(
             SPEED, LIFETIME, DAMAGE, HIT_RADIUS, KNOCKBACK, BendingProjectiles.Style.AIR);
 
+    /** How far in front of the bender the ball is held, in blocks. */
+    private static final double MUZZLE_REACH = 1.0;
+
+    /** How high up it is held. Chest height rather than eye height — see muzzle(). */
+    private static final double MUZZLE_HEIGHT = 1.1;
+
+    /**
+     * Where the ball of air sits: a block in front of the bender, at chest height.
+     *
+     * Measured from the FEET plus a fixed height rather than from the eyes, which is
+     * the difference that matters. Hung off the eye position it sat exactly on the
+     * camera's own axis, so in first person it filled the middle of the screen and
+     * swung with every look — a ball being held out in front of you should stay in
+     * front of you, not in your face.
+     *
+     * One place decides it, because the charge glow, the held ball and the shot's
+     * origin all have to agree: the thing that flies away has to leave from where the
+     * thing being held was.
+     */
+    private static Vec3 muzzle(ServerPlayer player) {
+        Vec3 look = player.getLookAngle();
+        return player.position()
+                .add(0.0, MUZZLE_HEIGHT, 0.0)
+                .add(look.scale(MUZZLE_REACH));
+    }
+
     @Override
     public String getName() {
         return "Air cannon";
@@ -96,8 +122,7 @@ public class AirCannon implements ChargedAbility, TwoPhaseAbility {
 
         float power = ticksHeld / (float) CHARGE_TICKS;
 
-        Vec3 look = player.getLookAngle();
-        Vec3 muzzle = player.getEyePosition().add(look.scale(1.0));
+        Vec3 muzzle = muzzle(player);
 
         // Incoming air, closing on the muzzle as the charge builds.
         double gather = 2.5 - (2.0 * power);
@@ -130,8 +155,7 @@ public class AirCannon implements ChargedAbility, TwoPhaseAbility {
     public void onArmedTick(ServerPlayer player, BendingData data) {
         if (!(player.level() instanceof ServerLevel level)) return;
 
-        Vec3 look = player.getLookAngle();
-        Vec3 muzzle = player.getEyePosition().add(look.scale(1.0));
+        Vec3 muzzle = muzzle(player);
 
         level.sendParticles(ParticleTypes.CLOUD,
                 muzzle.x, muzzle.y, muzzle.z, 6, 0.18, 0.18, 0.18, 0.0);
@@ -145,7 +169,7 @@ public class AirCannon implements ChargedAbility, TwoPhaseAbility {
     @Override
     public void onRelease(ServerPlayer player, BendingData data) {
         Vec3 look = player.getLookAngle();
-        Vec3 from = player.getEyePosition().add(look.scale(1.0));
+        Vec3 from = muzzle(player);
 
         // Rebuilt rather than launched as the constant, so Sound boosting can reach
         // its damage — a Spec is fixed at class load and knows nothing about who is

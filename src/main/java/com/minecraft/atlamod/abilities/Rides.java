@@ -132,7 +132,7 @@ public final class Rides {
          * Water Surf. Rides ON the waterline, and needs water under it — walk it onto
          * the beach and it sets the bender down.
          */
-        WATER_SURF(10, 3, 0.0, false) {
+        WATER_SURF(10, 3, 0.0, false, true) {
             @Override
             double surfaceAt(ServerLevel level, double x, double z, double fromY) {
                 int bx = Mth.floor(x);
@@ -261,11 +261,30 @@ public final class Rides {
         /** Whether the rider is drawn seated. Surfing is done standing up. */
         final boolean seated;
 
+        /**
+         * Whether the rider is drawn LYING FLAT — the swimming pose.
+         *
+         * Water Surf's, and nothing else's. A surfer stood bolt upright on the water
+         * looked like somebody being slid along on an invisible rail; laid out along
+         * the direction of travel it reads as riding the surface.
+         *
+         * Kept separate from {@link #seated} rather than folded into it because the
+         * two are answered by different mechanisms — sitting is a question the VEHICLE
+         * answers (shouldRiderSit), where the pose belongs to the player. See
+         * BendingSeat and lie().
+         */
+        final boolean laying;
+
         Kind(int chiPerSecond, int xpPerSecond, double hover, boolean seated) {
+            this(chiPerSecond, xpPerSecond, hover, seated, false);
+        }
+
+        Kind(int chiPerSecond, int xpPerSecond, double hover, boolean seated, boolean laying) {
             this.chiPerSecond = chiPerSecond;
             this.xpPerSecond = xpPerSecond;
             this.hover = hover;
             this.seated = seated;
+            this.laying = laying;
         }
 
         /**
@@ -348,6 +367,7 @@ public final class Rides {
 
         BendingSeat seat = new BendingSeat(ModEntities.BENDING_SEAT.get(), level);
         seat.setSeated(kind.seated);
+        seat.setLaying(kind.laying);
         seat.moveTo(player.getX(), player.getY(), player.getZ(), player.getYRot(), 0.0F);
 
         if (!level.addFreshEntity(seat)) return false;
@@ -358,6 +378,7 @@ public final class Rides {
         }
 
         ACTIVE.add(new Ride(level, player.getUUID(), seat, kind, speedUpgrade));
+        lie(player, kind.laying);
 
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
                 kind == Kind.AIR_SCOOTER
@@ -365,6 +386,72 @@ public final class Rides {
                         : SoundEvents.PLAYER_SPLASH_HIGH_SPEED,
                 SoundSource.PLAYERS, 0.9F, 1.3F);
         return true;
+    }
+
+    /** How hard a surfacing drill throws its rider along the way they are looking. */
+    private static final double DIG_EXIT_SPEED = 0.75;
+
+    /**
+     * The upward kick, and the figure that actually matters.
+     *
+     * A drill bored straight UP surfaces at the top of its own shaft, and a small hop
+     * there just drops the bender back down the hole they came out of — there is
+     * nowhere else for them to land. Running vanilla's own step (v = (v - 0.08) * 0.98)
+     * forward, 1.0 climbs about six blocks, which clears the shaft mouth and buys
+     * something better than height: roughly two seconds of air, which is enough time to
+     * steer sideways onto solid ground. The throw is not the point; the CHOICE the
+     * throw affords is.
+     *
+     * A floor rather than a fixed amount, so it applies whatever the look angle — a
+     * drill that surfaced sideways gets the same time in the air to pick a landing.
+     */
+    private static final double DIG_EXIT_LIFT = 1.0;
+
+    /**
+     * Throws a drill's rider clear as they surface.
+     *
+     * A drill ends by breaking out of the ground, and being set down to stand in the
+     * hole it just made is a flat note to finish on — this bursts them out of it, the
+     * way the ability looks like it ought to. Along the look, so the bender chooses
+     * where they land by where they were pointing when they came up.
+     *
+     * Slow Falling is already on them by this point (see the caller), which stretches
+     * the descent further still. The two together are what turn "you pop out and drop
+     * back in" into a landing the bender picks.
+     */
+    private static void erupt(ServerPlayer rider) {
+        Vec3 push = rider.getLookAngle().normalize().scale(DIG_EXIT_SPEED);
+
+        rider.setDeltaMovement(push.x, Math.max(DIG_EXIT_LIFT, push.y), push.z);
+        // A player's client owns their movement and ignores server-side velocity
+        // unless it is explicitly pushed to them.
+        rider.hurtMarked = true;
+    }
+
+    /**
+     * Lays a rider flat, or stands them back up.
+     *
+     * Two halves, because two different clients have to be convinced and each one
+     * reaches the pose differently.
+     *
+     * setForcedPose is NeoForge's own hook into Player#updatePlayerPose, which
+     * otherwise recomputes the pose from scratch every tick on both sides and would
+     * simply undo anything we set. It settles the SERVER's copy.
+     *
+     * setSwimming is what settles everyone ELSE's copy. It is a shared flag, so it is
+     * synched — and a RemotePlayer's aiStep, unlike a real one's, never calls
+     * updateSwimming, so the flag we set survives on the clients watching. Their own
+     * updatePlayerPose then reads it and reaches Pose.SWIMMING on its own. The server
+     * DOES clear it every tick in updateSwimming (a passenger is never swimming as far
+     * as vanilla is concerned), which is why {@link #advance} sets it again each tick
+     * rather than only here.
+     *
+     * The rider's OWN client is the one case neither half reaches, and ClientEvents
+     * covers it with a forced pose of its own.
+     */
+    private static void lie(ServerPlayer rider, boolean laying) {
+        rider.setForcedPose(laying ? net.minecraft.world.entity.Pose.SWIMMING : null);
+        rider.setSwimming(laying);
     }
 
     /**
@@ -434,6 +521,12 @@ public final class Rides {
         // by the seat, so any distance counted against them is an accident of the
         // vehicle moving, not something they fell.
         rider.fallDistance = 0.0F;
+
+        // Re-asserted every tick, not just at the start: vanilla clears the swimming
+        // flag in updateSwimming because a passenger is never swimming as far as it is
+        // concerned, and the flag is what everyone ELSE's client reads the pose from.
+        // See lie().
+        if (ride.kind.laying) rider.setSwimming(true);
 
         if (chiThisTick > 0) data.consumeChi(chiThisTick);
         AbilitySupport.grantXp(data, perTick(ride.kind.xpPerSecond, ride.ticks));
@@ -596,6 +689,11 @@ public final class Rides {
 
         if (rider == null) return;
 
+        // Stand them back up. Every route out of a ride comes through here, which is
+        // what stops a surfer who died, logged out or wandered onto the beach being
+        // left permanently swimming on dry land.
+        lie(rider, false);
+
         // Getting off a drill usually means being let go partway up your own shaft,
         // which is a long drop you did not choose. Slow Falling rather than a flag of
         // our own: vanilla resets fall distance every tick it is held, so the descent
@@ -605,6 +703,8 @@ public final class Rides {
             rider.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     net.minecraft.world.effect.MobEffects.SLOW_FALLING,
                     DIG_LANDING_GRACE, 0, false, false, true));
+
+            erupt(rider);
         }
 
         ride.level.playSound(null, rider.getX(), rider.getY(), rider.getZ(),

@@ -59,7 +59,7 @@ public class CombustionNuke implements ChargedAbility {
      */
     @Override
     public int getCooldownTicks() {
-        return 40;
+        return 2000; // 100 seconds
     }
 
     @Override

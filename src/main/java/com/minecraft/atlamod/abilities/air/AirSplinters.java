@@ -54,6 +54,17 @@ public class AirSplinters implements ChargedAbility, TwoPhaseAbility {
     private static final double KNOCKBACK = 0.2;
 
     /**
+     * How high off the ground the splinters circle, both while gathering and while
+     * waiting to be thrown.
+     *
+     * Waist height — where the legs start. They used to ring the bender at chest
+     * height, where in first person they sit across the middle of the screen and
+     * follow the camera around; dropped to the ankles they read as something spilled
+     * rather than something held. This is the line between the two.
+     */
+    private static final double GATHER_HEIGHT = 0.75;
+
+    /**
      * One splinter, as the shared projectile system wants it.
      *
      * The effect is a supplier rather than an instance because a MobEffectInstance
@@ -126,7 +137,7 @@ public class AirSplinters implements ChargedAbility, TwoPhaseAbility {
             double pz = player.getZ() + Math.sin(angle) * radius;
 
             level.sendParticles(ParticleTypes.CLOUD,
-                    px, player.getY() + 1.2, pz, 2, 0.05, 0.05, 0.05, 0.0);
+                    px, player.getY() + GATHER_HEIGHT, pz, 2, 0.05, 0.05, 0.05, 0.0);
         }
     }
 
@@ -157,7 +168,7 @@ public class AirSplinters implements ChargedAbility, TwoPhaseAbility {
             double angle = spin + (Math.PI * 2.0 * i / remaining);
             double px = player.getX() + Math.cos(angle) * radius;
             double pz = player.getZ() + Math.sin(angle) * radius;
-            double py = player.getY() + 1.3;
+            double py = player.getY() + GATHER_HEIGHT;
 
             level.sendParticles(ParticleTypes.CLOUD, px, py, pz, 3, 0.08, 0.08, 0.08, 0.0);
         }

@@ -46,6 +46,11 @@ public final class Combustion {
     /**
      * What happens when a combustion bender lets go too early.
      *
+     * The blast is described as going off in the bender's HEAD rather than in their
+     * hands, which is the truer picture of the element: a combustionbender's charge is
+     * gathered behind the third eye and thrown from there, so a failed one has nowhere
+     * else to go.
+     *
      * A single primed TNT, dropped exactly where they stand with no fuse to speak of.
      * It is a real PrimedTnt rather than a bare explosion so that it behaves like one
      * in every respect — it can be run from in the moment it has, it hurts whatever
@@ -67,7 +72,7 @@ public final class Combustion {
         level.addFreshEntity(tnt);
 
         player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                "The charge goes off in your hands!")
+                "The explosion went off in your head!")
                 .withStyle(net.minecraft.ChatFormatting.RED));
 
         boom(level, player.position(), 0.8F, 1.6F);

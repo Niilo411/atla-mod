@@ -19,6 +19,39 @@ public class ClientEvents {
 
     private static boolean wasLeftClicking = false;
     private static final boolean[] lastAbilityHeld = new boolean[4];
+
+    /**
+     * Holds the local player flat while they are on a ride that lies down — Water
+     * Surf, and nothing else so far.
+     *
+     * The rider's own client is the one copy of them the server cannot settle. The
+     * server's forced pose reaches everybody watching, and the synched swimming flag
+     * reaches their RemotePlayer copies, but the LOCAL player recomputes its own pose
+     * from scratch every tick in Player#updatePlayerPose and clears the swimming flag
+     * in updateSwimming on the way — so from the inside the bender stood bolt upright
+     * while everyone else saw them surfing.
+     *
+     * NeoForge's forced pose is the hook that ends that argument: updatePlayerPose
+     * returns it immediately and looks at nothing else. Set from a POST tick, so it
+     * lands after the player's own tick has had its say, and rendering — which happens
+     * between ticks — sees ours.
+     *
+     * Only ever cleared back from SWIMMING, so this cannot stamp on a forced pose set
+     * by anything else.
+     */
+    private static void holdRidingPose(net.minecraft.client.Minecraft mc) {
+        if (mc.player == null) return;
+
+        boolean laying = mc.player.getVehicle() instanceof com.minecraft.atlamod.BendingSeat seat
+                && seat.isLaying();
+
+        if (laying) {
+            mc.player.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
+        } else if (mc.player.getForcedPose() == net.minecraft.world.entity.Pose.SWIMMING) {
+            mc.player.setForcedPose(null);
+        }
+    }
+
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
@@ -27,6 +60,8 @@ public class ClientEvents {
         // and would run the shake down at whatever rate the machine happens to render.
         ClientShake.tick();
         ClientFlash.tick();
+
+        holdRidingPose(mc);
 
         // 1. Safely open the menu if the server flagged it AND no other screen is open
         if (needsToOpenMenu && mc.screen == null && mc.level != null && mc.player != null) {

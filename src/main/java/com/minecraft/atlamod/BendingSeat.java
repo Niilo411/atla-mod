@@ -35,6 +35,18 @@ public class BendingSeat extends Entity {
             SynchedEntityData.defineId(BendingSeat.class, EntityDataSerializers.BOOLEAN);
 
     /**
+     * Whether the rider is drawn LYING FLAT, in the swimming pose. Water Surf's, and
+     * nothing else's.
+     *
+     * Synched for the same reason SEATED is, but it is read from a different place:
+     * sitting is answered by the vehicle, where a pose belongs to the player, so this
+     * flag is what tells the rider's OWN client to hold itself in the swimming pose.
+     * See ClientEvents.onClientTick.
+     */
+    private static final EntityDataAccessor<Boolean> LAYING =
+            SynchedEntityData.defineId(BendingSeat.class, EntityDataSerializers.BOOLEAN);
+
+    /**
      * Exactly a player's box, and that is the point.
      *
      * The seat is what collides with the world on the rider's behalf — passengers do
@@ -61,6 +73,16 @@ public class BendingSeat extends Entity {
     @Override
     public boolean shouldRiderSit() {
         return this.entityData.get(SEATED);
+    }
+
+    /** Set before the rider mounts, alongside setSeated. */
+    public void setLaying(boolean laying) {
+        this.entityData.set(LAYING, laying);
+    }
+
+    /** Whether the rider should hold themselves flat. Asked on BOTH sides. */
+    public boolean isLaying() {
+        return this.entityData.get(LAYING);
     }
 
     /**
@@ -98,6 +120,7 @@ public class BendingSeat extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(SEATED, true);
+        builder.define(LAYING, false);
     }
 
     /** Not something to shoot, hit, or bump into — only to ride. */

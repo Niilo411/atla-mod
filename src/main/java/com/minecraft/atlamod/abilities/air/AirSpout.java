@@ -89,11 +89,15 @@ public class AirSpout implements ChargedAbility, TwoPhaseAbility {
 
         for (int i = 0; i < SHOTS; i++) {
             double angle = spin + (Math.PI * 2.0 * i / SHOTS);
+            // Down at the bender's feet rather than climbing as the charge fills.
+            // What is being wound up is three things that will STAND on the ground,
+            // and a ring rising past head height while they gather read as the
+            // opposite — that they were about to go up rather than down.
             level.sendParticles(ParticleTypes.CLOUD,
                     player.getX() + Math.cos(angle) * radius,
-                    player.getY() + 0.6 + power,
+                    player.getY() + 0.1,
                     player.getZ() + Math.sin(angle) * radius,
-                    2, 0.08, 0.2, 0.08, 0.01);
+                    2, 0.08, 0.1, 0.08, 0.01);
         }
     }
 

@@ -27,8 +27,10 @@ import net.minecraft.world.phys.Vec3;
  * in the way, refuse to close, and leave a permanent pit. A second's grace between the two
  * is what buys that.
  *
- * Aimed at a body, not at a patch of floor — the design says "under a player or mob", and
- * {@link #canStart} refuses the cast when there is nobody in view, so a miss costs nothing.
+ * Aimed at a body where there is one — the design says "under a player or mob" — and at
+ * the ground the bender is looking at where there is not. It used to REFUSE the cast
+ * with nobody in view, which made it unusable on an empty field: no way to test it, and
+ * no way to lay it as ground work ahead of a fight.
  */
 public class LavaSinkhole implements Ability {
 
@@ -37,6 +39,9 @@ public class LavaSinkhole implements Ability {
 
     /** How far off the aim line still counts, in blocks. The mod's usual figure. */
     private static final double TOLERANCE = 2.0;
+
+    /** How far below the end of the look to hunt for ground when nobody is in view. */
+    private static final int GROUND_SCAN = 20;
 
     /** Half the width of the hole, so it opens five blocks across. */
     private static final int RADIUS = 2;
@@ -76,27 +81,11 @@ public class LavaSinkhole implements Ability {
         return 800; // 40 seconds
     }
 
-    /** Nobody in view means nothing to open the ground under, so the cast is free. */
-    @Override
-    public boolean canStart(ServerPlayer player, BendingData data) {
-        if (Aiming.nearestAlongLook(player, REACH, TOLERANCE) != null) return true;
-
-        player.displayClientMessage(Component.literal(
-                "§7Nobody there to drop."), true);
-        return false;
-    }
-
     @Override
     public void execute(ServerPlayer player, BendingData data) {
         ServerLevel level = (ServerLevel) player.level();
 
-        // Asked again rather than remembered from canStart: a target that stepped out
-        // of view between the two is simply not there any more, and the alternative is
-        // opening a hole under wherever they used to be.
-        LivingEntity victim = Aiming.nearestAlongLook(player, REACH, TOLERANCE);
-        if (victim == null) return;
-
-        BlockPos feet = victim.blockPosition();
+        BlockPos feet = target(player);
 
         for (int dx = -RADIUS; dx <= RADIUS; dx++) {
             for (int dz = -RADIUS; dz <= RADIUS; dz++) {
@@ -115,5 +104,26 @@ public class LavaSinkhole implements Ability {
 
         Lava.roar(level, Vec3.atCenterOf(feet), 2.0F, 0.6F);
         Lava.spatter(level, Vec3.atCenterOf(feet), 30, 1.5);
+    }
+
+    /**
+     * Where the hole opens: under somebody if there is somebody, otherwise wherever
+     * the bender is looking.
+     *
+     * The design says "under a player or mob", and requiring one was how that started
+     * out — but it made the ability unusable on an empty field, which is exactly where
+     * a bender wants to test it and exactly where a trap wants to be laid in advance.
+     * A target is now the PREFERRED aim rather than a precondition, so the cast never
+     * refuses and the ability can be used as ground work as well as as an attack.
+     *
+     * Falling back to the ground rather than to nothing is the same call Air spout
+     * makes: something already paid for has to happen somewhere.
+     */
+    private static BlockPos target(ServerPlayer player) {
+        LivingEntity victim = Aiming.nearestAlongLook(player, REACH, TOLERANCE);
+        if (victim != null) return victim.blockPosition();
+
+        return BlockPos.containing(
+                Aiming.groundUnderLook(player, REACH, GROUND_SCAN));
     }
 }

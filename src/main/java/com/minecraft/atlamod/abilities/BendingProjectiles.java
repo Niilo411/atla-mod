@@ -261,7 +261,12 @@ public final class BendingProjectiles {
             }
         }
 
-        shot.velocity = shot.velocity.scale(DRAG).subtract(0.0, GRAVITY, 0.0);
+        // Air shots fly FLAT. Everything else in the mod is a mass of something being
+        // thrown and should arc, but a blade of compressed air visibly drooping over
+        // its flight reads as the shot dying rather than travelling — and Air splinters
+        // cross 45 blocks, far enough for the sag to be the first thing you notice.
+        double drop = shot.spec.style() == Style.AIR ? 0.0 : GRAVITY;
+        shot.velocity = shot.velocity.scale(DRAG).subtract(0.0, drop, 0.0);
 
         draw(shot);
         return true;

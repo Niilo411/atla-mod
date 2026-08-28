@@ -3,7 +3,9 @@ package com.minecraft.atlamod.abilities.lava;
 import com.minecraft.atlamod.BendingData;
 import com.minecraft.atlamod.abilities.BendingProjectiles;
 import com.minecraft.atlamod.abilities.ChargedAbility;
+import com.minecraft.atlamod.abilities.TwoPhaseAbility;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
@@ -22,8 +24,15 @@ import net.minecraft.world.phys.Vec3;
  *
  * Real lava also means the blobs only ever land in AIR. Overwriting whatever they hit
  * would make a five second cooldown into a demolition tool.
+ *
+ * Both held shapes at once, the way Fireball is: the charge gathers the four blobs and
+ * what it produces is the armed slot, which the left click then throws. That separation
+ * matters more here than for most — this is the one ability in the element that changes
+ * the world permanently, and taking the aim AFTER the two seconds rather than during
+ * them means the bender chooses where four blocks of lava go with a steady hand instead
+ * of wherever they happened to be pointing when the timer filled.
  */
-public class LavaThrow implements ChargedAbility {
+public class LavaThrow implements ChargedAbility, TwoPhaseAbility {
 
     /** How many blobs go out per cast. The design's four. */
     private static final int COUNT = 4;
@@ -74,8 +83,32 @@ public class LavaThrow implements ChargedAbility {
         Lava.spatter((ServerLevel) player.level(), hands, 3, spread);
     }
 
+    /** Nothing else already held. */
+    @Override
+    public boolean canStart(ServerPlayer player, BendingData data) {
+        return data.getActiveTwoPhaseAbility().isEmpty();
+    }
+
+    /** The charge only gathers the blobs; the click is what throws them. */
     @Override
     public void execute(ServerPlayer player, BendingData data) {
+        Lava.roar((ServerLevel) player.level(), player.position(), 1.2F, 1.1F);
+
+        player.displayClientMessage(Component.literal(
+                "§6Lava gathered — left click to throw"), true);
+    }
+
+    /** The four blobs held ready, turning in front of the bender. */
+    @Override
+    public void onArmedTick(ServerPlayer player, BendingData data) {
+        if (!(player.level() instanceof ServerLevel level)) return;
+
+        Vec3 hands = player.getEyePosition().add(player.getLookAngle().scale(1.2));
+        Lava.spatter(level, hands, 3, 0.35);
+    }
+
+    @Override
+    public void onRelease(ServerPlayer player, BendingData data) {
         ServerLevel level = (ServerLevel) player.level();
 
         Vec3 look = player.getLookAngle();
@@ -88,7 +121,7 @@ public class LavaThrow implements ChargedAbility {
                     BLOB.withImpact(LavaThrow::settle));
         }
 
-        Lava.roar(level, player.position(), 1.2F, 1.1F);
+        Lava.roar(level, player.position(), 1.4F, 0.9F);
     }
 
     /**

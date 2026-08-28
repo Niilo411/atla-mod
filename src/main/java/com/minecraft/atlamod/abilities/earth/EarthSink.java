@@ -72,7 +72,7 @@ public class EarthSink implements Ability {
 
     @Override
     public int getCooldownTicks() {
-        return 2400; // 120 seconds
+        return 2000; // 100 seconds
     }
 
     /** Refused for free when there is no ground in front to open. */

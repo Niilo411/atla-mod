@@ -51,6 +51,17 @@ public abstract class RaisedEarth implements ChanneledAbility {
      */
     protected abstract List<BlockPos> surfaces(ServerPlayer player);
 
+    /**
+     * How long one block of height takes to come up, in ticks.
+     *
+     * A second by default, which is Earth wall's. Overridden by anything that should
+     * rise at its own pace — a single pillar is a step to stand on, and seven seconds
+     * of holding still to get one is a different ability from the one it wants to be.
+     */
+    protected int ticksPerLayer() {
+        return EarthWalls.TICKS_PER_LAYER;
+    }
+
     /** Channels are not billed through the cast path; see onStart. */
     @Override
     public int getChiCost(BendingData data) {
@@ -117,7 +128,7 @@ public abstract class RaisedEarth implements ChanneledAbility {
             materials.add(EarthWorks.materialUnder(level, surface));
         }
 
-        if (!EarthWalls.begin(player, surfaces, materials)) return;
+        if (!EarthWalls.begin(player, surfaces, materials, ticksPerLayer())) return;
 
         // Charged here rather than by the dispatcher: a channel's chi is a per-second
         // rate, and this one is a single price for the whole thing.

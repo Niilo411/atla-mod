@@ -55,16 +55,31 @@ public class Icicles implements TwoPhaseAbility {
         return 10;
     }
 
-    /** No cooldown at all — the 100 chi is the whole limit. */
+    /** A second between volleys, so five shards at a time is a burst and not a stream. */
     @Override
     public int getCooldownTicks() {
-        return 0;
+        return 20; // 1 second
     }
 
     /** Held until thrown, like Fireball and Water ball. */
     @Override
     public int getArmedDurationTicks() {
         return 0;
+    }
+
+    /**
+     * Nothing else already held — including another handful of these.
+     *
+     * Without it, pressing the key with shards already gathered simply gathered them
+     * again: another 100 chi spent, the armed slot reset, and nothing at all to show
+     * for it, since the first handful was never thrown. The armed state waits
+     * indefinitely, so there is no case where re-summoning is the thing the bender
+     * wanted. Every other two-phase ability in the mod already guards this way; this
+     * one was simply missing it.
+     */
+    @Override
+    public boolean canStart(ServerPlayer player, BendingData data) {
+        return data.getActiveTwoPhaseAbility().isEmpty();
     }
 
     /** The gathered shards, turning slowly around the bender's hand. */

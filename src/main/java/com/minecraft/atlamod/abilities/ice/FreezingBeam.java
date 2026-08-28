@@ -9,7 +9,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Right / Ice. Three seconds of gathering produces a ball of ice floating beside the
- * bender; a left click opens it into a beam that runs for twenty seconds, freezing
+ * bender; a left click opens it into a beam that runs for ten seconds, freezing
  * and wearing down everything it crosses.
  *
  * Both held shapes at once, like Fireball and Lightning bolt: the charge builds the
@@ -53,10 +53,10 @@ public class FreezingBeam implements ChargedAbility, TwoPhaseAbility {
      * A beam already running: the next press SHUTS IT OFF rather than starting another.
      *
      * Checked by the dispatcher at the very top of startCharge — before the held-ability
-     * guard, the cooldown and the chi — which is exactly what this needs. The beam lasts
-     * twenty seconds behind a ten second cooldown, so a cancel routed through the
-     * ordinary cast path would be refused as "on cooldown" for the first half of its
-     * life, and would charge another 150 chi when it finally worked.
+     * guard, the cooldown and the chi — which is exactly what this needs. The beam runs
+     * ten seconds behind a ten second cooldown, so a cancel routed through the ordinary
+     * cast path would be refused as "on cooldown" for the beam's ENTIRE life, and would
+     * charge another 150 chi if it ever did work.
      *
      * It also means no wind-up: three seconds to raise the beam, nothing to put it down.
      */

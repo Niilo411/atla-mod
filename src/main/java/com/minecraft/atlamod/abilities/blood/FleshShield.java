@@ -55,7 +55,7 @@ public class FleshShield implements Ability {
 
     @Override
     public int getCooldownTicks() {
-        return 1200; // 60 seconds
+        return 400; // 20 seconds
     }
 
     /** Up already: the next press takes it down. */

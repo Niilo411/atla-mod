@@ -19,8 +19,8 @@ import net.minecraft.world.phys.Vec3;
  *
  * The one earth ability that takes the world apart and does not put it back. Everything
  * else in the element borrows: a wall stands and sinks, a spike rises and goes, a grab
- * lays its slices and takes them up again. A ravine is permanent, which is what the two
- * and a half minute cooldown is really paying for.
+ * lays its slices and takes them up again. A ravine is permanent, which is what the
+ * fifty second cooldown is really paying for.
  *
  * Nothing is dropped. At over a hundred blocks a cast that would be a hundred items to
  * wade through, and this is not a mining ability — Mine is the one that gives you the
@@ -58,7 +58,7 @@ public class Ravine implements Ability {
 
     @Override
     public int getCooldownTicks() {
-        return 3000; // 150 seconds
+        return 1000; // 50 seconds
     }
 
     /** Refused for free when there is no ground in front to tear. */

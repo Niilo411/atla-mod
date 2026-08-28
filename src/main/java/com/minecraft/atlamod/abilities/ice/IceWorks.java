@@ -42,12 +42,24 @@ public final class IceWorks {
         final ServerLevel level;
         final BlockPos pos;
         final BlockState ours;
+
+        /**
+         * What was here before, or null if the space was empty.
+         *
+         * Null is the ordinary case and means "take the ice away and leave air", which
+         * is all {@link #freeze} ever needs. Ice over is the one that fills this in:
+         * it goes OVER the ground rather than on top of it, so it has something to
+         * give back.
+         */
+        final BlockState was;
+
         int ticksLeft;
 
-        Placed(ServerLevel level, BlockPos pos, BlockState ours, int ticksLeft) {
+        Placed(ServerLevel level, BlockPos pos, BlockState ours, BlockState was, int ticksLeft) {
             this.level = level;
             this.pos = pos;
             this.ours = ours;
+            this.was = was;
             this.ticksLeft = ticksLeft;
         }
     }
@@ -71,7 +83,45 @@ public final class IceWorks {
         if (!existing.getFluidState().isEmpty()) return false;
 
         level.setBlockAndUpdate(at, state);
-        PLACED.add(new Placed(level, at, state, ticks));
+        PLACED.add(new Placed(level, at, state, null, ticks));
+        return true;
+    }
+
+    /**
+     * Freezes a block that is already THERE, and gives that exact block back later.
+     *
+     * The other half of this class, and the one that breaks its own air-only rule — on
+     * purpose, and only for Ice over. Laying a sheet on TOP of the ground raises the
+     * floor by a block, which is enough to trip anyone walking across it and enough to
+     * seal a doorway; freezing the ground itself is what "the ground goes over" actually
+     * means, and it leaves the world exactly as tall as it was.
+     *
+     * The rule that replaces the air-only one is that the original block is REMEMBERED
+     * and restored, which is MetalWorks' shape rather than this class's usual one. The
+     * refusals below are what keep that promise honest.
+     *
+     * @return false if this block was not the bender's to freeze
+     */
+    public static boolean freezeOver(ServerLevel level, BlockPos pos, BlockState state, int ticks) {
+        BlockPos at = pos.immutable();
+        BlockState was = level.getBlockState(at);
+
+        // Never over another ability's ice: the second one's timer would put the FIRST
+        // one's ice back as "the original", and the ground would turn to ice a cast at
+        // a time. The same trap MetalWorks documents.
+        if (was.equals(state)) return false;
+
+        // Bedrock and its friends are not the bender's to cover, and a block entity
+        // would lose its contents the moment it was overwritten.
+        if (was.getDestroySpeed(level, at) < 0.0F) return false;
+        if (was.hasBlockEntity()) return false;
+
+        // Fluids are skipped: restoring one as a block later would leave water hanging
+        // in the air, and freezing over a lake would let a bender drain it.
+        if (!was.getFluidState().isEmpty()) return false;
+
+        level.setBlockAndUpdate(at, state);
+        PLACED.add(new Placed(level, at, state, was, ticks));
         return true;
     }
 
@@ -99,7 +149,12 @@ public final class IceWorks {
     private static void melt(Placed block) {
         if (!block.level.getBlockState(block.pos).equals(block.ours)) return;
 
-        block.level.setBlockAndUpdate(block.pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        // Ice laid into empty space leaves empty space; ice laid OVER something gives
+        // that exact something back. Which of the two this is was decided when it went
+        // down, not now — see Placed.was.
+        block.level.setBlockAndUpdate(block.pos, block.was != null
+                ? block.was
+                : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
         Ice.frost(block.level, net.minecraft.world.phys.Vec3.atCenterOf(block.pos), 3, 0.25);
     }
 

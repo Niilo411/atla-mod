@@ -603,11 +603,25 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
   without it a sub-element's two missing arms would each count as finished and any
   "how many paths are done" check would start at two.
 - Left path: icicles, Freeze, Ice over, Ice barrage
+- **Every two-phase ability needs `canStart` to refuse while one is already armed**, and
+  icicles was the one that did not have it. Pressing the key with shards already
+  gathered simply gathered them again — another 100 chi, the armed slot reset, and
+  nothing thrown. Worth checking on any new two-phase ability, since the armed state
+  waits indefinitely and there is never a case where re-summoning is what was wanted.
 - Right path: Ice sphere, Ice Bomb, Freezing Beam, Ice Breath
 
 - **`IceWorks` is icebending's `EarthWorks`** and keeps the same rule, which matters as
   much here: an ability may only fill AIR, and takes back exactly what it filled.
-  Without it Ice over would pave a permanent rink every fifty seconds. What it does NOT
+  Without it Ice over would pave a permanent rink every fifty seconds. `IceWorks` has a
+  SECOND half for that one though — `freezeOver` deliberately breaks the air-only rule
+  and turns the ground itself to ice, remembering the block it replaced and giving that
+  exact block back. Laying a sheet on TOP of the ground raised the floor a block
+  wherever it went: a step to trip over at the edge of the area, and a sealed doorway
+  wherever it met one. Freezing the ground is what "the ground goes over" means, and it
+  leaves the world exactly as tall as it was. That makes it `MetalWorks.lay`'s shape
+  rather than this class's usual one, and it carries the same refusals — never over
+  another ability's ice (the second timer would restore the FIRST one's ice as "the
+  original"), never a block entity, never a fluid. What it does NOT
   share is the sliding — earth rises out of the ground as a FallingBlockEntity, where
   ice simply forms where the cold is.
 - **Everything structural uses PACKED ice, never plain ice.** Plain ice MELTS on a
@@ -1010,6 +1024,16 @@ The steepest of the five, and the only one that can kill its own bender by accid
 - **Explosion powers are interpretation, not specification.** One stick of TNT is power
   4.0, and radius goes roughly as the power rather than as its cube — so "4 tnt" is 8.0
   and "7 tnt" is 12.0 rather than 16 and 28. Both are flagged in the source.
+- **Combustion Beam leaves from ABOVE the eyes, not from them.** A beam starting at
+  exactly the camera's own position is invisible to the bender firing it — every
+  particle spawns inside their head and is culled — so from the inside the ability
+  looked like it did nothing at all. The whole ORIGIN moves, not just the drawing: the
+  line that is drawn and the line that burns have to stay the same line, or the beam
+  hits things it visibly missed. It is also the truer picture, since the charge comes
+  off the third eye.
+- **A misfire says the explosion went off in the bender's HEAD**, not in their hands —
+  a combustion charge is gathered behind the third eye and thrown from there, so a
+  failed one has nowhere else to go.
 - **Combustion Beam eats one block every six ticks**, not a tunnel at once. The design
   says "slowly" and it is the right call: a beam that deleted a corridor instantly would
   be a digging tool, where taking a block at a time makes it something to hold on a
@@ -1237,6 +1261,21 @@ ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one ou
 - **Lava geyser is Air spout's shape** (arm the slot, one geyser per left click) because
   "create 3" wants three PLACED things. A cast that dropped all three at once would bunch
   them within a couple of blocks and give the bender no say in where any went.
+- **Lava throw is CHARGED and TWO-PHASE**, the way Fireball is: two seconds gathers the
+  four blobs, the left click throws them. That separation matters more here than for
+  most — this is the one ability in the element that changes the world permanently, so
+  taking the aim after the wind-up rather than during it means four blocks of lava go
+  where the bender chose rather than wherever they happened to be pointing when the
+  timer filled.
+- **Lava tsunami charges for five seconds.** Thirty blocks of moving lava should be
+  something the people near it can see coming. Letting go early just cancels and costs
+  nothing — this is not combustion, and lavabending has no misfire.
+- **Lava sinkhole does NOT require a target.** The design says "under a player or mob"
+  and it started out refusing the cast with nobody in view, which made it unusable on
+  an empty field — no way to test it, and no way to lay it as ground work ahead of a
+  fight. A body is the PREFERRED aim now, falling back to the ground under the look,
+  which is the same call Air spout makes: something already paid for has to happen
+  somewhere.
 - **Lava sinkhole borrows BOTH halves**: the pit is dug with `EarthWorks.openFor`, which
   is Earth sink's own trick, and the lava is poured in with `LavaWorks`. Both are given
   back.
@@ -1427,7 +1466,7 @@ Four commands, covered by the permission gate on the `/bend` root:
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
     cooldown)
   - Water Surf (TOGGLE, and Air scooter's twin — press once to get on, again to get
-    off. Carried across the WATERLINE wherever you look, standing rather than seated.
+    off. Carried across the WATERLINE wherever you look, LYING FLAT along it.
     Ends when the water does. 10 chi/sec, 3 xp/sec, no cooldown. "Swift Current"
     (10 levels) doubles the speed)
   - Water Sphere (channeled; holds the water back in a 5-block sphere so oceans can be
@@ -1447,6 +1486,22 @@ Four commands, covered by the permission gate on the `/bend` root:
   what a bender actually sees. The expensive outward scan (~1300) only runs when they
   move to a new block, plus a forced rescan each second. Doing only the outward scan on
   a timer meant someone standing still watched the sea close on them and snap away again.
+- **Water Surf lies FLAT, and getting a player into a pose takes THREE mechanisms.**
+  This is worth knowing before trying it again for anything else. `Player#updatePlayerPose`
+  recomputes the pose from scratch every tick on BOTH sides, so `setPose` alone is
+  undone immediately — the same trap that killed `Pose.SITTING` for Air scooter.
+  - The SERVER is settled with NeoForge's `Player#setForcedPose`, which
+    `updatePlayerPose` returns from before looking at anything else.
+  - Everyone WATCHING is settled with `setSwimming(true)`. That is a shared flag, so it
+    syncs — and `RemotePlayer#aiStep` never calls `updateSwimming`, so unlike a real
+    player's it survives on their clients and their own `updatePlayerPose` reaches
+    `Pose.SWIMMING` on its own. The server DOES clear it each tick (vanilla holds that a
+    passenger is never swimming), so `Rides.advance` re-asserts it every tick.
+  - The rider's OWN client is the one copy neither reaches, and `ClientEvents` forces
+    the pose there from a POST tick, after the player's own tick has had its say.
+  `BendingSeat` carries a synched `LAYING` flag purely so that client half knows to.
+  Kept separate from `seated`, because sitting is a question the VEHICLE answers
+  (`shouldRiderSit`) where a pose belongs to the player.
 - **Water Surf used to lay invisible platform blocks; it does not any more.** That
   approach (a `SurfPlatformBlock` sliver in the air above each water source, so a REAL
   block carried the player and the client walked on it normally) was the right answer
@@ -1669,15 +1724,15 @@ Four commands, covered by the permission gate on the `/bend` root:
     following Firewall's geometry. Slides up smoothly, stands 30 seconds, slides back
     down. Flat 50 chi and 5 xp however tall it ends up, 1s cooldown from release)
   - Earth pillar (Earth wall narrowed to ONE column, and otherwise identical — same
-    held rise at a block a second, same 7 ceiling, same 30 seconds standing. 10 chi,
-    1 xp, 1s cooldown)
+    7 ceiling, same 30 seconds standing. Rises half again as fast though — 13 ticks a
+    block against the wall's 20. 10 chi, 1 xp, 1s cooldown)
   - Earth armor (+10 ARMOR points for 120 seconds, worn as a suit of stone drawn over
     whatever the bender already has on. 150 chi, 15 xp, 150s cooldown)
 - Earth Offensive path COMPLETE:
   - Earth spike (TAPPED, not held. A single column driven up in 2 TICKS wherever the
     bender is LOOKING — 3 blocks tall with a stalagmite tip — hurting anything within
     1.8 blocks — the whole ring of neighbouring blocks — for 4.5 hearts as it comes
-    up, the CASTER included. Stands 5 seconds, then sinks. 100 chi, 5 xp, no cooldown)
+    up, the CASTER included. Stands 5 seconds, then sinks. 100 chi, 5 xp, 1s cooldown)
   - Splinters (Air splinters' heavier twin: CHARGE 2s, then SIX shards of stone thrown
     one per left click at 3.5 blocks/tick. 2.5 hearts each, so FOUR of them come to
     exactly the 20 a zombie has. Tight 0.5 hit radius — "needs good aim" has to be
@@ -1703,11 +1758,11 @@ Four commands, covered by the permission gate on the `/bend` root:
     effects at once is a fight already decided. The camera SHAKE is only the first 5
     seconds of that. 150 chi, 15 xp, 30s cooldown)
   - Ravine (tears the ground open in front of the bender — 10 blocks out, 5 deep, 5
-    across. Permanent: nothing is put back and nothing drops. 200 chi, 20 xp, 150s
+    across. Permanent: nothing is put back and nothing drops. 200 chi, 20 xp, 50s
     cooldown)
   - Earth sink (Ravine's cleverer sibling: opens a pit 12 long, 6 wide and 7 deep in
     front, hits everything over it for 4 hearts on the way in, and then CLOSES THE
-    GROUND BACK over whatever fell in. 250 chi, 25 xp, 120s cooldown)
+    GROUND BACK over whatever fell in. 250 chi, 25 xp, 100s cooldown)
 - **Earth sink BORROWS the world where Ravine keeps it.** Same pit, but every block is
   remembered and put back a few seconds later, so the landscape afterwards is exactly
   as it was — with whatever fell in now inside it. The burial is the real weapon; the
@@ -1978,6 +2033,22 @@ Four commands, covered by the permission gate on the `/bend` root:
   with each tile sampled at its own random offset (wrapping) so the repeat does not line
   up into a visible grid. Generated from the game's own texture, which is worth knowing
   if this mod is ever published — that is Mojang's art sitting in the jar.
+- **The rise RATE is per-wall, not a constant.** `EarthWalls.TICKS_PER_LAYER` is only
+  the default now: each `Wall` carries its own figure, supplied by
+  `RaisedEarth.ticksPerLayer()`. Earth pillar overrides it to 13 against the wall's 20,
+  because a wall is cover and taking its time is part of what it is, where a pillar is
+  a step and a bender who wants to be four blocks higher wants to be there now.
+- **Getting off an Earth dig throws you clear**, along the look. A drill ends by
+  breaking out of the ground, and being set down to stand in the hole it just made is a
+  flat note to finish on.
+- **The UPWARD kick is the figure that matters there, not the distance.** A drill bored
+  straight up surfaces at the top of its own shaft, where a small hop simply drops the
+  bender back down the hole they came out of — there is nowhere else to land. Running
+  vanilla's own step (`v = (v - 0.08) * 0.98`) forward, a lift of 1.0 climbs about six
+  blocks and buys roughly two seconds of air, which is the real point: enough time to
+  steer sideways onto solid ground. Slow Falling is already on them by then and
+  stretches it further. It is a FLOOR rather than a fixed amount, so a drill that
+  surfaced sideways gets the same time to pick a landing.
 - **`RaisedEarth` is the shared base for both.** A subclass supplies only three things:
   what it is called, what it costs, and WHICH COLUMNS to raise. The chi, the cap, the
   lifecycle and the fact that it outlives its own channel are identical for anything
@@ -2171,6 +2242,13 @@ Four commands, covered by the permission gate on the `/bend` root:
   than firing itself the moment the charge fills the way Fire spikes does. Four seconds
   is a long time to hold a line on something that is moving, and the ability is a
   single shot with nothing to show for a miss.
+- **`Style.AIR` shots are exempt from gravity, and nothing else is.** Every other shot
+  in the mod is a mass of something being thrown and should arc, but a blade of
+  compressed air visibly drooping over its flight reads as the shot dying rather than
+  travelling — and Air splinters cross 45 blocks, far enough for the sag to be the
+  first thing anyone notices. Done in `advance` off the style rather than as a field on
+  `Spec`, since "air does not fall" is a fact about the element and not about one
+  ability. Air splinters and Air cannon are the only two users.
 - **An air shot's burst scales off its `hitRadius`.** That figure is already the mod's
   measure of how big the thing is, so a splinter pops and a cannon round bursts without
   needing a second Style or a separate size field. Water was left on its fixed figures

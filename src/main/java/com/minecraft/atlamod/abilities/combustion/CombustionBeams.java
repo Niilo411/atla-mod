@@ -32,6 +32,9 @@ public final class CombustionBeams {
     /** How far the beam reaches, in blocks. */
     private static final double REACH = 24.0;
 
+    /** How far above the eyes the beam leaves from. See advance(). */
+    private static final double BROW_HEIGHT = 0.35;
+
     /** How close to the line something has to be to be caught. */
     private static final double WIDTH = 1.0;
 
@@ -113,7 +116,16 @@ public final class CombustionBeams {
 
         beam.ticks++;
 
-        Vec3 from = owner.getEyePosition();
+        // Started above the eyes, not at them. A beam leaving from exactly the camera's
+        // own position is invisible to the bender firing it — every particle spawns
+        // inside their head and is culled — so from the inside the ability looked like
+        // it was doing nothing at all. Raising the origin is also the truer picture:
+        // the charge comes off the third eye, above the brow.
+        //
+        // The whole origin moves, not just the drawing. The line that is drawn and the
+        // line that burns have to be the same line, or the beam hits things it visibly
+        // missed.
+        Vec3 from = owner.getEyePosition().add(0.0, BROW_HEIGHT, 0.0);
         Vec3 look = owner.getLookAngle();
 
         // Where the beam currently stops: the first solid thing, or its full reach.
