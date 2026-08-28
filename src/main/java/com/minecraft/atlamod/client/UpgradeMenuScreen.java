@@ -174,7 +174,16 @@ public class UpgradeMenuScreen extends Screen {
                         // fallback is the normal case rather than an edge case — and it
                         // has to stay, because a texture Minecraft cannot find renders
                         // as the magenta checkerboard.
-                        if (AbilityIcons.has(node.name())) {
+                        //
+                        // Skipped entirely for a node the open upgrade panel is sitting
+                        // on. The box and its outline are still drawn, so a node only
+                        // half covered still looks like itself; it is the ART that has
+                        // to go, because it was showing through the panel and filling
+                        // the upgrade text with question marks. See
+                        // coveredByUpgradePanel.
+                        if (coveredByUpgradePanel(bx, by, bw, bh)) {
+                            // nothing: the panel is what belongs in this space
+                        } else if (AbilityIcons.has(node.name())) {
                             // Inset by a pixel so the art sits inside the border rather
                             // than on it, matching the element badge on the HUD.
                             AbilityIcons.draw(guiGraphics, node.name(), bx + 1, by + 1, bw - 2);
@@ -718,15 +727,47 @@ public class UpgradeMenuScreen extends Screen {
      * tooltips on top of each other, which is what made the panel look broken.
      */
     private boolean mouseOverUpgradePanel(double mouseX, double mouseY) {
+        int[] bounds = upgradePanelBounds();
+        if (bounds == null) return false;
+
+        return mouseX >= bounds[0] && mouseX <= bounds[0] + UPGRADE_PANEL_W
+                && mouseY >= bounds[1] && mouseY <= bounds[1] + bounds[2];
+    }
+
+    /**
+     * Where the open panel is: {x, y, height}, or null if none is open.
+     *
+     * One place works this out now, because three callers need the same rectangle —
+     * the hover test, the click test, and the node decoration that has to keep out
+     * from underneath it. Three copies of the same arithmetic is three chances for the
+     * panel to disagree with itself about where it is.
+     */
+    private int[] upgradePanelBounds() {
         net.minecraft.client.gui.components.Button node = openUpgradeButton();
-        if (node == null) return false;
+        if (node == null) return null;
 
-        int px = upgradePanelX(node);
-        int py = node.getY();
-        int height = 22 + Math.max(1, upgradesOf(openUpgradesFor).size()) * UPGRADE_ROW_H;
+        return new int[] {
+                upgradePanelX(node),
+                node.getY(),
+                22 + Math.max(1, upgradesOf(openUpgradesFor).size()) * UPGRADE_ROW_H
+        };
+    }
 
-        return mouseX >= px && mouseX <= px + UPGRADE_PANEL_W
-                && mouseY >= py && mouseY <= py + height;
+    /**
+     * Whether an ability node is (partly) hidden behind the open upgrade panel.
+     *
+     * The panel pops out BESIDE its own node, which means it lands on top of whatever
+     * nodes happen to sit to that side — and their art was bleeding through it and
+     * turning the upgrade text into a mess of question marks. A node underneath is
+     * skipped entirely rather than drawn and covered: at a glance the covered art was
+     * indistinguishable from decoration belonging to the panel itself.
+     */
+    private boolean coveredByUpgradePanel(int bx, int by, int bw, int bh) {
+        int[] bounds = upgradePanelBounds();
+        if (bounds == null) return false;
+
+        return bx < bounds[0] + UPGRADE_PANEL_W && bx + bw > bounds[0]
+                && by < bounds[1] + bounds[2] && by + bh > bounds[1];
     }
 
     private void renderUpgradePanel(GuiGraphics graphics, int mouseX, int mouseY, BendingData data) {
@@ -738,7 +779,10 @@ public class UpgradeMenuScreen extends Screen {
         int py = node.getY();
         int height = 22 + Math.max(1, upgrades.size()) * UPGRADE_ROW_H;
 
-        graphics.fill(px, py, px + UPGRADE_PANEL_W, py + height, 0xF0101010);
+        // Fully opaque. It used to be 0xF0, which let the tree behind it show through
+        // at six percent — enough for an ability node's art to sit visibly under the
+        // upgrade text. A popup over a busy screen has no reason to be translucent.
+        graphics.fill(px, py, px + UPGRADE_PANEL_W, py + height, 0xFF101010);
         graphics.renderOutline(px, py, UPGRADE_PANEL_W, height, 0xFF6688AA);
         graphics.drawCenteredString(this.font, "§bUpgrades",
                 px + UPGRADE_PANEL_W / 2, py + 6, 0xFFFFFF);
@@ -837,8 +881,6 @@ public class UpgradeMenuScreen extends Screen {
         }
 
         // A click anywhere else in the panel body still belongs to the panel.
-        int height = 22 + Math.max(1, upgrades.size()) * UPGRADE_ROW_H;
-        return mouseX >= px && mouseX <= px + UPGRADE_PANEL_W
-                && mouseY >= py && mouseY <= py + height;
+        return mouseOverUpgradePanel(mouseX, mouseY);
     }
 }

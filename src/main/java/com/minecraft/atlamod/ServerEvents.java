@@ -264,6 +264,24 @@ public class ServerEvents {
         }
     }
 
+    /**
+     * Pushes a player's element list back to their own client.
+     *
+     * Pulled out when /bend add and /bend remove gained a target: the packet has to go
+     * to the player who was CHANGED rather than to whoever typed the command, and two
+     * hand-written copies of a six-field packet is two places to get that wrong.
+     */
+    private static void syncElements(ServerPlayer player, BendingData data) {
+        PacketDistributor.sendToPlayer(player, new SyncBendingDataPacket(
+                data.getMainElement(),
+                data.getActiveElement(),
+                data.getUnlockedElements(),
+                data.hasChosenElement(),
+                data.getUnlockedAbilities(),
+                data.getEquippedAbilities()
+        ));
+    }
+
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("bend")
@@ -278,75 +296,101 @@ public class ServerEvents {
                 // than offering commands that will only refuse.
                 .requires(source -> source.hasPermission(2))
 
-                // ADD ELEMENT COMMAND
+                // ADD ELEMENT COMMAND — /bend add <targets> <element>
+                //
+                // The target is NOT optional, and there is deliberately no second
+                // "just me" form beside it. Brigadier would have to tell "/bend add
+                // fire" from "/bend add Steve fire" by trying one branch and falling
+                // through to the other, which makes a typo in an element name read as
+                // a missing player instead of a bad element. @s is two characters and
+                // says exactly what it means.
                 .then(Commands.literal("add")
-                        .then(Commands.argument("element", word())
-                                .executes(context -> {
-                                    String element = getString(context, "element");
-                                    ServerPlayer player = context.getSource().getPlayerOrException();
-                                    BendingData data = player.getData(ModAttachments.BENDING_DATA);
+                        .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+                                .then(Commands.argument("element", word())
+                                        .executes(context -> {
+                                            String element = getString(context, "element");
+                                            int changed = 0;
 
-                                    if (!data.getUnlockedElements().contains(element)) {
-                                        data.getUnlockedElements().add(element);
-                                        if (data.getActiveElement().isEmpty()) data.setActiveElement(element);
-                                        player.setData(ModAttachments.BENDING_DATA, data);
+                                            for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
+                                                    .getPlayers(context, "targets")) {
+                                                BendingData data = player.getData(ModAttachments.BENDING_DATA);
+                                                if (data.getUnlockedElements().contains(element)) continue;
 
-                                        PacketDistributor.sendToPlayer(player, new SyncBendingDataPacket(
-                                                data.getMainElement(),
-                                                data.getActiveElement(),
-                                                data.getUnlockedElements(),
-                                                data.hasChosenElement(),
-                                                data.getUnlockedAbilities(),
-                                                data.getEquippedAbilities()
-                                        ));
-                                    }
-                                    return 1;
-                                })
+                                                data.getUnlockedElements().add(element);
+                                                if (data.getActiveElement().isEmpty()) data.setActiveElement(element);
+                                                player.setData(ModAttachments.BENDING_DATA, data);
+                                                syncElements(player, data);
+                                                changed++;
+                                            }
+
+                                            final int total = changed;
+                                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                                    "Gave " + element + " to " + total + " player(s)."), true);
+                                            return changed;
+                                        })
+                                )
                         )
                 )
-                // REMOVE ELEMENT COMMAND
+                // REMOVE ELEMENT COMMAND — /bend remove <targets> <element>
                 .then(Commands.literal("remove")
-                        .then(Commands.argument("element", word())
-                                .executes(context -> {
-                                    String element = getString(context, "element");
-                                    ServerPlayer player = context.getSource().getPlayerOrException();
-                                    BendingData data = player.getData(ModAttachments.BENDING_DATA);
+                        .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+                                .then(Commands.argument("element", word())
+                                        .executes(context -> {
+                                            String element = getString(context, "element");
+                                            int changed = 0;
 
-                                    if (data.getUnlockedElements().contains(element)) {
-                                        data.getUnlockedElements().remove(element);
-                                        if (data.getActiveElement().equals(element)) {
-                                            data.setActiveElement(data.getUnlockedElements().isEmpty() ? "" : data.getUnlockedElements().get(0));
-                                        }
-                                        player.setData(ModAttachments.BENDING_DATA, data);
+                                            for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
+                                                    .getPlayers(context, "targets")) {
+                                                BendingData data = player.getData(ModAttachments.BENDING_DATA);
+                                                if (!data.getUnlockedElements().contains(element)) continue;
 
-                                        PacketDistributor.sendToPlayer(player, new SyncBendingDataPacket(
-                                                data.getMainElement(),
-                                                data.getActiveElement(),
-                                                data.getUnlockedElements(),
-                                                data.hasChosenElement(),
-                                                data.getUnlockedAbilities(),
-                                                data.getEquippedAbilities()
-                                        ));
-                                    }
-                                    return 1;
-                                })
+                                                data.getUnlockedElements().remove(element);
+                                                if (data.getActiveElement().equals(element)) {
+                                                    data.setActiveElement(data.getUnlockedElements().isEmpty()
+                                                            ? "" : data.getUnlockedElements().get(0));
+                                                }
+                                                player.setData(ModAttachments.BENDING_DATA, data);
+                                                syncElements(player, data);
+                                                changed++;
+                                            }
+
+                                            final int total = changed;
+                                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                                    "Took " + element + " from " + total + " player(s)."), true);
+                                            return changed;
+                                        })
+                                )
                         )
                 )
-                // LEVEL COMMAND
+                // LEVEL COMMAND — /bend level <targets> <amount>
                 .then(Commands.literal("level")
-                        .then(Commands.argument("amount", integer(1))
-                                .executes(context -> {
-                                    int amount = getInteger(context, "amount");
-                                    ServerPlayer player = context.getSource().getPlayerOrException();
-                                    BendingData data = player.getData(ModAttachments.BENDING_DATA);
+                        .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+                                .then(Commands.argument("amount", integer(1))
+                                        .executes(context -> {
+                                            int amount = getInteger(context, "amount");
+                                            int changed = 0;
 
-                                    // Add the levels and sync it back to the client
-                                    data.setLevel(data.getLevel() + amount);
-                                    player.setData(ModAttachments.BENDING_DATA, data);
+                                            for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
+                                                    .getPlayers(context, "targets")) {
+                                                BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
-                                    PacketDistributor.sendToPlayer(player, new SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
-                                    return 1;
-                                })
+                                                // Bumps the level WITHOUT touching xp, so
+                                                // the two can drift apart. That has always
+                                                // been true of this command.
+                                                data.setLevel(data.getLevel() + amount);
+                                                player.setData(ModAttachments.BENDING_DATA, data);
+
+                                                PacketDistributor.sendToPlayer(player, new SyncStatsPacket(
+                                                        data.getXp(), data.getLevel(), data.getCurrentChi()));
+                                                changed++;
+                                            }
+
+                                            final int total = changed;
+                                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                                    "Gave " + amount + " level(s) to " + total + " player(s)."), true);
+                                            return changed;
+                                        })
+                                )
                         )
                 )
                 // AVATAR COMMANDS

@@ -387,8 +387,16 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - `AbilityHandler` now uses the registry pattern above (was a switch statement).
   The old "channeled tracking is a single boolean" gap is closed —
   `BendingData.getActiveChanneledAbility()` is a general string.
-- Commands: `/bend add|remove <element>` and `/bend level <amount>`.
+- Commands: `/bend add|remove <targets> <element>` and `/bend level <targets> <amount>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
+- **Every `/bend` command names WHO it acts on, and the target is not optional.** They
+  used to act on whoever typed them, which made them useless for setting anyone up on
+  a server. The argument is `EntityArgument.players()`, so `@s` is the self case and
+  `@a` does everybody in one go. There is deliberately no second "just me" form beside
+  it: Brigadier would have to tell `/bend add fire` from `/bend add Steve fire` by
+  trying one branch and falling through to the other, and a mistyped element name would
+  then be reported as a missing player. All three report what they did and to how many,
+  since a command acting on somebody else is otherwise silent to the person who ran it.
 - **EVERY `/bend` command needs permission level 2**, which is exactly "cheats enabled
   in singleplayer, or op on a server" — vanilla ties those two together, so one check
   covers both. The `requires()` sits on the ROOT rather than on each subcommand, so
@@ -1823,6 +1831,16 @@ Four commands, covered by the permission gate on the `/bend` root:
   tooltip through the panel's. `mouseOverUpgradePanel` now suppresses the node tooltip
   whenever the pointer is inside the panel, and the click handler shares the same
   bounds check rather than keeping its own copy.
+- **And it had the ability ART bleeding through it.** The panel pops out BESIDE its own
+  node, so it lands on top of whichever nodes sit to that side — and since almost no
+  ability has a picture yet, what came through was a row of "?" placeholders sitting
+  behind the upgrade text. Two halves to the fix: the background was `0xF0101010`, six
+  percent see-through for no reason, and is now opaque; and a node covered by the panel
+  draws its box and outline but NOT its icon. The box stays so a node only half covered
+  still looks like itself — it is the art that had to go.
+- `upgradePanelBounds()` is the single source for the panel's rectangle now, since
+  three things need it: the hover test, the click test, and the node decoration keeping
+  out from underneath it.
 - **Mine cannot take everything.** Netherite blocks are refused at any price — the one
   flat no in the ability — and bedrock and friends are already out on negative hardness.
   Obsidian (with crying obsidian, since gating one and not the other would only look
