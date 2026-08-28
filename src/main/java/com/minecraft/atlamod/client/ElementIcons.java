@@ -25,7 +25,9 @@ public final class ElementIcons {
 
     private static final Map<String, ResourceLocation> ICONS = Map.of(
             "fire", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/fire_icon.png"),
-            "water", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/water_icon.png")
+            "water", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/water_icon.png"),
+            "air", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/air_icon.png"),
+            "earth", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/earth_icon.png")
     );
 
     private ElementIcons() {

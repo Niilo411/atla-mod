@@ -309,12 +309,17 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   source region as well as the drawn size and so cannot resize on their own.
   Used by BOTH the element selection screen and the HUD badge.
   Adding an element = drop the PNG in that folder + one line in `ICONS`.
-  FIRE and WATER have art; air and earth are still on the "?" box.
+  ALL FOUR base elements have art now; the sub-elements are still on the "?" box.
   NOTE: source art must be a REAL PNG. The FIRST fire emblem arrived as a JPEG carrying
   a `.png` extension and had to be re-encoded (JDK `ImageIO`) to a genuine 256x256 ARGB
-  PNG. Both current emblems were checked at the file level before being put in — PNG
+  PNG. Every emblem since has been checked at the file level before being put in — PNG
   signature `89 50 4E 47`, and 256x256 read straight out of the IHDR chunk — which is
   worth doing every time rather than trusting the extension.
+  NOTE ALSO: the FILE NAME has to be lowercase with no spaces, the same rule the
+  ability icons document. The air and earth emblems arrived as `Air_icon.png` and
+  `Earth icon.png`, neither of which is a legal ResourceLocation path — a capital or a
+  space there throws at load rather than failing quietly, so they are renamed on the
+  way in rather than worked around in the map.
 - **Passives are excluded from the ability equip tab.** They sit in the same path
   arrays as everything else, so the equip list picked them up until
   `UpgradeMenuScreen.equippableAbilities()` started filtering them out — offering a
