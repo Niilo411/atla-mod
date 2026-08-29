@@ -11,16 +11,18 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Right / Sound. A shriek at everything in front: twenty-five seconds unable to hear
- * anything at all, and ten seconds unable to bend.
+ * Right / Sound. A shriek at everything in front: ten seconds unable to hear anything
+ * at all, and ten seconds unable to bend.
  *
  * The bending lockout is the real weapon and the deafness is the flavour -- ten
  * seconds is a very long time to be unable to answer, which is why it costs 200 chi
  * and waits a hundred seconds. The caster is never caught by their own shriek.
  *
- * Two different mechanisms because they run for two different lengths: the deafness
- * is a MobEffect (see DeafenedEffect, silenced client-side), and the lockout is a
- * counter on BendingData that AbilityHandler checks before anything is spent.
+ * Still two different mechanisms even now they run the same ten seconds, and they have
+ * to be: the deafness is a MobEffect (see DeafenedEffect, silenced client-side) and
+ * lands on mobs as readily as players, where the lockout is a counter on BendingData
+ * that AbilityHandler checks before anything is spent and only means something to
+ * something that bends.
  */
 public class Deafen implements Ability {
 
@@ -37,8 +39,14 @@ public class Deafen implements Ability {
      */
     private static final double CONE_DOT = 0.4;
 
-    /** Twenty-five seconds of silence. */
-    private static final int DEAF_TICKS = 500;
+    /**
+     * Ten seconds of silence, cut from twenty-five.
+     *
+     * The same length as the bending lockout now. Twenty-five seconds of hearing
+     * nothing at all was a long time to spend on the flavour half of the ability —
+     * it ran on well after the half that actually decides a fight had lapsed.
+     */
+    private static final int DEAF_TICKS = 200;
 
     /** Ten seconds of being unable to bend. */
     private static final int LOCKOUT_TICKS = 200;

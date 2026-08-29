@@ -6,7 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Right / Ice. Summons a block of ice onto the crosshair; a left click lobs it a few
- * blocks ahead, where it sits for five seconds and then bursts.
+ * blocks ahead, where it sits for two seconds and then bursts.
  *
  * The delay is the ability. It cannot be aimed at anything moving with any
  * confidence, so it is a thing to put WHERE something is going to be — a doorway, a

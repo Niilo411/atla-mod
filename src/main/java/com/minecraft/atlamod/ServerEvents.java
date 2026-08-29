@@ -897,6 +897,28 @@ public class ServerEvents {
             }
         }
 
+        // Combustion nuke's damage cap: its four blasts together may take at most most
+        // of a victim's maximum health, so a full-health target is left standing rather
+        // than deleted.
+        //
+        // AFTER the resistance above, deliberately — the passive reduces the blow and
+        // this clamps what is left, so wearing it still helps rather than being
+        // swallowed by the cap. Every living thing is covered, mobs and the caster
+        // included, and this does nothing at all unless a capped cast is going off at
+        // this exact moment (see Combustion.capped).
+        if (com.minecraft.atlamod.abilities.combustion.Combustion.isCapping()
+                && event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
+
+            float allowed = com.minecraft.atlamod.abilities.combustion.Combustion.cap(
+                    event.getEntity(), event.getAmount());
+
+            if (allowed <= 0.0F) {
+                event.setCanceled(true);
+                return;
+            }
+            event.setAmount(allowed);
+        }
+
         // Compressed punches: a punch that actually LANDS hits for 10 rather than
         // whatever the bender's fists are worth.
         //

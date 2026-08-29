@@ -10,12 +10,12 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Left / Blood. One second of gathering, then the target is locked in place for two
+ * Left / Blood. One second of gathering, then the target is locked in place for five
  * seconds and bled the whole time.
  *
- * The element's opener. Two seconds is short, but a target that cannot move at all is
- * a target every other bloodbending ability can be lined up on -- and unlike Freeze in
- * icebending, this one does NOT make them untouchable while it holds.
+ * The element's opener. A target that cannot move at all is a target every other
+ * bloodbending ability can be lined up on -- and unlike Freeze in icebending, this one
+ * does NOT make them untouchable while it holds.
  */
 public class BloodFreeze implements ChargedAbility {
 
@@ -25,8 +25,15 @@ public class BloodFreeze implements ChargedAbility {
     /** How far off the crosshair a target may be and still be caught. */
     private static final double TOLERANCE = 2.0;
 
-    /** Two seconds, as specced. */
-    private static final int HOLD_TICKS = 40;
+    /**
+     * Five seconds, raised from the two it was specced at.
+     *
+     * The element's opener is meant to buy time to line something else up, and two
+     * seconds behind a one second wind-up was barely longer than the cast itself. The
+     * bleeding runs for the whole hold, so this raises its total damage from 4 to 10
+     * as well.
+     */
+    private static final int HOLD_TICKS = 100;
 
     /** 2 hp a second while it holds. */
     private static final float DAMAGE_PER_SECOND = 2.0F;

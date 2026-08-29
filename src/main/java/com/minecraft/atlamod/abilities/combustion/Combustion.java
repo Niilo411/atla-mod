@@ -125,6 +125,81 @@ public final class Combustion {
         level.explode(owner, at.x, at.y, at.z, power, Level.ExplosionInteraction.TNT);
     }
 
+    /**
+     * The most damage a single capped cast may take off anything, as a fraction of
+     * that thing's MAXIMUM health.
+     *
+     * Most of a health bar rather than all of it: a full-health target is left alive
+     * and very nearly dead, which is where Combustion nuke is meant to leave things.
+     * A target that was already hurt still dies — the cap is against the health they
+     * could have had, not against what they have left, so being wounded when the blast
+     * lands is still fatal.
+     */
+    public static final float CAP_FRACTION = 0.8F;
+
+    /**
+     * What the capped cast has already taken off each victim, live only while
+     * {@link #capped} is running it.
+     *
+     * The cap has to be cumulative across the WHOLE cast rather than per explosion:
+     * the nuke lays four blasts in a line and anything near the middle of it is caught
+     * by two or three, so four separately-capped blasts would still add up to a
+     * killing blow. Empty at every other moment, so nothing else in the game is
+     * touched by it.
+     */
+    private static final java.util.Map<java.util.UUID, Float> DEALT = new java.util.HashMap<>();
+
+    private static boolean capping;
+
+    /**
+     * Runs {@code blasts} with a damage cap over the whole of it.
+     *
+     * The cap itself is applied in ServerEvents' damage handler, which is where damage
+     * is decided — there is no per-explosion damage calculator to override in 1.21.1,
+     * and reducing the explosion POWER instead is not an option: vanilla's own formula
+     * gives about 14 damage per point of power at the centre, so any power low enough
+     * to be survivable would take the demolition with it, and demolition is what the
+     * ability is for.
+     *
+     * A flag read by the handler is enough because an explosion deals its damage
+     * synchronously, on the server thread, inside the level.explode call — nothing
+     * else can be taking damage between the two. Cleared in a finally, so a throw
+     * inside a blast cannot leave the cap armed over the rest of the game.
+     */
+    public static void capped(Runnable blasts) {
+        capping = true;
+        DEALT.clear();
+        try {
+            blasts.run();
+        } finally {
+            capping = false;
+            DEALT.clear();
+        }
+    }
+
+    /**
+     * Clamps one blow from a capped cast to whatever allowance the victim has left,
+     * and books it.
+     *
+     * @return the amount that should actually land, which may be zero
+     */
+    public static float cap(net.minecraft.world.entity.LivingEntity victim, float amount) {
+        if (!capping) return amount;
+
+        float allowance = victim.getMaxHealth() * CAP_FRACTION;
+        float already = DEALT.getOrDefault(victim.getUUID(), 0.0F);
+
+        float allowed = Math.max(0.0F, Math.min(amount, allowance - already));
+        DEALT.put(victim.getUUID(), already + allowed);
+
+        return allowed;
+    }
+
+    /** Whether a capped cast is going off right now. See {@link #capped}. */
+    public static boolean isCapping() {
+        return capping;
+    }
+
     public static void boom(ServerLevel level, Vec3 at, float volume, float pitch) {
         level.playSound(null, at.x, at.y, at.z,
                 SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, volume, pitch);

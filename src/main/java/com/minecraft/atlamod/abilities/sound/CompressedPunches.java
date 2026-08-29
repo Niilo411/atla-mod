@@ -15,7 +15,7 @@ import net.minecraft.world.phys.Vec3;
  * rather than being a flat damage buff:
  *  - the WAVE goes out on every left click whether it connects or not, so it is a
  *    ranged attack you can throw at nothing in particular;
- *  - the direct hit is raised to 10, which only applies when a punch really lands.
+ *  - the direct hit is raised to 5, which only applies when a punch really lands.
  *
  * Expensive to hold at 25 chi a second, capped at thirty seconds, and thirty seconds
  * of cooldown once it drops however it ended. It also needs 100 chi banked to switch
@@ -30,11 +30,18 @@ public class CompressedPunches implements Ability {
     /** Registry key, also what the toggle is tracked by. */
     public static final String KEY = "compressed punches";
 
-    /** What a thrown wave hits for. */
-    public static final float WAVE_DAMAGE = 6.0F;
+    /** What a thrown wave hits for. Halved from the 6 it was built with. */
+    public static final float WAVE_DAMAGE = 3.0F;
 
-    /** What a punch that actually connects hits for while this is up. */
-    public static final float PUNCH_DAMAGE = 10.0F;
+    /**
+     * What a punch that actually connects hits for while this is up.
+     *
+     * Halved from 10, along with the wave. Both came down together deliberately: the
+     * ability throws a free ranged attack on every click AND raises the melee it is
+     * already being paid for by the second, so a punch that connected was being
+     * counted twice at full strength.
+     */
+    public static final float PUNCH_DAMAGE = 5.0F;
 
     /** Chi drained per second while it is up. */
     public static final int CHI_PER_SECOND = 25;

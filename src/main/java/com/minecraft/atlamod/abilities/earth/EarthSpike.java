@@ -88,9 +88,16 @@ public class EarthSpike implements Ability {
         return 5;
     }
 
+    /**
+     * Five seconds, raised from one.
+     *
+     * At a second it could be laid almost continuously under a target that was trying
+     * to close the distance, which for four and a half hearts a cast made it the
+     * earth path's best damage by a wide margin as well as its best control.
+     */
     @Override
     public int getCooldownTicks() {
-        return 20; // 1 second
+        return 100; // 5 seconds
     }
 
     /** Refused for free when there is no ground where the bender is looking. */

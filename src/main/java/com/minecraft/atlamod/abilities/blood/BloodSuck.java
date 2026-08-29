@@ -13,9 +13,11 @@ import net.minecraft.world.phys.Vec3;
  * Left / Blood. Held: blood is pulled out of the target and into the bender — two
  * hearts a second taken, two hearts a second healed.
  *
- * The most expensive channel in the mod at 100 chi a second, and it has to be: a
- * straight trade of somebody else's health for your own has no ceiling other than what
- * it costs to keep running. A full pool buys about six seconds of it.
+ * The most expensive channel in the mod at 100 chi a second, and capped at three
+ * seconds on top of that: a straight trade of somebody else's health for your own wins
+ * any fight it is allowed to run to the end of, so the price alone was not enough of a
+ * ceiling once a bender's pool grew past a few hundred. Three seconds is six hearts
+ * moved across, for 300 chi and ten seconds of waiting.
  *
  * Healed directly rather than through Regeneration, deliberately. Regeneration heals on
  * its own internal beat and re-applying it every tick breaks it outright — the trap
@@ -57,6 +59,20 @@ public class BloodSuck implements ChanneledAbility {
     @Override
     public double getXpPerSecond() {
         return 0;
+    }
+
+    /**
+     * Three seconds, and then it lets go by itself.
+     *
+     * The chi was meant to be the only ceiling, but 100 a second against a pool that
+     * grows with every level meant a high enough bender could hold the trade open for
+     * as long as the target lived — and a straight swap of somebody else's health for
+     * your own wins any fight it is allowed to run to the end of. Hitting the cap
+     * stops the channel exactly like releasing the key, cooldown included.
+     */
+    @Override
+    public int getMaxDurationTicks() {
+        return 60;
     }
 
     @Override

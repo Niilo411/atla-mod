@@ -11,20 +11,31 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 
 /**
- * Right / Sound. A roar in every direction: everything within fifteen blocks is left
- * Disoriented, with no regard for where the bender is facing.
+ * Right / Sound. A roar in every direction: everything within fifteen blocks takes two
+ * hearts and is left Disoriented for five seconds, with no regard for where the bender
+ * is facing.
  *
- * No damage at all -- pure control, like Water push and Air pull. What it has over
- * those is that it does not need aiming: a roar catches what is behind you as readily
- * as what is in front, which is what makes it the answer to being surrounded.
+ * Mostly control rather than damage -- two hearts across a whole crowd is a scratch.
+ * What it has over Water push and Air pull is that it does not need aiming: a roar
+ * catches what is behind you as readily as what is in front, which is what makes it
+ * the answer to being surrounded.
  */
 public class Roar implements Ability {
 
     /** How far the roar carries, in blocks, in every direction. */
     private static final double RADIUS = 15.0;
 
-    /** How long the disorientation holds. */
-    private static final int DISORIENT_TICKS = 200; // 10 seconds
+    /** How long the disorientation holds. Cut from ten seconds. */
+    private static final int DISORIENT_TICKS = 100; // 5 seconds
+
+    /**
+     * 2 hearts to everything the roar reaches.
+     *
+     * The ability had none at all before. It is still mostly control — two hearts
+     * across a whole crowd is a scratch — but a shout that took nothing off anything
+     * read as half an ability beside the rest of the path.
+     */
+    private static final float DAMAGE = 4.0F;
 
     @Override
     public String getName() {
@@ -60,6 +71,10 @@ public class Roar implements Ability {
         for (Entity caught : level.getEntities(player, area)) {
             if (!(caught instanceof LivingEntity living) || !living.isAlive()) continue;
             if (living.position().distanceToSqr(player.position()) > RADIUS * RADIUS) continue;
+
+            // Sound boosting raises the damage as well as the duration.
+            living.hurt(player.damageSources().indirectMagic(player, player),
+                    Sound.damage(data, DAMAGE));
 
             living.addEffect(new MobEffectInstance(
                     ModEffects.DISORIENTATION, ticks, 0, false, true, true));

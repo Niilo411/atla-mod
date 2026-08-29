@@ -89,7 +89,15 @@ public final class MetalShields {
         Metal.scrape(level, player.position(), 1.0F, 0.9F);
     }
 
-    /** Takes the shield down and gives the ground back. */
+    /**
+     * Takes the shield down and gives the ground back.
+     *
+     * Stamps the two second cooldown on the way out, which is the same call
+     * CompressedPunches.stop makes and for the same reason: the dispatcher's toggle
+     * path skips the stamp entirely, so without doing it here putting the shield down
+     * and straight back up would be free. Both routes that end a shield without
+     * throwing it — pressed off, and run out of chi — come through here.
+     */
     public static void drop(ServerPlayer player) {
         for (Shield shield : List.copyOf(ACTIVE)) {
             if (!shield.ownerId.equals(player.getUUID())) continue;
@@ -97,6 +105,9 @@ public final class MetalShields {
             clear(shield);
             ACTIVE.remove(shield);
             Metal.scrape(shield.level, player.position(), 0.8F, 1.4F);
+
+            player.getData(ModAttachments.BENDING_DATA)
+                    .setCooldown(MetalShield.KEY, MetalShield.COOLDOWN_TICKS);
         }
     }
 

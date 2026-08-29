@@ -29,6 +29,9 @@ import net.minecraft.world.phys.Vec3;
  * ceiling; this reaches the same fifteen seconds in three, and costs less — but it
  * leaves the victim Disoriented on top, so an airbender's version is the faster and
  * nastier of the two.
+ *
+ * Like Drown, it ends early if the bender loses sight of the victim. The grip has to
+ * be maintained, so breaking line of sight is the counter-play to both.
  */
 public class Breathless implements ChargedAbility {
 
@@ -143,7 +146,8 @@ public class Breathless implements ChargedAbility {
         int charged = Math.min(MAX_CHARGE, data.getLastChargeTicks());
         int duration = charged * SUFFOCATION_PER_CHARGE_TICK;
 
-        Drownings.start(victim, duration);
+        // Held only while the bender can still see them — see Drownings.
+        Drownings.start(player, victim, duration);
 
         victim.addEffect(new MobEffectInstance(
                 ModEffects.DISORIENTATION, DISORIENT_DURATION, 0, false, true, true));

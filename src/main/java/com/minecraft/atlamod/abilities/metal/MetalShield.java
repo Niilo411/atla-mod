@@ -43,9 +43,27 @@ public class MetalShield implements TwoPhaseAbility {
         return 0;
     }
 
+    /** Two seconds before it can go back up, however it came down. */
+    public static final int COOLDOWN_TICKS = 40;
+
+    /**
+     * Two seconds, so raising it again is not instant.
+     *
+     * It had none at all, which made a shield that had just been thrown or dropped
+     * something a bender could put straight back up on the next tick — at no cost,
+     * since raising it spends nothing up front and it is billed by the second. The
+     * two seconds is what makes putting it down a decision.
+     *
+     * Stamped from THREE places rather than one, because this ability is a toggle and
+     * a two-phase at once and the dispatcher's cast path stamps neither: the throw is
+     * covered by the two-phase release, and being pressed off or running out of chi are
+     * both covered by MetalShields.drop. Switching it off is still never REFUSED —
+     * isActive is checked above the cooldown gate — so the wait only ever applies to
+     * putting it back up.
+     */
     @Override
     public int getCooldownTicks() {
-        return 0;
+        return COOLDOWN_TICKS;
     }
 
     /** Up already: the next press takes it down. */

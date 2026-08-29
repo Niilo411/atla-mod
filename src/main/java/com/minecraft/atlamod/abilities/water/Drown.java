@@ -18,6 +18,9 @@ import net.minecraft.world.phys.Vec3;
  * real cast, five is the most it can be. The bubbles go at any charge; what grows is
  * how long the victim is kept without air afterwards.
  *
+ * However long that is, it ends early if the bender loses sight of them: the grip has
+ * to be maintained, so breaking line of sight is the counter-play. See Drownings.
+ *
  * The drowning itself is driven by Drownings rather than left to vanilla, because
  * vanilla only drowns what is underwater and refills its air the moment it is not.
  */
@@ -134,7 +137,8 @@ public class Drown implements ChargedAbility {
 
         int duration = MIN_DROWN + Math.round((MAX_DROWN - MIN_DROWN) * power);
 
-        Drownings.start(victim, duration);
+        // Held only while the bender can still see them — see Drownings.
+        Drownings.start(player, victim, duration);
 
         if (player.level() instanceof ServerLevel level) {
             level.sendParticles(ParticleTypes.BUBBLE_POP,

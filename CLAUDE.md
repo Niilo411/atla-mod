@@ -539,6 +539,9 @@ four, and it is earned rather than picked.
   (`Lightning.MINIMUM_CHARGE_TICKS`). Nothing in the element fires on the press. It is
   a minimum, not a fixed figure — Lightning bolt already takes five seconds and keeps
   them.
+- **Lightning bolt hits for 16, cut from the design's 20.** Still the hardest single
+  projectile in the mod, but a full-health player now survives one rather than being
+  ended by a shot they may never have seen coming.
 - **Lightning Strength is the one exception, and barely one**: a passive is never cast,
   so there is no moment of use to put a wind-up in front of.
 - The four cast shapes became `ChargedAbility` (Jump, stun, Swarm, ball). That needed
@@ -699,6 +702,10 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
 ### Two figures that were NOT in the design
 
 - **Ice Bomb's chi, xp and cooldown** (100 / 10 / 5s) — the design gives it none.
+- **Its FUSE is now 2s, cut from 5.** Five seconds was long enough for anything with
+  legs to walk out of a four-block blast and come back afterwards, which left the bomb
+  doing nothing but marking a square of ground as briefly unpleasant. The delay is
+  still the ability — it cannot be aimed at anything moving — just a shorter one.
 - **Ice Bomb's blast damage** (8.0 in a 4-block radius) — the design says only "a ton of
   ice particles". A thing called a bomb that did nothing but sparkle read as an omission
   rather than a decision, so it hits. Both are flagged INVENTED in the source.
@@ -758,16 +765,26 @@ halves live in three places because no single hook could carry all of them:
   tries to play while the local player carries it. Not filtered by category — muting
   effects but leaving music would be a half-deafness nobody asked for.
 - Mobs receive it and are unaffected, exactly as they are by Disorientation.
-- **Deafen's bending lockout is a SEPARATE mechanism**, and has to be: it runs 10
-  seconds against the deafness's 25, so one effect could not carry both, and two
-  effects for one ability would be two icons for a single thing. It is a transient
-  counter on `BendingData`, checked at the top of both dispatcher entry points.
+- **Deafen's bending lockout is a SEPARATE mechanism**, and stays one even now that
+  both halves run 10 seconds (the deafness was cut from 25, which ran on well after
+  the half that actually decides a fight had lapsed). The deafness is a MobEffect and
+  lands on mobs too; the lockout is a transient counter on `BendingData` checked at the
+  top of both dispatcher entry points, and only means anything to a bender. Two effects
+  for one ability would also be two icons for a single thing.
 - **Only a key PRESS is refused while locked out, never a release.** A channel already
   running when the lockout lands has to be able to be let go of, or it would drain chi
   until it ran dry.
 
 ### The rest
 
+- **A bass wave stuns for ONE second, cut from three.** A wave goes out every four
+  seconds, so at a three second hold the stun was very nearly continuous for anything
+  that stayed in range — each wave landed while the last one's hold was still running.
+  At one second the waves punctuate rather than lock.
+- **Roar hits for 4 hp and disorients for 5s** (cut from 10s, and it had no damage at
+  all). Still mostly control — two hearts across a whole crowd is a scratch — but a
+  shout that took nothing off anything read as half an ability beside the rest of the
+  path. The damage goes through `Sound.damage`, so Sound boosting raises it.
 - **Bass waves PINS the bender for the fifteen seconds it throws**, using the same two
   halves every rooting channel does — `AbilityHandler.setRooted` for the client and
   `holdStill` on the server every tick, both made public for it since rooting was
@@ -791,6 +808,9 @@ halves live in three places because no single hook could carry all of them:
   routing, so an armed ability does not swallow the punch); the harder direct hit is
   applied in the damage handler, where melee damage is actually decided. Set rather
   than added, so it does not stack with a weapon.
+- **Both its figures were halved together** (wave 6 -> 3, punch 10 -> 5), because being
+  two effects is exactly why: a connecting punch was throwing a free ranged attack AND
+  raising the melee, so it was being counted twice at full strength.
 - **Compressed punches and Sound wall are TOGGLES billed by the second**, which the
   dispatcher's channel billing does not reach — they are charged from the player tick
   by `ServerEvents.chargeSoundToggle` on the same one-second beat, and switch
@@ -873,6 +893,13 @@ both at 35 points.
   logic at all. Being real blocks is also what gives it the throw.
 - It is a TOGGLE and a TWO-PHASE at once, which nothing else in the mod is: the slot
   key raises and lowers it, the left click throws it.
+- **Its 2s cooldown therefore has to be stamped from three places**, because the
+  dispatcher's cast path stamps neither shape: the throw goes through the two-phase
+  release, and pressed-off and out-of-chi both come through `MetalShields.drop`, which
+  stamps it exactly as `CompressedPunches.stop` does. Switching it off is still never
+  refused — `isActive` is checked above the cooldown gate — so the wait only ever
+  applies to putting it back up. It had no cooldown at all, which made dropping and
+  re-raising free.
 - **The shield is rebuilt from scratch every tick** — plates taken back and laid again
   wherever it now is. Simpler than working out which blocks moved, and it means the
   ground is always given back correctly however fast the crosshair swings.
@@ -986,6 +1013,17 @@ The steepest of the five, and the only one that can kill its own bender by accid
 - **Combustion nuke costs 1000 chi**, which makes it uncastable below level 5 since
   `getMaxChi()` is `500 + level*100` — the same gate Fire Rain, Tsunami and an upgraded
   Lightning Swarm have.
+- **The nuke no longer one-shots, and the cap could NOT be done by lowering the power.**
+  Vanilla's explosion formula gives roughly `14 * power` damage at the centre, so any
+  power a player could live through would be a fraction of one stick of TNT — and the
+  demolition is what the ability is for. `Combustion.capped(Runnable)` instead runs the
+  whole line of four blasts with a flag up, and the damage handler clamps `IS_EXPLOSION`
+  damage to what the victim has left of `CAP_FRACTION` (0.8) of their MAXIMUM health.
+  Cumulative across the cast rather than per blast, since anything near the middle of
+  the line is caught by two or three; a flag is enough because an explosion deals its
+  damage synchronously inside `level.explode`. Applied AFTER Combustion resistance, so
+  the passive still helps. A target already hurt still dies — the cap is measured
+  against the health they could have had, not what is left.
 - **`UpgradeMenuScreen.drawFitted` shrinks a name to fit its box** rather than letting
   it spill over its neighbours. Every slot and list row in the equip and passive tabs is
   70 pixels wide, which is comfortable for "Ignite" and hopeless for "Combustion
@@ -1113,9 +1151,11 @@ experience track of its own.
 ### The rest
 
 - **Blood freeze needs a tracker for its BLEEDING, not for its hold.** The hold is a
-  Stunned effect and needs no help; two hp a second for two seconds has to land twice,
-  once a second, rather than as one blow on the cast. `BloodHolds` is that, and nothing
-  more.
+  Stunned effect and needs no help; two hp a second for FIVE seconds has to land five
+  times, once a second, rather than as one blow on the cast. `BloodHolds` is that, and
+  nothing more. The hold was raised from the design's 2s to 5s — at two seconds behind
+  a one second wind-up the element's opener was barely longer than its own cast — which
+  also takes its total bleeding from 4 to 10.
 - **Blood Slow re-aims every tick; Blood manipulation does NOT.** That difference is
   deliberate — a sweep across a group wants to follow the crosshair, where a puppet
   dropped by glancing away would be unusable for the thing it exists to do.
@@ -1126,8 +1166,11 @@ experience track of its own.
 - **Blood suck heals directly rather than through Regeneration.** Re-applying that
   effect every tick breaks it outright — the trap Water heal documents — and a straight
   trade should land exactly when the damage does rather than on a beat of its own.
-- At 100 chi a second it is the most expensive channel in the mod, and it has to be: a
-  trade of somebody else's health for your own has no ceiling but what it costs to run.
+- At 100 chi a second it is the most expensive channel in the mod, and it is ALSO
+  capped at 3 seconds (`getMaxDurationTicks`). The price alone stopped being a ceiling
+  once a bender's pool grew: a straight trade of somebody else's health for your own
+  wins any fight it is allowed to run to the end of. Three seconds is six hearts moved
+  across, for 300 chi and ten seconds of waiting.
 - **Flesh shield costs 100 CHI.** The design doc said xp, which was a typo — it was
   briefly built that way and taken in `execute`, since the dispatcher only knows how to
   spend chi. It now goes through the ordinary path like everything else, and refuses
@@ -1427,14 +1470,15 @@ Four commands, covered by the permission gate on the `/bend` root:
 - Water Masterclass path COMPLETE (gated behind the other three):
   - Drown (renamed from the design doc's "Water bubble"; CHARGED up to 5s and fires on
     release like Fire blow. Pops every air bubble and then keeps the victim without air
-    — 5s of drowning at a 1s charge, 15s at 5s, one heart a second throughout. 250 chi,
-    15 xp, 30s cooldown)
+    — 5s of drowning at a 1s charge, 15s at 5s, one heart a second throughout, and it
+    ENDS EARLY the moment the bender loses sight of them. 250 chi, 15 xp, 30s cooldown)
   - water breathing (PASSIVE — air is topped up every tick rather than granted as a
     potion effect, so nothing can dispel it and no timer is ever shown. Also makes the
     bender immune to Drown)
   - Tsunami (CHARGED 3s, then a wall of water 9 across and 4 high rolls 20 blocks out,
-    hitting everything once for 24.0 and carrying it along — enough to one-shot a
-    zombie, and `indirect_magic` bypasses armour so a geared one dies the same. Moves
+    hitting everything once for 20.0 and carrying it along — still exactly enough to
+    one-shot a zombie (cut from 24.0), and `indirect_magic` bypasses armour so a geared
+    one dies the same. Moves
     1 block every 2 ticks, so 20 blocks takes 2s; the wall is 2 slices deep, which is
     NOT arbitrary — see the flooding invariant below. 750 chi, 25 xp, no cooldown)
 - **Tsunami is Water Sphere in reverse and borrows its trick**: blocks are placed AND
@@ -1546,8 +1590,10 @@ Four commands, covered by the permission gate on the `/bend` root:
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
   - Water stream (must be LOOKING at water within 20 blocks; tears a stream out and
     holds it for a 3s window, then left click to throw for 8.0 damage. 100 chi, 8 xp,
-    NO cooldown — the 3s window and the 100 chi are the whole limit. Chi is spent on
-    the DRAW, so letting the window lapse costs the cast)
+    10s cooldown from the throw — it had none, but a bender stood beside a pond has
+    effectively unlimited chi, so "the 3s window and the 100 chi are the whole limit"
+    came out as a stream every three seconds forever. Chi is spent on the DRAW, so
+    letting the window lapse costs the cast — and stamps the cooldown too)
   - Water Bullets (three bullets held ready, fired ONE PER CLICK at 8.0 damage each,
     2.6 blocks/tick. No window — they keep until used. 100 chi, 10 xp, 2s cooldown
     starting from the LAST of the three)
@@ -1667,13 +1713,15 @@ Four commands, covered by the permission gate on the `/bend` root:
     than anything else the mod throws. 50 chi, 5 xp, 10s cooldown from the LAST of the
     six. Both held shapes at once, the way Fireball is, but with `getShots()` = 6 so
     the slot stays armed until they are all spent)
-  - Air cannon (CHARGE 4s, then ONE shot for 7 hearts on a left click. Wide hit
+  - Air cannon (CHARGE 4s, then ONE shot for 3.5 hearts on a left click — halved from
+    7, which ended almost anything outright. Wide hit
     radius of 1.2 so a blast that took four seconds to build does not need pinpoint
     aim, and a full block of knockback. 100 chi, 10 xp, 10s cooldown from the shot.
-    The opposite trade to Air splinters beside it: six quick cuts, or one blow that
-    ends most things)
+    The opposite trade to Air splinters beside it: six quick cuts, or one heavy blow)
   - wind tunnel (CHANNELED funnel of wind: everything in a 12-block cone in front is
-    shoved back, held at 5s of Slowness I, and worn down at 1 heart a SECOND. 10
+    held at 5s of Slowness I, and shoved back and worn down at 1 heart on a ONE-SECOND
+    beat — the shove rides the same beat the damage does rather than running every
+    tick, which used to hold everything caught permanently airborne. 10
     chi/sec, 2 xp/sec, no cooldown, no cap. The damage is the least of it — nothing
     caught in it can close the distance while it runs)
 - Air Balanced path COMPLETE:
@@ -1691,7 +1739,8 @@ Four commands, covered by the permission gate on the `/bend` root:
 - Air Masterclass path IN PROGRESS (gated behind the other three, which are all done):
   - breathless (CHARGED up to 3s, fires on release like Drown. Pulls the air out of a
     victim's lungs: every tick of charge buys FIVE of suffocation, so 1s held is 5s
-    suffered and the 3s ceiling is 15s, at one heart a second throughout. Also leaves
+    suffered and the 3s ceiling is 15s, at one heart a second throughout — and like
+    Drown it ends early if the bender loses sight of them. Also leaves
     them Disoriented for 5s. 150 chi, 15 xp, 30s cooldown)
   - Tornado (TOGGLE — press to raise, press again to put it down, whether or not its
     30 seconds have run. An Air spout grown up: TWICE the height (20 blocks) and twice
@@ -1737,10 +1786,11 @@ Four commands, covered by the permission gate on the `/bend` root:
   - Earth spike (TAPPED, not held. A single column driven up in 2 TICKS wherever the
     bender is LOOKING — 3 blocks tall with a stalagmite tip — hurting anything within
     1.8 blocks — the whole ring of neighbouring blocks — for 4.5 hearts as it comes
-    up, the CASTER included. Stands 5 seconds, then sinks. 100 chi, 5 xp, 1s cooldown)
+    up, the CASTER included. Stands 5 seconds, then sinks. 100 chi, 5 xp, 5s cooldown
+    — raised from 1s, at which it could be laid almost continuously under a target)
   - Splinters (Air splinters' heavier twin: CHARGE 2s, then SIX shards of stone thrown
-    one per left click at 3.5 blocks/tick. 2.5 hearts each, so FOUR of them come to
-    exactly the 20 a zombie has. Tight 0.5 hit radius — "needs good aim" has to be
+    one per left click at 3.5 blocks/tick. 1.5 hearts each, cut from 2.5 — it takes
+    all SIX to bring a zombie down now rather than four. Tight 0.5 hit radius — "needs good aim" has to be
     true of the hitbox, not just the description. 100 chi, 10 xp, 10s cooldown from
     the last of the six)
   - Earth block (pulls a real block OUT of the ground onto the crosshair, then throws
@@ -2101,8 +2151,11 @@ Four commands, covered by the permission gate on the `/bend` root:
 - Air spout's cooldown was cut from 100s to **15s**.
 - **breathless REUSES `Drownings`.** Suffocation is the same thing whether the air was
   replaced by water or simply taken away, so there is one implementation of "hold this
-  thing's air at nothing and hurt it on vanilla's beat" rather than two. Two
-  consequences worth knowing: a second cast replaces the first rather than stacking
+  thing's air at nothing and hurt it on vanilla's beat" rather than two. Three
+  consequences worth knowing: **the LINE-OF-SIGHT rule is shared** — a drowning carries
+  its caster's UUID and ends the moment the bender can no longer see the victim, which
+  makes breaking line of sight the counter-play to both and covers a caster who died,
+  logged out or left the level in one test; a second cast replaces the first rather than stacking
   (that is Drownings' rule), and the water masterclass passive **water breathing
   answers breathless too** — a bender who cannot run out of air cannot be smothered
   either. That cross-element counter is a happy accident of the reuse, but it is a

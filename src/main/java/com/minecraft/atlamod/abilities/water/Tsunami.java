@@ -26,11 +26,14 @@ public class Tsunami implements ChargedAbility {
     private static final int RANGE = 20;
 
     /**
-     * 12 hearts, enough to take a zombie down in one pass with room to spare — they
-     * have 20 health, and Tsunami damages through indirect magic, which vanilla tags
-     * as bypassing armour, so a geared one dies the same as a bare one.
+     * 10 hearts, down from 12.
+     *
+     * Still exactly enough to take a zombie down in one pass — they have 20 health,
+     * and Tsunami damages through indirect magic, which vanilla tags as bypassing
+     * armour, so a geared one dies the same as a bare one. What it no longer has is
+     * the four points of headroom on top of that.
      */
-    private static final float DAMAGE = 24.0F;
+    private static final float DAMAGE = 20.0F;
 
     @Override
     public String getName() {

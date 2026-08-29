@@ -33,8 +33,13 @@ public class LightningBolt implements ChargedAbility, TwoPhaseAbility {
     /** Key of the upgrade that calls down a real bolt wherever the shot ends. */
     public static final String STORM_CALLER = "lightning_bolt_storm_caller";
 
-    /** 20 hp, as specced — ten hearts, enough to end most things in one throw. */
-    private static final float DAMAGE = 20.0F;
+    /**
+     * 16 hp — eight hearts, cut from the 20 it was specced at.
+     *
+     * Still the hardest single projectile in the mod, but a full-health player now
+     * survives one rather than being ended by a shot they may never have seen coming.
+     */
+    private static final float DAMAGE = 16.0F;
 
     /**
      * How the thrown string flies. Fast and long-lived: it is a bolt, and a lightning

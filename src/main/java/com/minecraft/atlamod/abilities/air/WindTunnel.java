@@ -16,9 +16,9 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Offensive / Air. A held funnel of roaring wind: everything in front of the bender
- * is shoved back for as long as the key is down, slowed, and worn away at a heart a
- * second.
+ * Offensive / Air. A held funnel of roaring wind: everything in front of the bender is
+ * slowed for as long as the key is down, and shoved back and worn away at a heart on
+ * each one-second beat.
  *
  * The damage is the least of it. Nothing caught in the tunnel can close the distance
  * while it is running, which is the whole point — it is an offensive ability that
@@ -125,9 +125,16 @@ public class WindTunnel implements ChanneledAbility {
             if (toTarget.normalize().dot(look) < CONE_DOT) continue;
 
             slow(living);
-            shove(living, player, distance);
 
+            // The shove rides the same one-second beat the damage does rather than
+            // running every tick. Setting the velocity twenty times a second held
+            // everything caught in the cone permanently airborne and skating away
+            // faster than it could ever be shot at — a wind that gusts once a second
+            // still keeps things off the bender, but they get to touch the ground
+            // between gusts and the ability is a funnel rather than a leash.
             if (damageThisTick) {
+                shove(living, player, distance);
+
                 living.hurt(player.damageSources().indirectMagic(player, player), com.minecraft.atlamod.abilities.sound.Sound.damage(data, DAMAGE_PER_SECOND));
             }
         }

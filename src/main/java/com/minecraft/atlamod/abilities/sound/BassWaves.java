@@ -44,8 +44,15 @@ public final class BassWaves {
     /** 5 hp, as specced. */
     private static final float DAMAGE = 5.0F;
 
-    /** Three seconds of Stunned, as specced. */
-    private static final int STUN_TICKS = 60;
+    /**
+     * One second of Stunned per wave, cut from three.
+     *
+     * A wave goes out every four seconds for fifteen, so at three seconds a hold the
+     * stun was very nearly continuous for anything that stayed in range — each wave
+     * landed while the previous one's hold was still most of the way through. At one
+     * second the waves punctuate rather than lock.
+     */
+    private static final int STUN_TICKS = 20;
 
     private static final List<Run> ACTIVE = new ArrayList<>();
 

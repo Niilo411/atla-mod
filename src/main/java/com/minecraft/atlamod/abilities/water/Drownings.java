@@ -3,6 +3,7 @@ package com.minecraft.atlamod.abilities.water;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -21,6 +22,14 @@ import java.util.UUID;
  *
  * So for as long as it lasts the air is held at nothing and the damage is dealt on
  * the same beat vanilla uses, wherever the victim happens to be standing.
+ *
+ * It does NOT last wherever the BENDER happens to be standing, though: a drowning
+ * ends the moment the caster loses sight of the victim. Both abilities that start one
+ * are aimed, and holding a grip on something through a wall or across a hill made
+ * fifteen seconds of suffocation into something that could be started and then walked
+ * away from. Breaking line of sight is the counter-play, and it is the same one the
+ * casts themselves already demand -- Drown and breathless both refuse to start without
+ * a clear view of a target.
  */
 public final class Drownings {
 
@@ -35,19 +44,24 @@ public final class Drownings {
 
     private static final class Drowning {
         final ServerLevel level;
+        final UUID casterId;
         final UUID victimId;
         int ticksLeft;
         int untilDamage = DAMAGE_INTERVAL;
 
-        Drowning(ServerLevel level, UUID victimId, int ticksLeft) {
+        Drowning(ServerLevel level, UUID casterId, UUID victimId, int ticksLeft) {
             this.level = level;
+            this.casterId = casterId;
             this.victimId = victimId;
             this.ticksLeft = ticksLeft;
         }
     }
 
-    /** Empties a victim's lungs and keeps them empty for {@code ticks}. */
-    public static void start(LivingEntity victim, int ticks) {
+    /**
+     * Empties a victim's lungs and keeps them empty for {@code ticks}, or until the
+     * caster loses sight of them — whichever comes first.
+     */
+    public static void start(ServerPlayer caster, LivingEntity victim, int ticks) {
         if (!(victim.level() instanceof ServerLevel level)) return;
 
         victim.setAirSupply(0);
@@ -55,7 +69,7 @@ public final class Drownings {
         // A second casting on the same victim replaces the first rather than stacking,
         // so the drowning lasts as long as the newer one says and no longer.
         ACTIVE.removeIf(drowning -> drowning.victimId.equals(victim.getUUID()));
-        ACTIVE.add(new Drowning(level, victim.getUUID(), ticks));
+        ACTIVE.add(new Drowning(level, caster.getUUID(), victim.getUUID(), ticks));
     }
 
     /** Runs every drowning in the world. Called once per server tick. */
@@ -88,6 +102,18 @@ public final class Drownings {
         }
 
         if (drowning.ticksLeft-- <= 0) {
+            return false;
+        }
+
+        // The grip only holds while the bender can still see what they took hold of.
+        //
+        // A caster who has died, logged out or left the level fails this in the
+        // strongest possible sense, so the one test covers all four cases rather than
+        // needing a rule each.
+        Entity caster = drowning.level.getEntity(drowning.casterId);
+        if (!(caster instanceof ServerPlayer bender)
+                || !bender.isAlive()
+                || !bender.hasLineOfSight(victim)) {
             return false;
         }
 

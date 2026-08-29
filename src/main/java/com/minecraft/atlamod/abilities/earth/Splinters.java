@@ -31,13 +31,17 @@ public class Splinters implements ChargedAbility, TwoPhaseAbility {
     private static final int SHOTS = 6;
 
     /**
-     * 2.5 hearts each, so four of them come to exactly the twenty a zombie has.
+     * 1.5 hearts each, down from 2.5.
      *
-     * That figure only holds because the shot pierces invulnerability frames — see
-     * the spec below — and because indirectMagic bypasses armour, so a zombie's own
-     * two points do not quietly stretch it to five hits.
+     * That used to be "four kills a zombie", which put a full magazine of six at 30
+     * damage for one 100 chi cast. It now takes all six to bring a zombie down with a
+     * shard to spare, which is a fairer price for six guaranteed hits.
+     *
+     * Landing every one of them still depends on the shot piercing invulnerability
+     * frames — see the spec below — and on indirectMagic bypassing armour, so a
+     * zombie's own two points do not quietly eat a shard's worth per hit.
      */
-    private static final float DAMAGE = 5.0F;
+    private static final float DAMAGE = 3.0F;
 
     /** Faster than the air version, which is already the quickest thing the mod threw. */
     private static final double SPEED = 3.5;

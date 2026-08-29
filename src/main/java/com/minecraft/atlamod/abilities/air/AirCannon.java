@@ -13,11 +13,12 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Offensive / Air. Four seconds of packing air down into one shot, then a single
- * blast of it hard enough to take seven hearts off whatever it lands on.
+ * blast of it hard enough to take three and a half hearts off whatever it lands on.
  *
  * The opposite trade to Air splinters, which sits beside it on the same path: that
- * one is six quick cuts, this is one blow that ends most things outright. Four
- * seconds of standing still to build it, and nothing to show for it if you miss.
+ * one is six quick cuts, this is one blow that takes a real bite out of whatever it
+ * lands on. Four seconds of standing still to build it, and nothing to show for it if
+ * you miss.
  *
  * Same shape as Fireball and Water ball — the charge builds it, the left click fires
  * it — so the aim is taken after the wind-up rather than during it.
@@ -27,8 +28,15 @@ public class AirCannon implements ChargedAbility, TwoPhaseAbility {
     /** Four seconds to pack it down. */
     private static final int CHARGE_TICKS = 80;
 
-    /** 7 hearts. */
-    private static final float DAMAGE = 14.0F;
+    /**
+     * 3.5 hearts.
+     *
+     * Halved from the 14 it was built with. Seven hearts in one shot ended almost
+     * anything outright, which left the four second wind-up buying an execution rather
+     * than a heavy blow — it is still the biggest single hit on the air path, but a
+     * geared target now lives through one.
+     */
+    private static final float DAMAGE = 7.0F;
 
     /** Heavier and slower than the splinters, but still quick off the mark. */
     private static final double SPEED = 2.5;

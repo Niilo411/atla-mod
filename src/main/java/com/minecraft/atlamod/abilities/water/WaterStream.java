@@ -23,7 +23,8 @@ import net.minecraft.world.phys.Vec3;
  * Two-phase, but unlike Fireball and Water ball the armed state does not wait: there
  * are three seconds to find a target before the water falls apart. The chi is spent
  * when the stream is drawn, so losing the window loses the cast — which is what makes
- * the window mean anything.
+ * the window mean anything. Ten seconds before another can be drawn, counted from the
+ * throw.
  *
  * The water is not actually removed from the pool. Draining source blocks would let a
  * bender empty a pond a stream at a time, and with infinite sources it would only
@@ -65,6 +66,20 @@ public class WaterStream implements TwoPhaseAbility {
     @Override
     public int getXpReward() {
         return 8;
+    }
+
+    /**
+     * Ten seconds, and like every two-phase ability it starts on the THROW rather than
+     * on the draw — otherwise the timer would run down while the stream was still
+     * being held.
+     *
+     * It had none at all: the three second window and the 100 chi were meant to be the
+     * whole limit, but a bender stood beside a pond has effectively unlimited chi, so
+     * "no cooldown" came out as a stream every three seconds indefinitely.
+     */
+    @Override
+    public int getCooldownTicks() {
+        return 200;
     }
 
     @Override

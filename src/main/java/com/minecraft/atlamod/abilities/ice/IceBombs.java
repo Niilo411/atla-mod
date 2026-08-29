@@ -38,8 +38,14 @@ public final class IceBombs {
     /** How fast it travels once thrown, in blocks per tick. */
     private static final double THROW_SPEED = 0.5;
 
-    /** How long it sits after landing before going off. */
-    private static final int FUSE_TICKS = 100; // 5 seconds
+    /**
+     * How long it sits after landing before going off. Cut by three seconds.
+     *
+     * Five was long enough for anything with legs to simply walk out of a four block
+     * blast and come back afterwards, which left the bomb doing nothing but marking a
+     * square of ground as briefly unpleasant.
+     */
+    private static final int FUSE_TICKS = 40; // 2 seconds
 
     /** How wide the blast reaches. */
     private static final double BLAST_RADIUS = 4.0;
