@@ -1770,7 +1770,30 @@ Four commands, covered by the permission gate on the `/bend` root:
   old height cap rubber-band — the client owns the player's movement and simply
   disagrees — where cancelling the climb reads as a ceiling to push against. A bender
   already above the line is not shoved down either; they just cannot go higher.
-- **AIR IS COMPLETE — 12 abilities across all 4 paths.** The design doc's fourth
+- **Advanced meditating (air, CENTRE)**: the first ability in the mod that belongs to
+  NO path. Held, roots the bender, and gathers xp a second at a rate that climbs with
+  their level — 2/sec as a floor, 4 at level 10, 8 at level 20, capped at 10 until the
+  "Pure peace" upgrade (25 levels) takes the ceiling off. Bought outright for 20 levels
+  whichever way the bender has gone.
+- **The rate matches the design's two WORKED EXAMPLES, not its prose.** The doc says
+  "2 more every ten levels", which would give 6 at level 20, but then states 8 — so the
+  figure used is 0.4 a level, which hits both 4@10 and 8@20 exactly.
+- **The floor of 2 is load-bearing**: the ability costs 20 LEVELS, which are spent, so a
+  bender can be at level 0 the moment they unlock it. Without a floor the thing they
+  just paid twenty levels for would gather nothing at all.
+- **It grants its own xp in `onTick`** rather than through `getXpPerSecond()`, which
+  takes no arguments and so cannot see the level the rate depends on. Same shape every
+  bloodbending ability uses.
+- **`ElementPaths.centre` is deliberately NOT part of `all()`.** A centre ability belongs
+  to no path and must not count towards path completion — the sub-element scrolls gate
+  on "two completed paths of X", and a one-ability fifth array would hand everybody a
+  free completed path. `elementOf` checks it separately, so Sound boosting still reaches
+  it as an air ability.
+- `UpgradeMenuScreen` gained a `"centre"` path whose `checkTreeLogic` always returns
+  true, its own flat cost, and an entry in `equippableAbilities` — without that last one
+  the ability could be bought and never bound to a key. The element name moved from the
+  middle of the tree to just under the tabs, since the centre node now sits where it was.
+- **AIR IS COMPLETE — 13 abilities: 12 across the 4 paths, plus the centre.** The design doc's fourth
   masterclass entry, "Air beam", was dropped by decision and removed from the tree.
 - Earth Defensive path COMPLETE:
   - Earth wall (HELD: one block of height per second, capping itself at 7 and ending

@@ -90,6 +90,18 @@ public class UpgradeMenuScreen extends Screen {
             nodeMap.put(btn, node);
             this.addRenderableWidget(btn);
         }
+
+        // Build the CENTRE, if this element has one. It belongs to no arm, so it is
+        // bought outright whichever way the bender has gone — see checkTreeLogic.
+        String[] mid = getCentre(activeElement);
+        for (int i = 0; i < mid.length; i++) {
+            int x = cx - (iconSize / 2);
+            int y = cy - (iconSize / 2);
+            AbilityNode node = new AbilityNode(mid[i], "centre", i, CENTRE_COST);
+            Button btn = Button.builder(Component.literal(""), b -> attemptBuy(node)).bounds(x, y, iconSize, iconSize).build();
+            nodeMap.put(btn, node);
+            this.addRenderableWidget(btn);
+        }
     }
 
     private void attemptBuy(AbilityNode node) {
@@ -128,7 +140,11 @@ public class UpgradeMenuScreen extends Screen {
                 renderPassiveMenu(guiGraphics, mouseX, mouseY, data);
             } else {
                 String centerText = activeElement.isEmpty() ? "None" : activeElement.substring(0, 1).toUpperCase() + activeElement.substring(1);
-                guiGraphics.drawCenteredString(this.font, centerText, this.width / 2, this.height / 2 - 4, 0xFFFFFF);
+                // Under the tabs rather than in the middle of the tree: an element
+                // with a CENTRE ability has a node sitting exactly where this used to
+                // be drawn, and the two would overlap.
+                guiGraphics.drawCenteredString(this.font, centerText,
+                        this.width / 2, TAB_Y + TAB_H + 6, 0xFFFFFF);
                 super.render(guiGraphics, mouseX, mouseY, partialTick);
 
                 int playerLevel = data.getLevel();
@@ -382,6 +398,11 @@ public class UpgradeMenuScreen extends Screen {
 
     // --- HELPER METHODS ---
     private boolean checkTreeLogic(AbilityNode node, java.util.List<String> unlocked) {
+        // The centre answers to none of the path rules: it is bought outright whichever
+        // way the bender has gone, which is the whole reason it sits in the middle
+        // rather than on an arm.
+        if (node.path().equals("centre")) return true;
+
         String[] off = getOffensive(activeElement);
         String[] def = getDefensive(activeElement);
         String[] bal = getBalanced(activeElement);
@@ -452,6 +473,18 @@ public class UpgradeMenuScreen extends Screen {
     private String[] getMaster(String element) {
         return com.minecraft.atlamod.abilities.ElementPaths.master(element);
     }
+
+    private String[] getCentre(String element) {
+        return com.minecraft.atlamod.abilities.ElementPaths.centre(element);
+    }
+
+    /**
+     * What a centre ability costs.
+     *
+     * Its own figure rather than getCost(index), which ramps 1/5/10/15 by position
+     * along an arm — a centre node has no position to ramp from.
+     */
+    private static final int CENTRE_COST = 20;
 
     private String[] getPathArray(String path, String[] off, String[] def, String[] bal, String[] mas) {
         return switch (path) {
@@ -544,6 +577,8 @@ public class UpgradeMenuScreen extends Screen {
         validForElement.addAll(java.util.List.of(getDefensive(activeEl)));
         validForElement.addAll(java.util.List.of(getBalanced(activeEl)));
         validForElement.addAll(java.util.List.of(getMaster(activeEl)));
+        // The centre too, or an ability bought outright could never be bound to a key.
+        validForElement.addAll(java.util.List.of(getCentre(activeEl)));
 
         java.util.List<String> found = new java.util.ArrayList<>();
         for (String ability : data.getUnlockedAbilities()) {

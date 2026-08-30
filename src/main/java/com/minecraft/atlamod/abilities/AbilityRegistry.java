@@ -140,6 +140,9 @@ public final class AbilityRegistry {
         register(new Tornado());
         register(new Flight());
 
+        // --- AIR : Centre (belongs to no path) ---
+        register(new com.minecraft.atlamod.abilities.air.AdvancedMeditating());
+
         // --- EARTH : Defensive ---
         register(new EarthWall());
         register(new EarthPillar());

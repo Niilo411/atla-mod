@@ -106,6 +106,23 @@ public final class ElementPaths {
         };
     }
 
+    /**
+     * The ability in the MIDDLE of an element's tree, if it has one.
+     *
+     * Deliberately NOT one of the four arms, and deliberately not part of {@link #all}:
+     * a centre ability belongs to no path, is bought outright whichever way the bender
+     * has gone, and must not count towards path completion — the sub-element scrolls
+     * gate on "two completed paths of X", and a one-ability fifth array would hand
+     * everybody a free completed path.
+     */
+    public static String[] centre(String element) {
+        if (element == null) return NONE;
+        return switch (element.toLowerCase()) {
+            case "air" -> new String[]{"Advanced meditating"};
+            default -> NONE;
+        };
+    }
+
     /** All four arms of an element's tree, in the order the menu draws them. */
     public static String[][] all(String element) {
         return new String[][] {
@@ -165,6 +182,11 @@ public final class ElementPaths {
                 for (String named : path) {
                     if (named.equalsIgnoreCase(ability)) return element;
                 }
+            }
+            // The centre too: it is not part of any path, but it is still very much
+            // the element's ability — Sound boosting reaches it like any other.
+            for (String named : centre(element)) {
+                if (named.equalsIgnoreCase(ability)) return element;
             }
         }
         return "";
