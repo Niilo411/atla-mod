@@ -1770,11 +1770,20 @@ Four commands, covered by the permission gate on the `/bend` root:
   old height cap rubber-band — the client owns the player's movement and simply
   disagrees — where cancelling the climb reads as a ceiling to push against. A bender
   already above the line is not shoved down either; they just cannot go higher.
-- **Advanced meditating (air, CENTRE)**: the first ability in the mod that belongs to
-  NO path. Held, roots the bender, and gathers xp a second at a rate that STEPS UP by 2
-  every ten levels — 2/sec to start, 4 at level 10, 6 at 20, 8 at 30, capping at 10 from
-  level 40 until the "Pure peace" upgrade (25 levels) takes the ceiling off. Bought
-  outright for 20 levels whichever way the bender has gone.
+- **Advanced meditating (air, CENTRE)**: two firsts at once. It belongs to NO path —
+  bought outright for 20 levels whichever way the bender has gone — and it is a PASSIVE
+  that modifies something else rather than doing anything itself.
+- **What it modifies is MEDITATION**, which has existed on its own key since long before
+  it: holding that roots the bender and paid a flat 2 xp a second at any level. The
+  passive changes that rate and nothing else, so there is no key to press and nothing
+  new to learn. The rate STEPS UP by 2 every ten levels — 2/sec to start, 4 at level 10,
+  6 at 20, 8 at 30 — capping at 10 from level 40 until the "Pure peace" upgrade (40
+  levels) takes the ceiling off.
+- **`AdvancedMeditating.meditationRate` is the only place the meditation rate is
+  decided**, equipped or not: with the passive out of its slot it simply answers the old
+  flat 2, so `ServerEvents`' meditation block asks rather than knowing the rule itself.
+  That block also now grants through `AbilitySupport.grantXp` rather than rolling the
+  level over with its own copy of the 200 threshold.
 - The design doc's two worked examples said 4 at level 10 and 8 at level 20, which does
   not fit "2 more every ten levels" — that gives 6 at level 20. The PROSE was the
   intended rule and the 8 was the slip, so the rate steps by 2. Integer division, so it
@@ -1783,18 +1792,16 @@ Four commands, covered by the permission gate on the `/bend` root:
   bender can be at level 0 the moment they unlock it. Starting from nothing would mean
   paying twenty levels for something that gathered nothing at all. 2 is also exactly
   what ordinary meditation gives, so this is never worse than what it improves on.
-- **It grants its own xp in `onTick`** rather than through `getXpPerSecond()`, which
-  takes no arguments and so cannot see the level the rate depends on. Same shape every
-  bloodbending ability uses.
 - **`ElementPaths.centre` is deliberately NOT part of `all()`.** A centre ability belongs
   to no path and must not count towards path completion — the sub-element scrolls gate
   on "two completed paths of X", and a one-ability fifth array would hand everybody a
   free completed path. `elementOf` checks it separately, so Sound boosting still reaches
   it as an air ability.
 - `UpgradeMenuScreen` gained a `"centre"` path whose `checkTreeLogic` always returns
-  true, its own flat cost, and an entry in `equippableAbilities` — without that last one
-  the ability could be bought and never bound to a key. The element name moved from the
-  middle of the tree to just under the tabs, since the centre node now sits where it was.
+  true and its own flat cost. The element name moved from the middle of the tree to just
+  under the tabs, since the centre node now sits where it was drawn. Centre abilities are
+  also added to `equippableAbilities`, which does nothing for THIS one — that method
+  filters passives out — but will matter for any centre ability that is castable.
 - **AIR IS COMPLETE — 13 abilities: 12 across the 4 paths, plus the centre.** The design doc's fourth
   masterclass entry, "Air beam", was dropped by decision and removed from the tree.
 - Earth Defensive path COMPLETE:

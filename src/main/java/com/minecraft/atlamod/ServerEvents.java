@@ -1116,14 +1116,14 @@ public class ServerEvents {
                     }
                 }
 
-                // Give 2 XP every 1 second (20 ticks)
+                // XP every 1 second (20 ticks). The RATE is not fixed any more: the
+                // Advanced meditating passive raises it with the bender's level, and
+                // that one method is the only place the figure is decided — with the
+                // passive unequipped it simply answers the old flat 2.
                 if (data.getMeditateTickTimer() % 20 == 0) {
-                    data.setXp(data.getXp() + 2);
+                    com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data,
+                            com.minecraft.atlamod.abilities.air.AdvancedMeditating.meditationRate(data));
 
-                    if (data.getXp() >= 200) {
-                        data.setLevel(data.getLevel() + 1);
-                        data.setXp(0);
-                    }
                     net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
                 }
             }
