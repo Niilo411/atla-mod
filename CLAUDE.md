@@ -1771,16 +1771,18 @@ Four commands, covered by the permission gate on the `/bend` root:
   disagrees — where cancelling the climb reads as a ceiling to push against. A bender
   already above the line is not shoved down either; they just cannot go higher.
 - **Advanced meditating (air, CENTRE)**: the first ability in the mod that belongs to
-  NO path. Held, roots the bender, and gathers xp a second at a rate that climbs with
-  their level — 2/sec as a floor, 4 at level 10, 8 at level 20, capped at 10 until the
-  "Pure peace" upgrade (25 levels) takes the ceiling off. Bought outright for 20 levels
-  whichever way the bender has gone.
-- **The rate matches the design's two WORKED EXAMPLES, not its prose.** The doc says
-  "2 more every ten levels", which would give 6 at level 20, but then states 8 — so the
-  figure used is 0.4 a level, which hits both 4@10 and 8@20 exactly.
-- **The floor of 2 is load-bearing**: the ability costs 20 LEVELS, which are spent, so a
-  bender can be at level 0 the moment they unlock it. Without a floor the thing they
-  just paid twenty levels for would gather nothing at all.
+  NO path. Held, roots the bender, and gathers xp a second at a rate that STEPS UP by 2
+  every ten levels — 2/sec to start, 4 at level 10, 6 at 20, 8 at 30, capping at 10 from
+  level 40 until the "Pure peace" upgrade (25 levels) takes the ceiling off. Bought
+  outright for 20 levels whichever way the bender has gone.
+- The design doc's two worked examples said 4 at level 10 and 8 at level 20, which does
+  not fit "2 more every ten levels" — that gives 6 at level 20. The PROSE was the
+  intended rule and the 8 was the slip, so the rate steps by 2. Integer division, so it
+  changes at each ten-level boundary rather than creeping up level by level.
+- **The base of 2 is load-bearing**: the ability costs 20 LEVELS, which are spent, so a
+  bender can be at level 0 the moment they unlock it. Starting from nothing would mean
+  paying twenty levels for something that gathered nothing at all. 2 is also exactly
+  what ordinary meditation gives, so this is never worse than what it improves on.
 - **It grants its own xp in `onTick`** rather than through `getXpPerSecond()`, which
   takes no arguments and so cannot see the level the rate depends on. Same shape every
   bloodbending ability uses.

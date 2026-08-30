@@ -22,7 +22,8 @@ import java.util.List;
  *
  * The rate is the whole ability, and it rewards a bender who already has levels rather
  * than one who needs them. Ordinary meditation is a flat 2 a second at any level; this
- * starts there and climbs.
+ * starts there and steps up by 2 every ten levels — 4 at level 10, 6 at 20, 8 at 30 —
+ * capping at 10 from level 40 until Pure peace takes the ceiling off.
  */
 public class AdvancedMeditating implements ChanneledAbility {
 
@@ -30,27 +31,24 @@ public class AdvancedMeditating implements ChanneledAbility {
     public static final String PURE_PEACE = "advanced_meditating_pure_peace";
 
     /**
-     * How much the rate climbs per level.
+     * What the rate starts at, before any levels are counted.
      *
-     * The design gives two worked examples — 4 a second at level 10, 8 at level 20 —
-     * and this is the figure that hits both exactly. Its prose says "2 more every ten
-     * levels", which would give 6 at level 20 rather than 8; the examples are the
-     * clearer statement of intent, so they are what the number matches.
+     * Two a second, which is exactly what ordinary meditation already gives — so this
+     * is never worse than the thing it improves on. That matters more than it looks:
+     * buying this costs 20 LEVELS, which are SPENT, so a bender can be sitting at level
+     * 0 the moment they unlock it. A rate that started from nothing would mean paying
+     * twenty levels for an ability that gathered nothing at all.
      */
-    private static final double PER_LEVEL = 0.4;
+    private static final int BASE = 2;
 
-    /**
-     * The floor, and it is load-bearing.
-     *
-     * Buying this costs 20 LEVELS, which are spent, so a bender can be sitting at
-     * level 0 the moment they unlock it. Without a floor the ability they just paid
-     * twenty levels for would gather nothing at all. Two a second is what ordinary
-     * meditation already gives, so it is never worse than what it replaces.
-     */
-    private static final double MINIMUM = 2.0;
+    /** How many levels buy each step up. */
+    private static final int LEVELS_PER_STEP = 10;
 
-    /** The ceiling, until Pure peace is bought. Reached at level 25. */
-    private static final double CAP = 10.0;
+    /** How much a step is worth. */
+    private static final int PER_STEP = 2;
+
+    /** The ceiling, until Pure peace is bought. Reached at level 40. */
+    private static final int CAP = 10;
 
     @Override
     public String getName() {
@@ -117,13 +115,17 @@ public class AdvancedMeditating implements ChanneledAbility {
      * buried in the tick.
      */
     public static int rateFor(BendingData data) {
-        double rate = Math.max(MINIMUM, data.getLevel() * PER_LEVEL);
+        // Integer division on purpose: the design says "every ten levels", so the rate
+        // STEPS at each boundary rather than creeping up level by level. 2 a second up
+        // to level 9, 4 from 10, 6 from 20, 8 from 30, 10 from 40.
+        int steps = data.getLevel() / LEVELS_PER_STEP;
+        int rate = BASE + (steps * PER_STEP);
 
         if (!data.hasUpgrade(PURE_PEACE)) {
             rate = Math.min(CAP, rate);
         }
 
-        return (int) Math.round(rate);
+        return rate;
     }
 
     @Override
