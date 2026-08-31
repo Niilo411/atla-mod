@@ -28,7 +28,7 @@ public final class ModEntityRenderers {
     }
 
     /**
-     * Hangs the Earth armor layer on both player models.
+     * Hangs the bending armor layer on both player models.
      *
      * Both, because a player is rendered by one of two renderers depending on whether
      * their skin is the slim-armed kind — adding to only the default one would leave
@@ -40,7 +40,7 @@ public final class ModEntityRenderers {
             if (!(event.getSkin(skin) instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer renderer)) {
                 continue;
             }
-            renderer.addLayer(new EarthArmorLayer<>(renderer, event.getContext().getModelSet()));
+            renderer.addLayer(new BendingArmorLayer<>(renderer, event.getContext().getModelSet()));
         }
     }
 }

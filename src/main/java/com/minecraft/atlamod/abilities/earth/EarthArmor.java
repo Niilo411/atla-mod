@@ -24,7 +24,7 @@ import net.minecraft.world.level.block.Blocks;
  * Everything about the duration is vanilla's: this is a MobEffect, so the countdown,
  * the removal, the inventory timer and the cleanup on death are all handled without a
  * line of bookkeeping here. See ModEffects.EARTH_ARMOR and, for the look,
- * client/EarthArmorLayer.
+ * client/BendingArmorLayer.
  */
 public class EarthArmor implements Ability {
 

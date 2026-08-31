@@ -1,6 +1,6 @@
 package com.minecraft.atlamod.client;
 
-import com.minecraft.atlamod.Atlamod;
+import com.minecraft.atlamod.BendingArmorSuit;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.model.HumanoidArmorModel;
 import net.minecraft.client.model.PlayerModel;
@@ -12,33 +12,28 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.resources.ResourceLocation;
 
 /**
- * Draws the stone suit over anyone wearing Earth armor.
+ * Draws whichever bending armor suit a player is wearing over the top of them.
  *
- * A LAYER rather than a change of equipment, which is the whole reason the ability can
- * say "adds ten armor on top of whatever you have on" and mean it — the bender's real
- * armor is untouched underneath, and simply not visible while the stone is over it.
+ * A LAYER rather than a change of equipment, which is the whole reason the abilities
+ * can say "adds armor on top of whatever you have on" and mean it — the bender's real
+ * armor is untouched underneath, and simply not visible while the suit is over it.
  *
- * Whether to draw is asked of ClientEarthArmor rather than of the entity's effects,
+ * What to draw is asked of ClientBendingArmor rather than of the entity's effects,
  * because a client only ever knows its OWN effects: for anyone else, the server has to
- * say so, which is what EarthArmorPacket is for.
+ * say so, which is what BendingArmorPacket is for.
+ *
+ * ONE layer serves every suit. The alternative — a layer per suit — would draw two
+ * sheets onto the same model whenever a bender had both up, which z-fights; asking for
+ * the top suit once settles that here instead of hoping it never happens.
  */
-public class EarthArmorLayer<T extends AbstractClientPlayer, M extends PlayerModel<T>>
+public class BendingArmorLayer<T extends AbstractClientPlayer, M extends PlayerModel<T>>
         extends RenderLayer<T, M> {
-
-    /**
-     * A standard 64x32 armor sheet. Vanilla's armor renderer expects the outer layer
-     * at this path shape, and using the same layout means the humanoid armor model
-     * maps onto it without any special casing.
-     */
-    private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(Atlamod.MODID, "textures/models/armor/stone_layer_1.png");
 
     private final HumanoidArmorModel<T> armor;
 
-    public EarthArmorLayer(RenderLayerParent<T, M> parent, EntityModelSet models) {
+    public BendingArmorLayer(RenderLayerParent<T, M> parent, EntityModelSet models) {
         super(parent);
         // The OUTER armor layer: the fatter of vanilla's two, the one helmets,
         // chestplates and boots are drawn with. Rendering it whole gives a full suit
@@ -51,7 +46,8 @@ public class EarthArmorLayer<T extends AbstractClientPlayer, M extends PlayerMod
                        float limbSwing, float limbSwingAmount, float partialTick,
                        float ageInTicks, float netHeadYaw, float headPitch) {
 
-        if (!ClientEarthArmor.has(entity.getId())) return;
+        BendingArmorSuit suit = ClientBendingArmor.top(entity.getId());
+        if (suit == null) return;
         if (entity.isInvisible()) return;
 
         // The suit has to move with the body, so the pose is copied straight off the
@@ -63,7 +59,7 @@ public class EarthArmorLayer<T extends AbstractClientPlayer, M extends PlayerMod
 
         this.armor.renderToBuffer(
                 poseStack,
-                buffer.getBuffer(RenderType.armorCutoutNoCull(TEXTURE)),
+                buffer.getBuffer(RenderType.armorCutoutNoCull(suit.texture())),
                 packedLight,
                 OverlayTexture.NO_OVERLAY);
     }

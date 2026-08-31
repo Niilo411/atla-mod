@@ -2096,13 +2096,13 @@ Four commands, covered by the permission gate on the `/bend` root:
   ADD_VALUE)` means vanilla applies and removes the ten points in step with the effect
   itself — the duration, the removal, the cleanup on death and the inventory timer all
   come free, and "adds ten on TOP of existing armor" is simply what ADD_VALUE means.
-- **The stone look is a RENDER LAYER, not a change of equipment** (`EarthArmorLayer`,
+- **The stone look is a RENDER LAYER, not a change of equipment** (`BendingArmorLayer`,
   hung on both player renderers in `ModEntityRenderers`). That is what lets the ability
   keep its promise about existing armor: the real gear is untouched underneath and
   merely hidden, rather than being swapped out and needing to be given back.
 - **Mob effects are NOT synced to onlookers**, and this is the trap the visual had to
   work around: vanilla sends a player's effects only to that player, so a stone suit
-  driven off `hasEffect` would be visible to nobody but its wearer. `EarthArmorPacket`
+  driven off `hasEffect` would be visible to nobody but its wearer. `BendingArmorPacket`
   carries the state to everyone tracking them, broadcast from the player tick ONLY when
   it changes, plus `PlayerEvent.StartTracking` so anyone who walks up to (or logs in
   near) an already-armored bender is told as well. Any future ability whose look has to
@@ -2111,15 +2111,59 @@ Four commands, covered by the permission gate on the `/bend` root:
   `setId`, and the client's `handleRespawn` copies the old id onto the new LocalPlayer).
   That is what made Earth armor's stone suit survive death: the client's set is keyed on
   entity id and nothing cleared it, while the per-tick broadcast could not notice —
-  `earthArmorShown` is transient, so it comes back false and the change detector sees no
+  `armorSuitsShown` is transient, so it comes back empty and the change detector sees no
   change to report. Told explicitly on death AND on respawn instead. Anything else keyed
   on entity id across a death needs the same treatment.
-- `ClientEarthArmor` is also cleared on leaving a world, since ids start again in the
+- `ClientBendingArmor` is also cleared on leaving a world, since ids start again in the
   next one and whoever inherited the number would otherwise turn up wearing stone.
-- The armor sheet is vanilla's **cobblestone**, tiled 4x2 across the 64x32 armor layout
-  with each tile sampled at its own random offset (wrapping) so the repeat does not line
-  up into a visible grid. Generated from the game's own texture, which is worth knowing
-  if this mod is ever published — that is Mojang's art sitting in the jar.
+
+### Drawn armor is one system, not one ability
+
+- **`BendingArmorSuit` is the whole of it**: a common-code enum where each constant
+  carries its texture and the question "is this entity wearing me". Earth armor's STONE
+  and Metal armor's METAL are the two so far. Adding another = one constant plus two
+  sheets; the packet carries an ordinal, the per-tick broadcast loops `values()`, and
+  the layer draws whatever comes back. Nothing else changes.
+- It replaced a per-ability pipeline (`EarthArmorPacket`, `ClientEarthArmor`,
+  `EarthArmorLayer`, a `earthArmorShown` boolean). Metal armor would have been a second
+  copy of all four, and Metal armor is not the last suit this mod will want.
+- **ONE layer draws every suit, and that is not just tidiness.** Nothing stops a bender
+  holding Earth armor and Metal armor at once — different elements, independent
+  cooldowns — and two layers would paint two sheets onto the same model and z-fight.
+  `BendingArmorSuit.best` picks one instead: later constants win, so metal covers stone.
+- **The packet carries an ORDINAL, so constants may only ever be APPENDED.** Reordering
+  them repaints everyone on a client running a different build. The receiving handler
+  range-checks the index rather than trusting the wire.
+- **`armorSuitsShown` is a bitmask, one bit per suit**, so the "only broadcast on a
+  change" rule is kept per suit rather than for armor as a whole — putting metal on does
+  not re-announce stone.
+- **Both metal effects share one sheet deliberately.** Diamond Plating is fifteen armor
+  points against twenty, not a different material, so a second texture would invent a
+  distinction the design does not draw.
+
+### The armor sheets are ours
+
+- **All four are generated procedurally**, seeded, by a throwaway `ImageIO` program —
+  they are nobody's art but this project's. That matters because the sheets they replaced
+  were tiled out of **vanilla's cobblestone**, which meant Mojang's pixels were sitting in
+  the jar. Fine while nothing shipped; not fine for a public release on Modrinth.
+- Note the distinction that made this the ONLY texture needing the treatment: the mod's
+  other borrowings — `bending_metal` wearing `block/iron_block`, `bending_lava` wearing
+  `block/lava_still`, the fire blocks wearing `block/fire_0`, the scrolls wearing
+  `item/paper` — are model files that REFERENCE a vanilla path. They ship no art at all;
+  the player's own copy of the game supplies it at runtime. Only a real PNG in
+  `textures/` can carry somebody else's pixels.
+- Stone is **cellular (Worley) noise**: scattered seed points, each pixel taking its
+  nearest one's grey, darkened where two cells are near equidistant — so the mortar lines
+  fall out of the structure rather than being drawn on top of it.
+- Metal is **brushed steel**: smoothed per-column offsets for the vertical grain, a few
+  wrapped blobs for broad plate shading, and scattered studs.
+- **Both are deliberately isotropic, with no full-width seams**, and that is a real
+  constraint rather than a style choice. Each region of a 64x32 armor sheet maps to a
+  different body part, so a line drawn across the whole sheet comes out slashing over the
+  helmet and down an arm in unrelated places. The first metal attempt had horizontal plate
+  seams and looked like ruled paper for exactly this reason.
+- All distance work WRAPS, so the patterns tile and no edge of the sheet shows a seam.
 - **The rise RATE is per-wall, not a constant.** `EarthWalls.TICKS_PER_LAYER` is only
   the default now: each `Wall` carries its own figure, supplied by
   `RaisedEarth.ticksPerLayer()`. Earth pillar overrides it to 13 against the wall's 20,

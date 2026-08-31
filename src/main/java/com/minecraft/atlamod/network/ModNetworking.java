@@ -219,13 +219,20 @@ public class ModNetworking {
                 }
         );
 
-        // --- EARTH ARMOR (Server -> Client) : who is wearing the stone suit ---
+        // --- BENDING ARMOR (Server -> Client) : who is wearing which drawn suit ---
         registrar.playToClient(
-                EarthArmorPacket.TYPE,
-                EarthArmorPacket.STREAM_CODEC,
-                (EarthArmorPacket payload, IPayloadContext context) -> {
-                    context.enqueueWork(() -> com.minecraft.atlamod.client.ClientEarthArmor.set(
-                            payload.entityId(), payload.active()));
+                BendingArmorPacket.TYPE,
+                BendingArmorPacket.STREAM_CODEC,
+                (BendingArmorPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        com.minecraft.atlamod.BendingArmorSuit[] suits =
+                                com.minecraft.atlamod.BendingArmorSuit.values();
+                        // Guarded because the ordinal comes off the wire: a client on a
+                        // different version of the mod would otherwise index past the end.
+                        if (payload.suit() < 0 || payload.suit() >= suits.length) return;
+                        com.minecraft.atlamod.client.ClientBendingArmor.set(
+                                payload.entityId(), suits[payload.suit()], payload.active());
+                    });
                 }
         );
 

@@ -555,9 +555,13 @@ public class ServerEvents {
         if (!(event.getEntity() instanceof ServerPlayer watcher)) return;
         if (!(event.getTarget() instanceof ServerPlayer target)) return;
 
-        if (target.hasEffect(com.minecraft.atlamod.ModEffects.EARTH_ARMOR)) {
-            PacketDistributor.sendToPlayer(watcher,
-                    new com.minecraft.atlamod.network.EarthArmorPacket(target.getId(), true));
+        for (com.minecraft.atlamod.BendingArmorSuit suit
+                : com.minecraft.atlamod.BendingArmorSuit.values()) {
+            if (suit.isWornBy(target)) {
+                PacketDistributor.sendToPlayer(watcher,
+                        new com.minecraft.atlamod.network.BendingArmorPacket(
+                                target.getId(), suit.ordinal(), true));
+            }
         }
     }
     @SubscribeEvent
@@ -593,15 +597,19 @@ public class ServerEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
-            // Earth armor's stone suit is drawn from a client-side set keyed on entity
+            // A bending armor suit is drawn from a client-side set keyed on entity
             // id, and a respawned player REUSES its id on both sides — so a death would
             // otherwise leave the art on a bender who no longer has the effect. The
-            // per-tick broadcast cannot catch it either: the flag it compares against is
-            // transient and comes back false, so it sees no change and says nothing.
+            // per-tick broadcast cannot catch it either: the mask it compares against is
+            // transient and comes back empty, so it sees no change and says nothing.
             // Told explicitly here instead.
-            data.setEarthArmorShown(false);
-            net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
-                    player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), false));
+            data.clearArmorSuitsShown();
+            for (com.minecraft.atlamod.BendingArmorSuit suit
+                    : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                        player, new com.minecraft.atlamod.network.BendingArmorPacket(
+                                player.getId(), suit.ordinal(), false));
+            }
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
             com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
@@ -1242,14 +1250,18 @@ public class ServerEvents {
             // granting them.
             com.minecraft.atlamod.avatar.Avatar.tick(player, data);
 
-            // --- EARTH ARMOR VISUAL ---
+            // --- BENDING ARMOR VISUAL ---
             // Broadcast only when it changes. Effects are synced to their owner alone,
-            // so onlookers learn about the stone suit from here or not at all.
-            boolean armored = player.hasEffect(com.minecraft.atlamod.ModEffects.EARTH_ARMOR);
-            if (armored != data.isEarthArmorShown()) {
-                data.setEarthArmorShown(armored);
-                net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
-                        player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), armored));
+            // so onlookers learn about a stone or steel suit from here or not at all.
+            for (com.minecraft.atlamod.BendingArmorSuit suit
+                    : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                boolean armored = suit.isWornBy(player);
+                if (armored != data.isArmorSuitShown(suit)) {
+                    data.setArmorSuitShown(suit, armored);
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                            player, new com.minecraft.atlamod.network.BendingArmorPacket(
+                                    player.getId(), suit.ordinal(), armored));
+                }
             }
         }
     }
@@ -1280,11 +1292,15 @@ public class ServerEvents {
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
             // Belt and braces alongside the death handler: a client that somehow still
-            // believes in the stone suit is corrected the moment the bender is back.
+            // believes in a suit is corrected the moment the bender is back.
             BendingData armorData = player.getData(ModAttachments.BENDING_DATA);
-            armorData.setEarthArmorShown(false);
-            PacketDistributor.sendToPlayersTrackingEntityAndSelf(
-                    player, new com.minecraft.atlamod.network.EarthArmorPacket(player.getId(), false));
+            armorData.clearArmorSuitsShown();
+            for (com.minecraft.atlamod.BendingArmorSuit suit
+                    : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                PacketDistributor.sendToPlayersTrackingEntityAndSelf(player,
+                        new com.minecraft.atlamod.network.BendingArmorPacket(
+                                player.getId(), suit.ordinal(), false));
+            }
 
             // Same safety net as login: if the player died mid-rocket, onStop() never
             // ran. Vanilla usually rebuilds abilities from the gamemode on respawn,

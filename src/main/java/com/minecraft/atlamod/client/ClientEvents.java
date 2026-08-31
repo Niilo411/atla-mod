@@ -260,7 +260,7 @@ public class ClientEvents {
     }
 
     /**
-     * Forgets who was wearing Earth armor on the way out of a world.
+     * Forgets who was wearing bending armor on the way out of a world.
      *
      * The set is keyed on entity id, and ids start again in the next world — without
      * this, whichever entity happened to be handed a matching number would turn up
@@ -268,7 +268,7 @@ public class ClientEvents {
      */
     @SubscribeEvent
     public static void onLoggingOut(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
-        ClientEarthArmor.clear();
+        ClientBendingArmor.clear();
         ClientShake.clear();
         ClientFlash.clear();
     }

@@ -152,14 +152,30 @@ public class BendingData {
     public boolean isPassiveFlightGranted() { return passiveFlightGranted; }
     public void setPassiveFlightGranted(boolean granted) { this.passiveFlightGranted = granted; }
 
-    // --- EARTH ARMOR (visual sync) ---
-    // Whether onlookers have been told this player is wearing the stone suit. Mob
-    // effects are only synced to their OWN owner, so the look has to be broadcast by
-    // hand; this remembers what was last sent so it is only sent on a change.
-    private transient boolean earthArmorShown = false;
+    // --- BENDING ARMOR (visual sync) ---
+    // Which suits onlookers have been told this player is wearing, as a bitmask over
+    // BendingArmorSuit's ordinals. Mob effects are only synced to their OWN owner, so
+    // the look has to be broadcast by hand; this remembers what was last sent so it is
+    // only sent on a change.
+    //
+    // Transient, which is exactly why the death and respawn handlers say so
+    // EXPLICITLY: a respawned player reuses its entity id, so the client's set would
+    // otherwise keep the suit while this came back as 0 and reported no change.
+    private transient int armorSuitsShown = 0;
 
-    public boolean isEarthArmorShown() { return earthArmorShown; }
-    public void setEarthArmorShown(boolean shown) { this.earthArmorShown = shown; }
+    public boolean isArmorSuitShown(com.minecraft.atlamod.BendingArmorSuit suit) {
+        return (armorSuitsShown & (1 << suit.ordinal())) != 0;
+    }
+
+    public void setArmorSuitShown(com.minecraft.atlamod.BendingArmorSuit suit, boolean shown) {
+        if (shown) {
+            armorSuitsShown |= (1 << suit.ordinal());
+        } else {
+            armorSuitsShown &= ~(1 << suit.ordinal());
+        }
+    }
+
+    public void clearArmorSuitsShown() { this.armorSuitsShown = 0; }
 
     private boolean isFireWhipping = false;
 

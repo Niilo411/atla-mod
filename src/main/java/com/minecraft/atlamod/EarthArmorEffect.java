@@ -13,7 +13,7 @@ import net.minecraft.world.effect.MobEffectCategory;
  * free, and the ten points stack on top of whatever the bender is already wearing
  * because an ADD_VALUE modifier is exactly that.
  *
- * The stone LOOK is separate, and client side: see EarthArmorLayer.
+ * The stone LOOK is separate, and client side: see BendingArmorLayer.
  */
 public class EarthArmorEffect extends MobEffect {
 
