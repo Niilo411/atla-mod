@@ -23,6 +23,17 @@ bloodbender can only be stopped by another bloodbender.
 | Loader | NeoForge 21.1.248+ |
 | Java | 21+ |
 
+## Installation
+
+1. Install [NeoForge 21.1.248+](https://neoforged.net/) for Minecraft 1.21.1.
+2. Download `atlamod-<version>.jar` from
+   [Releases](https://github.com/Niilo411/atla-mod/releases).
+3. Drop it into your `mods` folder.
+4. Launch the NeoForge profile.
+
+Both singleplayer and servers are supported. On a server the jar goes in the server's
+`mods` folder as well as each player's.
+
 ## Getting started
 
 1. Launch a world with the mod installed. You'll be asked to **choose a starting
@@ -140,6 +151,14 @@ cd atla-mod
 ```
 
 The jar lands in `build/libs/`. `./gradlew runClient` launches a dev client.
+
+**Build with JDK 21.** Gradle here cannot parse the build scripts under a newer JVM —
+a JDK 26 on your `PATH` fails with `Unsupported class file major version 70`. If your
+default Java is newer, point `JAVA_HOME` at a 21 for the build:
+
+```bash
+JAVA_HOME=/path/to/jdk-21 ./gradlew build
+```
 
 `tools/` holds throwaway generators that are not on the build path — see its README.
 

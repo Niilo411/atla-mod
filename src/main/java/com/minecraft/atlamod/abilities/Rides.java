@@ -132,7 +132,7 @@ public final class Rides {
          * Water Surf. Rides ON the waterline, and needs water under it — walk it onto
          * the beach and it sets the bender down.
          */
-        WATER_SURF(10, 3, 0.0, false, true) {
+        WATER_SURF(10, 4, 0.0, false, true) {
             @Override
             double surfaceAt(ServerLevel level, double x, double z, double fromY) {
                 int bx = Mth.floor(x);

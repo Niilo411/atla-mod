@@ -1516,7 +1516,7 @@ Four commands, covered by the permission gate on the `/bend` root:
     cooldown)
   - Water Surf (TOGGLE, and Air scooter's twin — press once to get on, again to get
     off. Carried across the WATERLINE wherever you look, LYING FLAT along it.
-    Ends when the water does. 10 chi/sec, 3 xp/sec, no cooldown. "Swift Current"
+    Ends when the water does. 10 chi/sec, 4 xp/sec, no cooldown. "Swift Current"
     (10 levels) doubles the speed)
   - Water Sphere (channeled; holds the water back in a 5-block sphere so oceans can be
     walked through. Water closes in behind as the bender moves and the whole pocket
@@ -1590,9 +1590,10 @@ Four commands, covered by the permission gate on the `/bend` root:
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
   - Water stream (must be LOOKING at water within 20 blocks; tears a stream out and
     holds it for a 3s window, then left click to throw for 8.0 damage. 100 chi, 8 xp,
-    10s cooldown from the throw — it had none, but a bender stood beside a pond has
+    3s cooldown from the throw — it had none, but a bender stood beside a pond has
     effectively unlimited chi, so "the 3s window and the 100 chi are the whole limit"
-    came out as a stream every three seconds forever. Chi is spent on the DRAW, so
+    came out as a stream every three seconds forever. Ten seconds was the first
+    correction and overshot; three is the deliberate middle. Chi is spent on the DRAW, so
     letting the window lapse costs the cast — and stamps the cooldown too)
   - Water Bullets (three bullets held ready, fired ONE PER CLICK at 8.0 damage each,
     2.6 blocks/tick. No window — they keep until used. 100 chi, 10 xp, 2s cooldown

@@ -69,17 +69,21 @@ public class WaterStream implements TwoPhaseAbility {
     }
 
     /**
-     * Ten seconds, and like every two-phase ability it starts on the THROW rather than
-     * on the draw — otherwise the timer would run down while the stream was still
-     * being held.
+     * Three seconds, and like every two-phase ability it starts on the THROW rather
+     * than on the draw — otherwise the timer would run down while the stream was
+     * still being held.
      *
-     * It had none at all: the three second window and the 100 chi were meant to be the
-     * whole limit, but a bender stood beside a pond has effectively unlimited chi, so
-     * "no cooldown" came out as a stream every three seconds indefinitely.
+     * It had none at all to begin with: the three second armed window and the 100 chi
+     * were meant to be the whole limit, but a bender stood beside a pond has
+     * effectively unlimited chi, so "no cooldown" came out as a stream every three
+     * seconds indefinitely. Ten seconds was the first correction and overshot — a
+     * single-target shot thrown six times a minute is not worth a slot. Three is the
+     * deliberate middle: the gap is real, but the ability is still something a
+     * waterbender leans on rather than saves up for.
      */
     @Override
     public int getCooldownTicks() {
-        return 200;
+        return 60;
     }
 
     @Override
