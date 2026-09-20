@@ -53,8 +53,13 @@ public final class SpiritPortalFrame {
     }
 
     /**
-     * Looks for an UNLIT frame within {@code radius} blocks of {@code centre}, nearest
-     * first.
+     * Looks for an UNLIT frame near {@code centre}, nearest first.
+     *
+     * The reach is given separately for horizontal and vertical because they want very
+     * different figures: wide enough to cover a whole temple from its doorway, but only a
+     * few blocks up and down, since a portal is always about at the feet of whoever is
+     * looking at it. One cube of the horizontal radius would be several times the work for
+     * nothing.
      *
      * Nearest first matters when a temple has more than one frame, or when somebody has
      * built a second one nearby: the portal that lights should be the one being stood
@@ -66,14 +71,15 @@ public final class SpiritPortalFrame {
      * material directly beneath it, which rejects almost everything without looking at
      * the other fifteen positions.
      */
-    public static Optional<Frame> findInactiveNear(LevelAccessor level, BlockPos centre, int radius) {
+    public static Optional<Frame> findInactiveNear(LevelAccessor level, BlockPos centre,
+                                                   int radius, int verticalRadius) {
         Frame best = null;
         double bestDistance = Double.MAX_VALUE;
 
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
         for (int dx = -radius; dx <= radius; dx++) {
-            for (int dy = -radius; dy <= radius; dy++) {
+            for (int dy = -verticalRadius; dy <= verticalRadius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     cursor.set(centre.getX() + dx, centre.getY() + dy, centre.getZ() + dz);
 
@@ -149,10 +155,19 @@ public final class SpiritPortalFrame {
      * and nothing else.
      */
     public static void light(LevelAccessor level, Frame frame) {
+        light(level, frame, null);
+    }
+
+    /**
+     * The same, writing only inside {@code clip}, which world generation needs.
+     */
+    public static void light(LevelAccessor level, Frame frame,
+                             net.minecraft.world.level.levelgen.structure.BoundingBox clip) {
         BlockState portal = com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get().defaultBlockState()
                 .setValue(SpiritPortalBlock.AXIS, frame.axis());
 
         for (BlockPos pos : frame.interior()) {
+            if (clip != null && !clip.isInside(pos)) continue;
             level.setBlock(pos, portal, Block.UPDATE_CLIENTS);
         }
     }

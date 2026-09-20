@@ -158,6 +158,7 @@ public class Atlamod {
         ModEntities.register(modEventBus);
         com.minecraft.atlamod.spirit.island.ModFeatures.register(modEventBus);
         com.minecraft.atlamod.spirit.SpiritBiomes.register(modEventBus);
+        com.minecraft.atlamod.spirit.structure.ModStructures.register(modEventBus);
 
         // Populate the ability registry once, before any packet can dispatch a cast.
         com.minecraft.atlamod.abilities.AbilityRegistry.bootstrap();

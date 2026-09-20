@@ -88,10 +88,23 @@ public final class SpiritWorld {
      */
     public static void lightIfHere(net.minecraft.world.level.WorldGenLevel level,
                                    TempleStructure.Temple temple) {
+        lightIfHere(level, temple, null);
+    }
+
+    /**
+     * The same, writing only inside {@code clip}.
+     *
+     * World generation builds a temple once per chunk it touches and clips each pass to
+     * that chunk, so the portal has to be clipped the same way or a pass would reach into
+     * a neighbour it is not allowed to write to.
+     */
+    public static void lightIfHere(net.minecraft.world.level.WorldGenLevel level,
+                                   TempleStructure.Temple temple,
+                                   net.minecraft.world.level.levelgen.structure.BoundingBox clip) {
         if (!isSpiritWorld(level.getLevel())) return;
 
         SpiritPortalFrame.light(level,
-                new SpiritPortalFrame.Frame(temple.portalBottomLeft(), temple.portalAxis()));
+                new SpiritPortalFrame.Frame(temple.portalBottomLeft(), temple.portalAxis()), clip);
     }
 
     /**

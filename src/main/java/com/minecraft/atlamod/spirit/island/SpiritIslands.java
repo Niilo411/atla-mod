@@ -234,6 +234,42 @@ public final class SpiritIslands {
         return x * x + z * z <= TEMPLE_CLEARANCE * TEMPLE_CLEARANCE;
     }
 
+    /** Returned by {@link #surfaceAt} where there is no island at all. */
+    public static final int NO_GROUND = Integer.MIN_VALUE;
+
+    /**
+     * The Y of the island surface at this column, or {@link #NO_GROUND} for open void.
+     *
+     * Needed because the Spirit World's TERRAIN IS A FEATURE, not noise. Asking the chunk
+     * generator how high the ground is there gets the honest answer "there is none" — the
+     * noise produces nothing and the islands are stamped in afterwards. So anything that
+     * has to know where the ground is before the chunk is built, which is every structure
+     * deciding whether it can stand somewhere, has to ask this instead.
+     *
+     * {@link SpiritIslandFeature} asks the same method when it actually lays the blocks,
+     * so the height a structure plans around and the height it finds are the same number
+     * by construction.
+     */
+    public static int surfaceAt(int x, int z) {
+        Island island = coveringOrNull(x, z);
+        if (island == null) return NO_GROUND;
+
+        return surfaceOf(island, x, z);
+    }
+
+    /** The surface height of a known island at a column inside it. */
+    public static int surfaceOf(Island island, int x, int z) {
+        double inward = 1.0 - (island.distanceTo(x, z) / island.edgeAt(x, z));
+        IslandStyle style = island.style();
+
+        // Sqrt so the middle is a broad plateau rather than a sharp peak, then the style's
+        // own relief on top of it — which is the whole difference between crimson's
+        // mountains and the wasteland's flats.
+        return island.centreY()
+                + (int) Math.round(style.relief() * noise(island.seed(), x, z, style.reliefScale()))
+                + (int) Math.round(4 * Math.sqrt(Math.max(0.0, inward)));
+    }
+
     /**
      * Smooth 2D value noise in 0..1, with no setup and no allocation.
      *

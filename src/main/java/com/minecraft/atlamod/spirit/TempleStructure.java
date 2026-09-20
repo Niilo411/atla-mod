@@ -3,6 +3,7 @@ package com.minecraft.atlamod.spirit;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -89,15 +90,48 @@ public final class TempleStructure {
      * still half there.
      */
     public static Temple placeAt(WorldGenLevel level, BlockPos origin) {
-        hollowOut(level, origin);
-        floorAndCeiling(level, origin);
-        walls(level, origin);
-        lamps(level, origin);
+        return placeAt(level, origin, null);
+    }
+
+    /**
+     * The same, but writing only inside {@code clip}.
+     *
+     * A temple is fifteen by thirteen and so crosses chunk borders. When it is built by
+     * WORLD GENERATION it is built once per chunk it touches, each time being told to
+     * write only into that chunk — writing outside would force the neighbour to generate
+     * early, and that cascade can hang world generation outright.
+     *
+     * A null clip means "everywhere", which is what the command and the Spirit World's own
+     * temple use: they run in a world that already exists, where there is nothing to
+     * cascade into.
+     *
+     * The clip is the one thing an .nbt version would still have to honour, and it gets it
+     * nearly free — a structure template takes a bounding box in its place settings for
+     * exactly this reason.
+     */
+    public static Temple placeAt(WorldGenLevel level, BlockPos origin, BoundingBox clip) {
+        hollowOut(level, origin, clip);
+        floorAndCeiling(level, origin, clip);
+        walls(level, origin, clip);
+        lamps(level, origin, clip);
 
         BlockPos portalBottomLeft = portalBottomLeft(origin);
-        frame(level, portalBottomLeft);
+        frame(level, portalBottomLeft, clip);
 
         return new Temple(origin, portalBottomLeft, PORTAL_AXIS, arrival(origin));
+    }
+
+    /**
+     * Everything a temple built here would occupy.
+     *
+     * Layout knowledge, so it lives here for the same reason {@link #describeAt} does —
+     * and world generation needs it before a single block is placed, to know which chunks
+     * the temple reaches into.
+     */
+    public static BoundingBox boundingBoxAt(BlockPos origin) {
+        return new BoundingBox(
+                origin.getX() - HALF_WIDTH - 1, origin.getY(), origin.getZ() - HALF_DEPTH - 1,
+                origin.getX() + HALF_WIDTH + 1, origin.getY() + WALL_HEIGHT + 1, origin.getZ() + HALF_DEPTH + 1);
     }
 
     /**
@@ -123,54 +157,25 @@ public final class TempleStructure {
     }
 
     /**
-     * Whether a temple could stand with its floor on this block.
+     * The eight points around the centre that a site is judged by.
      *
-     * The test a naturally generated temple has to pass, and it lives here because only
-     * this class knows how big a temple is — an .nbt version would rewrite it beside
-     * {@link #placeAt} like everything else.
-     *
-     * Nine points are sampled: the centre, the four corners of the footprint and the four
-     * edge midpoints. Each needs solid, unflooded ground at the floor's level or within
-     * {@value #FOOTING_DROP} blocks below it. One corner over a drop is enough to reject
-     * the site, which is what stops a temple appearing in mid-air or half off a cliff,
-     * and a flooded sample rejects it too — the room would flood the moment it was
-     * hollowed out.
-     *
-     * The tolerance is not slack, it is the difference between this working and not.
-     * Demanding all nine at exactly one level means demanding fifteen by thirteen blocks
-     * of perfectly flat ground, which almost no natural terrain outside a plain or a
-     * desert offers — at one site per sixteen hundred chunks on top of that, temples
-     * would have been vanishingly rare rather than merely uncommon. Three blocks lets
-     * them sit on gentle ground at the cost of a small overhang at one corner.
+     * The corners of the footprint and the midpoints of its edges, as offsets from the
+     * temple centre. Layout knowledge, so it lives here for the same reason describeAt
+     * does — whoever is deciding where a temple may stand should not have to know how big
+     * one is.
      */
-    public static boolean canStandAt(WorldGenLevel level, BlockPos origin) {
-        if (origin.getY() <= level.getMinBuildHeight() + 2) return false;
-        if (origin.getY() + WALL_HEIGHT + 2 >= level.getMaxBuildHeight()) return false;
-
+    public static java.util.List<BlockPos> footprintSamples() {
+        java.util.List<BlockPos> out = new java.util.ArrayList<>(8);
         int[] xs = { -HALF_WIDTH - 1, 0, HALF_WIDTH + 1 };
         int[] zs = { -HALF_DEPTH - 1, 0, HALF_DEPTH + 1 };
 
         for (int x : xs) {
             for (int z : zs) {
-                if (!hasFooting(level, origin.offset(x, 0, z))) return false;
+                if (x == 0 && z == 0) continue;
+                out.add(new BlockPos(x, 0, z));
             }
         }
-        return true;
-    }
-
-    /** How far below the floor a sample may find its ground before the site is refused. */
-    private static final int FOOTING_DROP = 3;
-
-    /** Whether there is ground under this sample, at the floor's level or just below it. */
-    private static boolean hasFooting(WorldGenLevel level, BlockPos at) {
-        for (int drop = 0; drop <= FOOTING_DROP; drop++) {
-            BlockState state = level.getBlockState(at.below(drop));
-
-            // Water anywhere in the column rules the site out, however solid the bed is.
-            if (!state.getFluidState().isEmpty()) return false;
-            if (state.isSolid()) return true;
-        }
-        return false;
+        return out;
     }
 
     /**
@@ -191,37 +196,37 @@ public final class TempleStructure {
         return origin.offset(0, 1, 0);
     }
 
-    private static void hollowOut(WorldGenLevel level, BlockPos origin) {
+    private static void hollowOut(WorldGenLevel level, BlockPos origin, BoundingBox clip) {
         for (int x = -HALF_WIDTH; x <= HALF_WIDTH; x++) {
             for (int z = -HALF_DEPTH; z <= HALF_DEPTH; z++) {
                 for (int y = 1; y <= WALL_HEIGHT; y++) {
-                    set(level, origin.offset(x, y, z), AIR);
+                    set(level, origin.offset(x, y, z), AIR, clip);
                 }
             }
         }
     }
 
-    private static void floorAndCeiling(WorldGenLevel level, BlockPos origin) {
+    private static void floorAndCeiling(WorldGenLevel level, BlockPos origin, BoundingBox clip) {
         for (int x = -HALF_WIDTH - 1; x <= HALF_WIDTH + 1; x++) {
             for (int z = -HALF_DEPTH - 1; z <= HALF_DEPTH + 1; z++) {
-                set(level, origin.offset(x, 0, z), FLOOR);
-                set(level, origin.offset(x, WALL_HEIGHT + 1, z), WALL);
+                set(level, origin.offset(x, 0, z), FLOOR, clip);
+                set(level, origin.offset(x, WALL_HEIGHT + 1, z), WALL, clip);
             }
         }
     }
 
-    private static void walls(WorldGenLevel level, BlockPos origin) {
+    private static void walls(WorldGenLevel level, BlockPos origin, BoundingBox clip) {
         for (int y = 1; y <= WALL_HEIGHT; y++) {
             for (int x = -HALF_WIDTH - 1; x <= HALF_WIDTH + 1; x++) {
-                set(level, origin.offset(x, y, -HALF_DEPTH - 1), WALL);
+                set(level, origin.offset(x, y, -HALF_DEPTH - 1), WALL, clip);
                 // The front wall carries the doorway, so it is drawn with a gap.
                 if (!isDoorway(x, y)) {
-                    set(level, origin.offset(x, y, HALF_DEPTH + 1), WALL);
+                    set(level, origin.offset(x, y, HALF_DEPTH + 1), WALL, clip);
                 }
             }
             for (int z = -HALF_DEPTH - 1; z <= HALF_DEPTH + 1; z++) {
-                set(level, origin.offset(-HALF_WIDTH - 1, y, z), WALL);
-                set(level, origin.offset(HALF_WIDTH + 1, y, z), WALL);
+                set(level, origin.offset(-HALF_WIDTH - 1, y, z), WALL, clip);
+                set(level, origin.offset(HALF_WIDTH + 1, y, z), WALL, clip);
             }
         }
     }
@@ -231,16 +236,16 @@ public final class TempleStructure {
         return x >= -1 && x <= 1 && y >= 1 && y <= 3;
     }
 
-    private static void lamps(WorldGenLevel level, BlockPos origin) {
+    private static void lamps(WorldGenLevel level, BlockPos origin, BoundingBox clip) {
         int[] xs = { -HALF_WIDTH, HALF_WIDTH };
         int[] zs = { -HALF_DEPTH, HALF_DEPTH };
 
         for (int x : xs) {
             for (int z : zs) {
                 for (int y = 1; y <= WALL_HEIGHT - 1; y++) {
-                    set(level, origin.offset(x, y, z), PILLAR);
+                    set(level, origin.offset(x, y, z), PILLAR, clip);
                 }
-                set(level, origin.offset(x, WALL_HEIGHT, z), LAMP);
+                set(level, origin.offset(x, WALL_HEIGHT, z), LAMP, clip);
             }
         }
     }
@@ -254,18 +259,28 @@ public final class TempleStructure {
      * portal's are not — they cost nothing and a frame with holes in its corners reads
      * as unfinished.
      */
-    private static void frame(WorldGenLevel level, BlockPos bottomLeft) {
+    private static void frame(WorldGenLevel level, BlockPos bottomLeft, BoundingBox clip) {
         for (int w = -1; w <= PORTAL_WIDTH; w++) {
             for (int h = -1; h <= PORTAL_HEIGHT; h++) {
                 boolean interior = w >= 0 && w < PORTAL_WIDTH && h >= 0 && h < PORTAL_HEIGHT;
                 BlockPos at = bottomLeft.offset(w, h, 0);
 
-                set(level, at, interior ? AIR : FRAME_BLOCK.defaultBlockState());
+                set(level, at, interior ? AIR : FRAME_BLOCK.defaultBlockState(), clip);
             }
         }
     }
 
-    private static void set(WorldGenLevel level, BlockPos pos, BlockState state) {
+    /**
+     * One block, if the clip allows it.
+     *
+     * A null clip means no limit. Silently dropping everything outside the box is what
+     * lets the whole temple be drawn once per chunk it touches, each pass keeping only
+     * its own share — the pieces meet exactly because every pass computes the same
+     * positions from the same origin.
+     */
+    private static void set(WorldGenLevel level, BlockPos pos, BlockState state, BoundingBox clip) {
+        if (clip != null && !clip.isInside(pos)) return;
+
         level.setBlock(pos, state, Block.UPDATE_CLIENTS);
     }
 }

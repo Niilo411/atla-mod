@@ -1,0 +1,7 @@
+{
+  "type": "atlamod:spirit_temple",
+  "biomes": "#atlamod:has_spirit_temple",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "spawn_overrides": {}
+}

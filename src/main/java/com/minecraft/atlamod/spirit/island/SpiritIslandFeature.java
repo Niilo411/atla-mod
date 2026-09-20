@@ -69,18 +69,13 @@ public class SpiritIslandFeature extends Feature<NoneFeatureConfiguration> {
         SpiritIslands.Island island = SpiritIslands.coveringOrNull(x, z);
         if (island == null) return false;
 
-        double edge = island.edgeAt(x, z);
-        double inward = 1.0 - (island.distanceTo(x, z) / edge);
+        double inward = 1.0 - (island.distanceTo(x, z) / island.edgeAt(x, z));
 
         IslandStyle style = island.style();
 
-        // The surface. Sqrt so the middle is a broad plateau rather than a sharp peak,
-        // then the style's own relief on top of it — which is the whole difference
-        // between crimson's mountains and the wasteland's flats.
-        int surface = island.centreY()
-                + (int) Math.round(style.relief()
-                        * SpiritIslands.noise(island.seed(), x, z, style.reliefScale()))
-                + (int) Math.round(4 * Math.sqrt(Math.max(0.0, inward)));
+        // Asked of SpiritIslands rather than worked out here, because the temple structure
+        // has to know the same height BEFORE any of this runs — see surfaceAt.
+        int surface = SpiritIslands.surfaceOf(island, x, z);
 
         // The underside, tapering to nothing at the rim so the island hangs in a keel.
         int thickness = 2 + (int) Math.round(SpiritIslands.MAX_THICKNESS * inward * inward);

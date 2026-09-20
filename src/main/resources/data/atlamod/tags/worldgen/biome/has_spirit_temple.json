@@ -1,0 +1,11 @@
+{
+  "values": [
+    "#minecraft:is_overworld",
+    "atlamod:spirit_overworld",
+    "atlamod:spirit_nether",
+    "atlamod:spirit_end",
+    "atlamod:spirit_crimson",
+    "atlamod:spirit_warped",
+    "atlamod:spirit_wasteland"
+  ]
+}

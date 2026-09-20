@@ -37,8 +37,31 @@ public final class SpiritPortals {
     /** How long the window is: ten seconds. */
     public static final int WINDOW_TICKS = 20 * 10;
 
-    /** How far from the frame the bending has to happen. */
-    public static final int RADIUS = 10;
+    /**
+     * How far from the frame the bending has to happen, measured horizontally.
+     *
+     * Has to cover the whole temple and a little outside it. Ten did not, and that was a
+     * real bug rather than a tight number: a temple is thirteen deep with its portal four
+     * blocks back from the middle, so from the doorway to the portal is exactly ten and
+     * from outside the door it is more. Anyone who walked into a temple they had found
+     * and bent where they stood was out of range of the thing they were standing in front
+     * of.
+     *
+     * It went unnoticed because /bend temple builds the room AROUND the player, which
+     * leaves them four blocks from the portal and always in range — so the command always
+     * worked and only naturally generated temples failed.
+     */
+    public static final int RADIUS = 18;
+
+    /**
+     * How far up and down the search looks, which is much less.
+     *
+     * A portal's hole sits between the floor and three blocks above it, so a player
+     * standing in front of one is always within a few blocks vertically. Keeping this
+     * small is what stops the wider horizontal reach turning the search into a 50,000
+     * block cube.
+     */
+    public static final int VERTICAL_RADIUS = 6;
 
     /**
      * The game ticks each player last cast on, oldest first.
@@ -123,7 +146,7 @@ public final class SpiritPortals {
         if (!(player.level() instanceof ServerLevel level)) return false;
 
         Optional<SpiritPortalFrame.Frame> found =
-                SpiritPortalFrame.findInactiveNear(level, player.blockPosition(), RADIUS);
+                SpiritPortalFrame.findInactiveNear(level, player.blockPosition(), RADIUS, VERTICAL_RADIUS);
         if (found.isEmpty()) return false;
 
         activate(level, found.get());

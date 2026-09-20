@@ -23,8 +23,6 @@
   },
   "features": [
     [ "atlamod:spirit_island" ],
-    [], [], [],
-    [ "atlamod:spirit_temple" ],
-    [], [], [], [], [], []
+    [], [], [], [], [], [], [], [], [], []
   ]
 }

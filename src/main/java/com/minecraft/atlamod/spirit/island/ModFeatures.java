@@ -28,11 +28,6 @@ public final class ModFeatures {
             FEATURES.register("spirit_island",
                     () -> new SpiritIslandFeature(NoneFeatureConfiguration.CODEC));
 
-    /** Must match the "type" in worldgen/configured_feature/spirit_temple.json. */
-    public static final DeferredHolder<Feature<?>, SpiritTempleFeature> SPIRIT_TEMPLE =
-            FEATURES.register("spirit_temple",
-                    () -> new SpiritTempleFeature(NoneFeatureConfiguration.CODEC));
-
     private ModFeatures() {
     }
 

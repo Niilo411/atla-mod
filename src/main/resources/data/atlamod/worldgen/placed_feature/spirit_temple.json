@@ -1,9 +1,0 @@
-{
-  "feature": "atlamod:spirit_temple",
-  "placement": [
-    { "type": "minecraft:rarity_filter", "chance": 1600 },
-    { "type": "minecraft:in_square" },
-    { "type": "minecraft:heightmap", "heightmap": "WORLD_SURFACE_WG" },
-    { "type": "minecraft:biome" }
-  ]
-}
