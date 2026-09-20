@@ -2,10 +2,8 @@ package com.minecraft.atlamod.spirit;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -144,28 +142,18 @@ public final class SpiritPortalFrame {
      * Flag 2 (clients only, no neighbour updates) so that filling the hole one block at
      * a time does not have each portal block immediately reconsider whether its
      * neighbours still support it while the rest of the frame is still empty.
+     *
+     * Takes a {@link LevelAccessor} rather than a Level so WORLD GENERATION can call it:
+     * a spirit temple built by the feature is lit as it is placed, and a feature is only
+     * ever handed a WorldGenLevel. Nothing here needs a full Level — it is block writes
+     * and nothing else.
      */
-    public static void light(Level level, Frame frame) {
+    public static void light(LevelAccessor level, Frame frame) {
         BlockState portal = com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get().defaultBlockState()
                 .setValue(SpiritPortalBlock.AXIS, frame.axis());
 
         for (BlockPos pos : frame.interior()) {
             level.setBlock(pos, portal, Block.UPDATE_CLIENTS);
-        }
-    }
-
-    /**
-     * Empties a lit portal back out, leaving the frame standing.
-     *
-     * Only OUR portal blocks are cleared. Somebody may have put something in the hole,
-     * and removing whatever happens to occupy the space would be a way to delete blocks
-     * that were never part of the portal.
-     */
-    public static void extinguish(Level level, Frame frame) {
-        for (BlockPos pos : frame.interior()) {
-            if (level.getBlockState(pos).is(com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get())) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-            }
         }
     }
 }

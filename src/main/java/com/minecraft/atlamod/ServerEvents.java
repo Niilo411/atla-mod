@@ -467,8 +467,15 @@ public class ServerEvents {
                             var temple = com.minecraft.atlamod.spirit.TempleStructure.placeAt(
                                     player.serverLevel(), player.blockPosition().below());
 
+                            // Built in the Spirit World, it comes up already burning —
+                            // nothing can bend there, so a dark frame would never open.
+                            com.minecraft.atlamod.spirit.SpiritWorld.lightIfHere(
+                                    player.serverLevel(), temple);
+
                             context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
-                                    "Built a spirit temple. Its portal is unlit — use "
+                                    com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(player.level())
+                                            ? "Built a spirit temple. Its portal is already open."
+                                            : "Built a spirit temple. Its portal is unlit — use "
                                             + com.minecraft.atlamod.spirit.SpiritPortals.REQUIRED_USES
                                             + " ability uses within "
                                             + (com.minecraft.atlamod.spirit.SpiritPortals.WINDOW_TICKS / 20)

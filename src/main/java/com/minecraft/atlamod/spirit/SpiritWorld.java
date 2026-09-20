@@ -69,6 +69,32 @@ public final class SpiritWorld {
     }
 
     /**
+     * A temple built in the Spirit World is born with its portal burning. Elsewhere it is
+     * left dark.
+     *
+     * THE ONE PLACE THAT RULE LIVES, called by both things that build a temple — the
+     * world-generation feature and the /bend temple command — so the two cannot drift
+     * apart and start disagreeing about what a spirit temple looks like when it appears.
+     *
+     * The reason is not decoration. Opening a portal takes five ability casts, and
+     * bending does not work in the Spirit World at all, so a dark frame there could never
+     * be lit by anybody and the temple would be a room with a dead doorway.
+     *
+     * No closing tick is scheduled, which is how these stay open forever: an overworld
+     * portal is given a tick a minute out, and a spirit one is simply never given one.
+     *
+     * Takes a WorldGenLevel because world generation is one of its two callers and that
+     * is all a feature is handed; a ServerLevel is one, so the command fits too.
+     */
+    public static void lightIfHere(net.minecraft.world.level.WorldGenLevel level,
+                                   TempleStructure.Temple temple) {
+        if (!isSpiritWorld(level.getLevel())) return;
+
+        SpiritPortalFrame.light(level,
+                new SpiritPortalFrame.Frame(temple.portalBottomLeft(), temple.portalAxis()));
+    }
+
+    /**
      * Makes sure the Spirit World's own portal is burning.
      *
      * This is not decoration — it is the way out. A temple is built with its frame EMPTY,

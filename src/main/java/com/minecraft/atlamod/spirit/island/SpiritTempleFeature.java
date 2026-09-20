@@ -1,5 +1,6 @@
 package com.minecraft.atlamod.spirit.island;
 
+import com.minecraft.atlamod.spirit.SpiritWorld;
 import com.minecraft.atlamod.spirit.TempleStructure;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.BlockPos;
@@ -41,7 +42,9 @@ public class SpiritTempleFeature extends Feature<NoneFeatureConfiguration> {
 
         if (!TempleStructure.canStandAt(level, floor)) return false;
 
-        TempleStructure.placeAt(level, floor);
+        // Lights the portal if this is the Spirit World, and leaves it dark if not. The
+        // rule lives in SpiritWorld so the command that builds temples agrees with it.
+        SpiritWorld.lightIfHere(level, TempleStructure.placeAt(level, floor));
         return true;
     }
 }
