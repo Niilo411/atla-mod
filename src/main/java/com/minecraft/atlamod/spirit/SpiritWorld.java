@@ -69,6 +69,74 @@ public final class SpiritWorld {
     }
 
     /**
+     * How far the search for a nearby temple reaches, in CHUNKS.
+     *
+     * Temples sit forty chunks apart, so a hundred is a couple of rings of them and
+     * effectively always finds one. It is the same figure vanilla's own /locate uses.
+     */
+    private static final int TEMPLE_SEARCH_CHUNKS = 100;
+
+    /**
+     * Where a player stepping through a portal at {@code from} should come out.
+     *
+     * THE NEAREST TEMPLE TO WHERE THEY LEFT, rather than the fixed one at the origin.
+     * That fixed temple floats in open void — island generation deliberately keeps clear
+     * of the world origin so the temple is never buried, which also means there is
+     * nothing around it but a long fall. Arriving there was the bug: every portal in the
+     * Overworld led to the same room hanging in nothing.
+     *
+     * Coordinates map one to one, since the dimension's coordinate scale is 1, so a
+     * portal in the far north of the Overworld comes out in the far north of the Spirit
+     * World and the two places stay roughly related.
+     *
+     * The central temple stays as the fallback for when no structure can be found at all
+     * — a world generated with structures switched off, most likely. Something has to
+     * happen, and a room in the void beats refusing to travel.
+     */
+    public static BlockPos arrivalNear(ServerLevel spirit, BlockPos from) {
+        TempleStructure.Temple temple = nearestTemple(spirit, from);
+        if (temple == null) temple = ensureTemple(spirit);
+
+        ensureLit(spirit, temple);
+        return temple.arrival();
+    }
+
+    /**
+     * The nearest naturally generated temple, or null if there is none to be had.
+     *
+     * The position the locator gives back is a chunk's MIN corner, not the temple — the
+     * offset to the middle is {@link com.minecraft.atlamod.spirit.structure.SpiritTempleStructure#originIn},
+     * which is also what put the temple there, so the two cannot disagree.
+     *
+     * The height is computed rather than looked up, because this runs before the chunk
+     * has been generated and {@link com.minecraft.atlamod.spirit.island.SpiritIslands} can
+     * answer without generating anything. The chunk is then forced into existence and the
+     * answer CHECKED against the world, which is what makes a wrong guess fall through to
+     * the fallback instead of dropping somebody into empty air.
+     */
+    private static TempleStructure.Temple nearestTemple(ServerLevel spirit, BlockPos from) {
+        BlockPos locate = spirit.findNearestMapStructure(
+                com.minecraft.atlamod.spirit.structure.ModStructures.SPIRIT_TEMPLE_TAG,
+                from, TEMPLE_SEARCH_CHUNKS, false);
+        if (locate == null) return null;
+
+        net.minecraft.world.level.ChunkPos chunkPos = new net.minecraft.world.level.ChunkPos(locate);
+        int x = chunkPos.getMiddleBlockX();
+        int z = chunkPos.getMiddleBlockZ();
+
+        int floor = com.minecraft.atlamod.spirit.island.SpiritIslands.surfaceAt(x, z);
+        if (floor == com.minecraft.atlamod.spirit.island.SpiritIslands.NO_GROUND) return null;
+
+        BlockPos origin = com.minecraft.atlamod.spirit.structure.SpiritTempleStructure
+                .originIn(chunkPos, floor);
+
+        // Built, if it was not already. Everything below reads real blocks.
+        spirit.getChunk(origin);
+
+        return TempleStructure.isPresentAt(spirit, origin) ? TempleStructure.describeAt(origin) : null;
+    }
+
+    /**
      * A temple built in the Spirit World is born with its portal burning. Elsewhere it is
      * left dark.
      *

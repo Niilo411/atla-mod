@@ -51,11 +51,15 @@ public final class SpiritTravel {
     }
 
     /**
-     * Into the Spirit World, arriving inside its temple.
+     * Into the Spirit World, arriving inside the NEAREST temple to where they left.
      *
-     * The temple is built on demand rather than at world creation: the dimension is
-     * generated lazily the first time anything asks for it, so there is no earlier
-     * moment at which building it would be possible.
+     * Nearest rather than fixed, and that difference was a real bug: every portal used to
+     * lead to the one temple at the world origin, which hangs in open void because island
+     * generation keeps clear of the origin on purpose. Whichever portal you stepped into,
+     * you came out in the same room with nothing but a drop outside its door.
+     *
+     * Where exactly is {@link SpiritWorld#arrivalNear}'s business. All this has to do is
+     * remember which portal was stepped into, so the way back leads to it.
      */
     private static void enter(Entity entity, MinecraftServer server, BlockPos portalPos) {
         ServerLevel spirit = SpiritWorld.level(server);
@@ -69,8 +73,7 @@ public final class SpiritTravel {
 
         ENTRY.put(entity.getUUID(), GlobalPos.of(entity.level().dimension(), portalPos));
 
-        TempleStructure.Temple temple = SpiritWorld.ensureTemple(spirit);
-        send(entity, spirit, temple.arrival());
+        send(entity, spirit, SpiritWorld.arrivalNear(spirit, portalPos));
     }
 
     /**

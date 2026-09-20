@@ -79,9 +79,23 @@ public class SpiritTempleStructure extends Structure {
 
         if (highest - lowest > MAX_SLOPE) return Optional.empty();
 
-        BlockPos origin = new BlockPos(centreX, floor, centreZ);
+        BlockPos origin = originIn(chunkPos, floor);
 
         return Optional.of(new GenerationStub(origin, builder -> builder.addPiece(new SpiritTemplePiece(origin))));
+    }
+
+    /**
+     * Where in a chunk a temple's floor centre sits.
+     *
+     * The one place that decides it, because two very different things need the same
+     * answer. This method puts a temple there; {@link com.minecraft.atlamod.spirit.SpiritWorld}
+     * works BACKWARDS from it when a portal has to find the nearest temple to arrive at,
+     * since the game's structure locator reports a chunk's MIN corner and the temple is
+     * eight blocks further in. Two copies of that offset would be a portal that put people
+     * down next to a temple rather than inside it.
+     */
+    public static BlockPos originIn(ChunkPos chunkPos, int floorY) {
+        return new BlockPos(chunkPos.getMiddleBlockX(), floorY, chunkPos.getMiddleBlockZ());
     }
 
     /** No ground in this column. */

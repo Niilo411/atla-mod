@@ -38,6 +38,11 @@ public final class ModStructures {
             PIECE_TYPES.register("spirit_temple",
                     () -> (StructurePieceType.ContextlessType) SpiritTemplePiece::new);
 
+    /** The tag the portal system searches by when it looks for the nearest temple. */
+    public static final net.minecraft.tags.TagKey<net.minecraft.world.level.levelgen.structure.Structure>
+            SPIRIT_TEMPLE_TAG = net.minecraft.tags.TagKey.create(Registries.STRUCTURE,
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(Atlamod.MODID, "spirit_temple"));
+
     private ModStructures() {
     }
 
