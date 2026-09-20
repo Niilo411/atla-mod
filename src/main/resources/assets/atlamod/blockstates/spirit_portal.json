@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "axis=x": { "model": "atlamod:block/spirit_portal_ns" },
+    "axis=z": { "model": "atlamod:block/spirit_portal_ew" }
+  }
+}

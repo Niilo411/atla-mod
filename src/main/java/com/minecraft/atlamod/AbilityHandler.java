@@ -50,6 +50,21 @@ public class AbilityHandler {
         return boostable(ability) ? com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base) : base;
     }
 
+    /**
+     * Refuses a cast outright because the player is in the Spirit World, and says so.
+     *
+     * Told rather than silent, for the reason every other refusal in this dispatcher is:
+     * "nothing happened" is indistinguishable from a broken keybind, and the reason here
+     * is something the player can act on by leaving.
+     */
+    private static boolean refusedInSpiritWorld(ServerPlayer player) {
+        if (!com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(player.level())) return false;
+
+        player.displayClientMessage(Component.literal(
+                "§bBending is silent in the Spirit World."), true);
+        return true;
+    }
+
     /** Whether Sound boosting reaches this ability: air and sound abilities only. */
     private static boolean boostable(Ability ability) {
         String element = com.minecraft.atlamod.abilities.ElementPaths.elementOf(ability.getName());
@@ -59,6 +74,11 @@ public class AbilityHandler {
     public static void executeAbility(ServerPlayer player, BendingData data, String abilityName) {
         Ability ability = AbilityRegistry.get(abilityName);
         if (ability == null) return;
+
+        // Nothing bends in the Spirit World. Checked above everything else, because it
+        // is a fact about WHERE the player is rather than about the ability or what
+        // they can afford — there is no cast here that could succeed.
+        if (refusedInSpiritWorld(player)) return;
 
         // Deafen locks its victims out of bending entirely for a few seconds. Checked
         // at the very top, before anything is spent or stamped.
@@ -143,6 +163,8 @@ public class AbilityHandler {
         if (!AbilitySupport.consumeChiAndGiveXp(player, data, ability.getChiCost(data), ability.getXpReward())) {
             return;
         }
+
+        com.minecraft.atlamod.spirit.SpiritPortals.recordUse(player, ability.getKey());
 
         // Two-phase abilities arm here and fire on the next left click.
         if (ability instanceof TwoPhaseAbility twoPhase) {
@@ -261,6 +283,11 @@ public class AbilityHandler {
     //  PHASE 3: held abilities — channels and charges (slot key held)
     // ==========================================
     public static void executeAbilityHold(ServerPlayer player, BendingData data, String abilityName, boolean isHeld) {
+        // Nothing bends in the Spirit World — but only a PRESS is refused, for exactly
+        // the reason the bending lockout below gives. A channel still running as its
+        // caster is carried into the Spirit World has to be able to be let go of.
+        if (isHeld && refusedInSpiritWorld(player)) return;
+
         // Only a PRESS is refused while locked out. A key RELEASE has to get through,
         // or a channel that was already running when the lockout landed could never be
         // let go of and would drain chi until it ran dry.
@@ -329,6 +356,8 @@ public class AbilityHandler {
                     "§cNot enough Chi! (Requires " + ability.getChiCost(data) + ")"), true);
             return;
         }
+
+        com.minecraft.atlamod.spirit.SpiritPortals.recordUse(player, ability.getKey());
 
         data.setActiveChargingAbility(ability.getKey());
         data.setChargeTicks(0);
@@ -429,6 +458,8 @@ public class AbilityHandler {
                 && !com.minecraft.atlamod.abilities.WaterSupply.tryConsume(player)) {
             return;
         }
+
+        com.minecraft.atlamod.spirit.SpiritPortals.recordUse(player, ability.getKey());
 
         data.setActiveChanneledAbility(ability.getKey());
         data.setChannelTicks(0);

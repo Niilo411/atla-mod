@@ -1,0 +1,17 @@
+{
+  "type": "atlamod:spirit_world",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "atlamod:spirit_void",
+    "biome_source": {
+      "type": "atlamod:spirit",
+      "void": "atlamod:spirit_void",
+      "overworld": "atlamod:spirit_overworld",
+      "nether": "atlamod:spirit_nether",
+      "end": "atlamod:spirit_end",
+      "crimson": "atlamod:spirit_crimson",
+      "warped": "atlamod:spirit_warped",
+      "wasteland": "atlamod:spirit_wasteland"
+    }
+  }
+}

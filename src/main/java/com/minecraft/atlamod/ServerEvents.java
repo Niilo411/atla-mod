@@ -27,6 +27,12 @@ public class ServerEvents {
      */
     @SubscribeEvent
     public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        // The Spirit World's own wildlife. Vanilla's spawner cannot produce it — see
+        // SpiritSpawner — so it is driven from here, and returns immediately for every
+        // level but the one.
+        var spirit = com.minecraft.atlamod.spirit.SpiritWorld.level(event.getServer());
+        if (spirit != null) com.minecraft.atlamod.spirit.SpiritSpawner.tick(spirit);
+
         com.minecraft.atlamod.abilities.BendingProjectiles.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Drownings.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.water.Tsunamis.tickAll(event.getServer());
@@ -444,6 +450,34 @@ public class ServerEvents {
                         .then(addElement())
                         .then(removeElement())
                 )
+
+                // TEMPLE COMMAND — /bend temple
+                //
+                // Spirit temples do not generate in the world yet, so without this there
+                // is no way to reach a portal at all. It is also the seam the hand-built
+                // .nbt will arrive through: whatever TempleStructure.placeAt becomes,
+                // this keeps working unchanged.
+                .then(Commands.literal("temple")
+                        .executes(context -> {
+                            ServerPlayer player = context.getSource().getPlayerOrException();
+
+                            // One below the player's feet, because placeAt takes the
+                            // temple's FLOOR block and the room is built on top of it.
+                            // Passing their own position would bury them in the floor.
+                            var temple = com.minecraft.atlamod.spirit.TempleStructure.placeAt(
+                                    player.serverLevel(), player.blockPosition().below());
+
+                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                    "Built a spirit temple. Its portal is unlit — use "
+                                            + com.minecraft.atlamod.spirit.SpiritPortals.REQUIRED_USES
+                                            + " ability uses within "
+                                            + (com.minecraft.atlamod.spirit.SpiritPortals.WINDOW_TICKS / 20)
+                                            + "s, within "
+                                            + com.minecraft.atlamod.spirit.SpiritPortals.RADIUS
+                                            + " blocks of it, to open it."), true);
+                            return temple == null ? 0 : 1;
+                        })
+                )
                 // LEVEL COMMAND — /bend level <targets> <amount>
                 .then(Commands.literal("level")
                         .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
@@ -649,6 +683,12 @@ public class ServerEvents {
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // A part-finished portal sequence is ten seconds of state and is not worth
+            // keeping; the way home out of the Spirit World is transient by design and
+            // falls back to the world spawn. See SpiritTravel.
+            com.minecraft.atlamod.spirit.SpiritPortals.forget(player.getUUID());
+            com.minecraft.atlamod.spirit.SpiritTravel.forget(player.getUUID());
+
             com.minecraft.atlamod.abilities.HeldBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.water.WaterSpheres.collapse(player);
             com.minecraft.atlamod.abilities.Rides.forgetPlayer(player);
@@ -1104,6 +1144,12 @@ public class ServerEvents {
 
             // --- UNIVERSAL COOLDOWN TICKER (Must be at the very top!) ---
             data.tickCooldowns();
+
+            // The Spirit World's tide of low gravity. Asked every tick for every player
+            // because it is what takes the modifier back OFF someone who has walked out
+            // of the dimension, which is as much its job as putting it on — and it does
+            // nothing at all unless the answer has actually changed.
+            com.minecraft.atlamod.spirit.SpiritGravity.tick(player);
 
             // --- FIRE IMMUNITY PASSIVE ---
             // Damage is cancelled in the damage handler, but burning is separate from

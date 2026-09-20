@@ -121,6 +121,22 @@ public class Atlamod {
                     .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)
                     .noLootTable()));
 
+    // The lit spirit portal. Unbreakable and uncollectable for the same reason vanilla's
+    // nether portal is: it is placed by the world, never held. No BlockItem.
+    //
+    // Blue WITHOUT a texture of ours — our model wears vanilla's block/nether_portal and
+    // marks its faces with a tint index, which SpiritPortalColors answers. See
+    // SpiritPortalBlock.
+    public static final DeferredBlock<Block> SPIRIT_PORTAL = BLOCKS.register("spirit_portal",
+            () -> new com.minecraft.atlamod.spirit.SpiritPortalBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_LIGHT_BLUE)
+                    .noCollission()
+                    .strength(-1.0F)
+                    .sound(net.minecraft.world.level.block.SoundType.GLASS)
+                    .lightLevel(state -> 11)
+                    .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)
+                    .noLootTable()));
+
     // Creates a new food item with the id "atlamod:example_id", nutrition 1 and saturation 2
     public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()
             .alwaysEdible().nutrition(1).saturationModifier(2f).build()));
@@ -140,6 +156,8 @@ public class Atlamod {
         ModAttachments.register(modEventBus);
         ModEffects.register(modEventBus);
         ModEntities.register(modEventBus);
+        com.minecraft.atlamod.spirit.island.ModFeatures.register(modEventBus);
+        com.minecraft.atlamod.spirit.SpiritBiomes.register(modEventBus);
 
         // Populate the ability registry once, before any packet can dispatch a cast.
         com.minecraft.atlamod.abilities.AbilityRegistry.bootstrap();

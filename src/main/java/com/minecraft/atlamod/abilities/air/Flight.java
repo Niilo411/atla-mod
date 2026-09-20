@@ -90,6 +90,14 @@ public class Flight implements PassiveAbility {
     private static void holdCeiling(ServerPlayer player) {
         if (!player.getAbilities().flying) return;
 
+        // The Spirit World has no ceiling, and could not sensibly have this one. Its
+        // islands hang between y=40 and roughly y=190 and its sea level sits at the
+        // bottom of the world — which is what keeps the noise generator from flooding it
+        // with lava — so "sea level plus 120" would land at y=56 and wall a flier off
+        // from most of the dimension. A place made of floating islands is one you are
+        // meant to be able to climb through.
+        if (com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(player.level())) return;
+
         double ceiling = player.level().getSeaLevel() + CEILING_ABOVE_SEA_LEVEL;
         if (player.getY() < ceiling) return;
 
