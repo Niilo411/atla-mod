@@ -26,6 +26,32 @@ public class UpgradeMenuScreen extends Screen {
     private static final String[] SLOT_LABELS = { "Z", "X", "C", "V", "Shift + Z", "Shift + X", "Shift + C", "Shift + V" };
     private record AbilityNode(String name, String path, int index, int cost) {}
 
+    /**
+     * How far the icon sits inside its node.
+     *
+     * Three pixels, one of which is the border itself, so two pixels of the node's path
+     * colour stay visible all the way round the icon. That ring is the ONLY place the
+     * path colour shows once the icon is drawn, so it cannot go to zero.
+     */
+    private static final int ICON_INSET = 3;
+
+    /**
+     * The depth the "not yet yours" veil is drawn at.
+     *
+     * GuiGraphics#renderItem pushes an item to z=150 itself, and AbilityIcons scales that
+     * by the node size, so anything meant to sit ON TOP of an icon has to say so. Well
+     * clear of the item and well below the 400 vanilla draws tooltips at.
+     */
+    private static final int ICON_Z = 250;
+
+    /**
+     * The depth the tab strip is drawn at.
+     *
+     * Above ICON_Z so a node reaching up into the tabs cannot show through them, and well
+     * below the 400 vanilla draws tooltips at so a tooltip still covers the strip.
+     */
+    private static final int TAB_Z = 300;
+
     public UpgradeMenuScreen() {
         super(Component.literal("Upgrade Menu"));
     }
@@ -182,30 +208,52 @@ public class UpgradeMenuScreen extends Screen {
                             statusText = "§c[Requires Lvl " + node.cost() + "]";
                         }
 
-                        guiGraphics.fill(bx, by, bx + bw, by + bh, 0xFF222222);
+                        // The node's BACKGROUND says which path it belongs to and its
+                        // BORDER says what state it is in, so the two never compete for
+                        // the same pixels. A flat grey box could only ever carry one of
+                        // those and it was already spent on the state.
+                        guiGraphics.fillGradient(bx, by, bx + bw, by + bh,
+                                pathColor(node.path(), isUnlocked, true),
+                                pathColor(node.path(), isUnlocked, false));
                         guiGraphics.renderOutline(bx, by, bw, bh, borderColor);
 
-                        // The ability's own art where there is any, and the old "?"
-                        // where there is not. Most abilities have none yet, so the
-                        // fallback is the normal case rather than an edge case — and it
-                        // has to stay, because a texture Minecraft cannot find renders
-                        // as the magenta checkerboard.
+                        // A vanilla item stands in for the ability's picture — see
+                        // AbilityIcons. The "?" stays as the fallback for anything the
+                        // table has no line for, which should now be nothing: it is
+                        // there so a name typed wrong shows up rather than drawing an
+                        // empty box.
                         //
                         // Skipped entirely for a node the open upgrade panel is sitting
                         // on. The box and its outline are still drawn, so a node only
-                        // half covered still looks like itself; it is the ART that has
+                        // half covered still looks like itself; it is the ICON that has
                         // to go, because it was showing through the panel and filling
-                        // the upgrade text with question marks. See
-                        // coveredByUpgradePanel.
-                        if (coveredByUpgradePanel(bx, by, bw, bh)) {
-                            // nothing: the panel is what belongs in this space
-                        } else if (AbilityIcons.has(node.name())) {
-                            // Inset by a pixel so the art sits inside the border rather
-                            // than on it, matching the element badge on the HUD.
-                            AbilityIcons.draw(guiGraphics, node.name(), bx + 1, by + 1, bw - 2);
-                        } else {
-                            guiGraphics.drawCenteredString(this.font, "?",
-                                    bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
+                        // the upgrade text with question marks. That matters more now
+                        // than it did: renderItem draws at z=150 of its own accord, so
+                        // an item would punch through the panel even harder than the
+                        // art did. See coveredByUpgradePanel.
+                        if (!coveredByUpgradePanel(bx, by, bw, bh)) {
+                            if (AbilityIcons.has(node.name())) {
+                                AbilityIcons.draw(guiGraphics, node.name(),
+                                        bx + ICON_INSET, by + ICON_INSET, bw - ICON_INSET * 2);
+                            } else {
+                                guiGraphics.drawCenteredString(this.font, "?",
+                                        bx + (bw / 2), by + (bh / 2) - 4, 0x888888);
+                            }
+
+                            // Anything not yet owned is DIMMED rather than drawn in a
+                            // different colour, because an item icon cannot be recoloured
+                            // the way our own art could — it is the player's own texture
+                            // pack's pixels. Two depths of it: a light veil for something
+                            // that is merely unbought, and a heavy one for something the
+                            // tree will not sell yet, so "locked" and "affordable" read
+                            // apart at a glance and not only from the border.
+                            //
+                            // Drawn at ICON_Z because renderItem puts the item at z=150
+                            // and a fill at the default z=0 would land behind it.
+                            if (!isUnlocked) {
+                                guiGraphics.fill(bx + 1, by + 1, bx + bw - 1, by + bh - 1,
+                                        ICON_Z, meetsTreeReq ? 0x66000000 : 0xB4000000);
+                            }
                         }
 
                         // --- NEW TOOLTIP LOGIC ---
@@ -218,7 +266,16 @@ public class UpgradeMenuScreen extends Screen {
                             // 1. Ability Name (Yellow)
                             tooltip.add(net.minecraft.network.chat.Component.literal("§e" + node.name()));
 
-                            // 2. Cost (Gray)
+                            // 2. What it actually DOES, which is the one thing the tree
+                            // never used to say — a node gave a name, a price and whether
+                            // it could be bought, and left the player to spend sixty
+                            // levels finding out what they had bought. See
+                            // AbilityDescriptions, which answers for passives out of the
+                            // ability class itself and for everything else out of its own
+                            // table.
+                            addWrapped(tooltip, AbilityDescriptions.of(node.name()));
+
+                            // 3. Cost (Gray)
                             tooltip.add(net.minecraft.network.chat.Component.literal("§7Cost: " + node.cost() + " Levels"));
 
                             // 3. Status Text (Red/Green/Gold depending on if you can buy it)
@@ -497,6 +554,111 @@ public class UpgradeMenuScreen extends Screen {
     }
 
     /**
+     * The colour of a node's background, one end of its gradient at a time.
+     *
+     * A BASE element is coloured by PATH, because which arm an ability sits in is the one
+     * fact about it the tree cannot show any other way — the four arms all look alike,
+     * and a player reading a node in isolation has nothing to tell offensive from
+     * balanced. So they are red, blue, green and gold, with purple for the centre, which
+     * belongs to no arm at all and should not be mistaken for one.
+     *
+     * A SUB-element is coloured by ELEMENT, one colour across both its paths, and that is
+     * not the same rule bent — it is the same argument reaching a different answer. A
+     * sub-element has only two arms and they are LEFT and RIGHT rather than offensive and
+     * defensive: {@link com.minecraft.atlamod.abilities.ElementPaths} puts them in the
+     * offensive and defensive slots purely so the four-armed layout needs no change.
+     * Colouring them red and blue would therefore be labelling them with a distinction
+     * the design does not draw. The element itself is the thing worth naming, so ice is
+     * blue throughout, blood red, metal white, lava orange, sound purple, combustion grey
+     * and lightning yellow.
+     *
+     * OWNED abilities get the rich version and everything else a dark one, which is a
+     * second, coarser reading of the same state the border spells out exactly. Two
+     * signals rather than one, because the border is a single pixel and the background
+     * is the whole node.
+     *
+     * @param top true for the upper end of the gradient, false for the lower.
+     */
+    private int pathColor(String path, boolean unlocked, boolean top) {
+        int[] shades = subElementShades(activeElement);
+        if (shades == null) shades = pathShades(path);
+
+        // {rich top, rich bottom, dark top, dark bottom}
+        return shades[(unlocked ? 0 : 2) + (top ? 0 : 1)];
+    }
+
+    /**
+     * The four shades a SUB-element's nodes are drawn from, or null if this is not one.
+     *
+     * Lightning's yellow is the one colour here that was not specified: the other six
+     * were named and it was not, and yellow is what is left once ice has blue, blood red,
+     * lava orange, sound purple, combustion grey and metal white — and it is what
+     * lightning looks like anyway.
+     *
+     * Metal's "white" is a cool silver rather than a true white, and combustion's grey is
+     * a neutral one, so the two stay apart at a glance. A real white would also leave
+     * nothing for the border to show against and would wash out the paler item icons
+     * sitting on top of it, iron ingots and nuggets especially.
+     */
+    private static int[] subElementShades(String element) {
+        if (element == null) return null;
+
+        return switch (element.toLowerCase(java.util.Locale.ROOT)) {
+            case "ice"        -> new int[]{0xFF3C9AD0, 0xFF10334C, 0xFF1B3242, 0xFF0A151C};
+            case "blood"      -> new int[]{0xFFA81E1E, 0xFF3E0A0A, 0xFF3C1414, 0xFF190808};
+            case "metal"      -> new int[]{0xFFC2C8CE, 0xFF6E757C, 0xFF3A3E42, 0xFF191B1D};
+            case "lava"       -> new int[]{0xFFD1701A, 0xFF4A2406, 0xFF412A14, 0xFF1B1007};
+            case "sound"      -> new int[]{0xFF8A3CC4, 0xFF2E1046, 0xFF321C42, 0xFF150A1C};
+            case "combustion" -> new int[]{0xFF6E6E6E, 0xFF262626, 0xFF2E2E2E, 0xFF141414};
+            case "lightning"  -> new int[]{0xFFD6BE1E, 0xFF4A400A, 0xFF3E3814, 0xFF191608};
+            default -> null;
+        };
+    }
+
+    /**
+     * How wide a description line may run before it is wrapped.
+     *
+     * Vanilla does not wrap a tooltip for you — every Component handed to
+     * renderComponentTooltip is one line however long it is — and a sentence like Blood
+     * suck's runs past 500 pixels, which on a small window is a tooltip wider than the
+     * screen it is trying to explain something on.
+     */
+    private static final int TOOLTIP_WIDTH = 200;
+
+    /**
+     * Adds a description to a tooltip, broken across as many lines as it needs.
+     *
+     * Silent on null, which is how an ability with nothing written for it simply has no
+     * description line rather than a line saying it has none.
+     *
+     * Split by the game's own splitter rather than by counting characters: the font is
+     * not fixed width, so "Illuminating" and "WWWWWWWWWWWW" are nothing like the same
+     * size on screen.
+     */
+    private void addWrapped(java.util.List<net.minecraft.network.chat.Component> tooltip, String description) {
+        if (description == null || description.isEmpty()) return;
+
+        for (var line : this.font.getSplitter().splitLines(
+                description, TOOLTIP_WIDTH, net.minecraft.network.chat.Style.EMPTY)) {
+            tooltip.add(net.minecraft.network.chat.Component.literal("§7" + line.getString()));
+        }
+    }
+
+    /** The four shades a BASE element's nodes are drawn from, one arm at a time. */
+    private static int[] pathShades(String path) {
+        return switch (path) {
+            case "offensive"   -> new int[]{0xFF8C2A22, 0xFF3C110D, 0xFF3A1815, 0xFF190A08};
+            case "defensive"   -> new int[]{0xFF24558C, 0xFF0D1F3C, 0xFF16253A, 0xFF080F19};
+            case "balanced"    -> new int[]{0xFF2B7F35, 0xFF0D2E12, 0xFF16321B, 0xFF08170B};
+            case "masterclass" -> new int[]{0xFF9C7716, 0xFF3C2D07, 0xFF3A3015, 0xFF191408};
+            case "centre"      -> new int[]{0xFF6E2B8C, 0xFF2C0D3C, 0xFF2F1739, 0xFF140819};
+            // Nothing else builds a node, but a flat dark box is the honest answer for an
+            // arm that does not exist rather than borrowing another arm's colour.
+            default -> new int[]{0xFF222222, 0xFF222222, 0xFF222222, 0xFF222222};
+        };
+    }
+
+    /**
      * How narrow a name may be squeezed before it is cut short instead.
      *
      * Below about half size the font stops being readable at all, so past that point
@@ -552,7 +714,30 @@ public class UpgradeMenuScreen extends Screen {
         return (this.width / 2) - (totalWidth / 2) + index * (TAB_W + 6);
     }
 
+    /**
+     * Draws the tab strip, ABOVE everything the tree puts under it.
+     *
+     * The lift is load-bearing rather than tidiness. GuiGraphics#renderItem pushes an item
+     * icon to z=150 of its own accord, where the old "?" was ordinary text at z=0 and went
+     * quietly under the tabs — so once nodes started wearing items, a node reaching up
+     * into the strip punched straight through it. That is not rare: the top arm's fourth
+     * node sits 140 pixels above the middle, which lands in the tabs on any window shorter
+     * than about 344 scaled pixels, and fire's Taller fire is the only node in the mod
+     * that far up.
+     *
+     * The first attempt at this suppressed the ICON instead, which cost Taller fire its
+     * picture on exactly the setups where the node was still perfectly visible. Lifting
+     * the tabs fixes the overlap without taking anything away — the strip is drawn last
+     * and should win, which is all that was ever wanted.
+     *
+     * Translated through the pose stack rather than passed as a z argument because
+     * renderOutline and drawCenteredString have no z overload, and all three parts of a
+     * tab have to travel together.
+     */
     private void drawTabs(GuiGraphics graphics) {
+        graphics.pose().pushPose();
+        graphics.pose().translate(0.0F, 0.0F, TAB_Z);
+
         for (int i = 0; i < TAB_NAMES.length; i++) {
             boolean selected = (activeTab == i);
             int tx = tabX(i);
@@ -561,6 +746,8 @@ public class UpgradeMenuScreen extends Screen {
             graphics.renderOutline(tx, TAB_Y, TAB_W, TAB_H, selected ? 0xFF55FF55 : 0xFF555555);
             graphics.drawCenteredString(this.font, TAB_NAMES[i], tx + (TAB_W / 2), TAB_Y + 6, 0xFFFFFF);
         }
+
+        graphics.pose().popPose();
     }
 
     /**
@@ -663,11 +850,13 @@ public class UpgradeMenuScreen extends Screen {
 
             // Hovering shows what the passive actually does.
             if (mouseX >= ax && mouseX <= ax + 70 && mouseY >= ay && mouseY <= ay + 20) {
-                var ability = com.minecraft.atlamod.abilities.AbilityRegistry.get(passive);
-                if (ability instanceof com.minecraft.atlamod.abilities.PassiveAbility p) {
-                    graphics.renderTooltip(this.font,
-                            net.minecraft.network.chat.Component.literal("§7" + p.getDescription()),
-                            mouseX, mouseY);
+                // Wrapped now, like the skill tree's. Vanilla makes one line of whatever
+                // Component it is handed however long it is, and the longer passive
+                // descriptions ran wider than a small window.
+                java.util.List<net.minecraft.network.chat.Component> tooltip = new java.util.ArrayList<>();
+                addWrapped(tooltip, AbilityDescriptions.of(passive));
+                if (!tooltip.isEmpty()) {
+                    graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
                 }
             }
         }
@@ -804,6 +993,7 @@ public class UpgradeMenuScreen extends Screen {
         return bx < bounds[0] + UPGRADE_PANEL_W && bx + bw > bounds[0]
                 && by < bounds[1] + bounds[2] && by + bh > bounds[1];
     }
+
 
     private void renderUpgradePanel(GuiGraphics graphics, int mouseX, int mouseY, BendingData data) {
         net.minecraft.client.gui.components.Button node = openUpgradeButton();

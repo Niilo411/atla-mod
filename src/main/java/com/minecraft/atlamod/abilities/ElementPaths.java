@@ -160,11 +160,44 @@ public final class ElementPaths {
         return complete;
     }
 
-    /** Every element with a tree, in no particular order. */
+    /**
+     * Every element with a tree, in no particular order.
+     *
+     * This is the mod's answer to "which elements exist", and /bend add asks it rather
+     * than keeping a list of its own: the command used to take any word at all, so
+     * "/bend add Steve grass" happily granted an element with no abilities, no tree and
+     * no emblem, and left the player holding something nothing in the game could do
+     * anything with.
+     *
+     * "energy" is in here although nothing grants it yet — it has an ability in
+     * {@link #master} and so is a real element by the only test that matters, and
+     * excluding it would make the list disagree with the trees it is drawn from.
+     */
     private static final String[] ELEMENTS = {
             "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion",
-            "blood", "lava"
+            "blood", "lava", "energy"
     };
+
+    /** Every element with a tree, for command suggestions and for validating input. */
+    public static List<String> bendable() {
+        return List.of(ELEMENTS);
+    }
+
+    /**
+     * Whether this is an element the mod actually has abilities for.
+     *
+     * Case-insensitive, because the element a player is granted is stored and compared as
+     * the string it was typed as — a "Fire" that passed here would be a second element
+     * beside "fire" everywhere else.
+     */
+    public static boolean exists(String element) {
+        if (element == null) return false;
+
+        for (String named : ELEMENTS) {
+            if (named.equalsIgnoreCase(element)) return true;
+        }
+        return false;
+    }
 
     /**
      * Which element an ability belongs to, or empty if it belongs to none.

@@ -282,6 +282,138 @@ public class ServerEvents {
         ));
     }
 
+    /**
+     * Suggests the elements the mod actually has abilities for.
+     *
+     * Shared by add and remove. On add this is the better half of gating the command — a
+     * refusal tells you afterwards that you were wrong, where a suggestion means you
+     * never were.
+     */
+    private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestElements(
+            com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+        return net.minecraft.commands.SharedSuggestionProvider.suggest(
+                com.minecraft.atlamod.abilities.ElementPaths.bendable(), builder);
+    }
+
+    /**
+     * /bend add &lt;targets&gt; &lt;element&gt;, also reachable as /bend element add.
+     *
+     * Built by a method rather than written inline because it is registered twice. Each
+     * call returns a FRESH node tree, which is what Brigadier needs — a single node
+     * cannot hang under two parents — so the two spellings share this implementation
+     * instead of being two copies that can drift apart.
+     *
+     * The target is NOT optional, and there is deliberately no second "just me" form
+     * beside it. Brigadier would have to tell "/bend add fire" from "/bend add Steve
+     * fire" by trying one branch and falling through to the other, which makes a typo in
+     * an element name read as a missing player instead of a bad element. @s is two
+     * characters and says exactly what it means.
+     */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> addElement() {
+        return Commands.literal("add")
+                .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+                        .then(Commands.argument("element", word())
+                                .suggests((context, builder) -> suggestElements(builder))
+                                .executes(context -> {
+                                    // Lowercased before anything else looks at it.
+                                    // ElementPaths switches on a lowercased name and the
+                                    // skill tree keys off the stored string, so a granted
+                                    // "Fire" would be a second element sitting beside
+                                    // "fire" with no tree of its own — the same broken
+                                    // state an invented element leaves behind.
+                                    String element = getString(context, "element")
+                                            .toLowerCase(java.util.Locale.ROOT);
+
+                                    // Only elements the mod actually has abilities for.
+                                    // This used to take any word at all, so "/bend add @s
+                                    // grass" granted an element with no tree, no abilities
+                                    // and no emblem, which the game then had no way to do
+                                    // anything with or to explain.
+                                    if (!com.minecraft.atlamod.abilities.ElementPaths.exists(element)) {
+                                        context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                                                "There is no element called \"" + element + "\". Try one of: "
+                                                        + String.join(", ",
+                                                        com.minecraft.atlamod.abilities.ElementPaths.bendable())));
+                                        return 0;
+                                    }
+
+                                    int changed = 0;
+
+                                    for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
+                                            .getPlayers(context, "targets")) {
+                                        BendingData data = player.getData(ModAttachments.BENDING_DATA);
+                                        if (data.getUnlockedElements().contains(element)) continue;
+
+                                        data.getUnlockedElements().add(element);
+                                        if (data.getActiveElement().isEmpty()) data.setActiveElement(element);
+                                        player.setData(ModAttachments.BENDING_DATA, data);
+                                        syncElements(player, data);
+                                        changed++;
+                                    }
+
+                                    final int total = changed;
+                                    context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                            "Gave " + element + " to " + total + " player(s)."), true);
+                                    return changed;
+                                })
+                        )
+                );
+    }
+
+    /**
+     * /bend remove &lt;targets&gt; &lt;element&gt;, also reachable as /bend element remove.
+     *
+     * Deliberately NOT gated the way add is. Saves made before add was gated may be
+     * holding an element that does not exist, and taking it back off them is the only way
+     * to clean that up — a remove that only accepted real elements would refuse to undo
+     * the exact mess that gate exists to prevent. The suggestions still list the real
+     * ones, since that is what is nearly always wanted.
+     *
+     * The match is case-INSENSITIVE, and the stored spelling is what gets removed. Add
+     * lowercases now but did not always, so an old save may be holding "Fire"; asking the
+     * player to work out which case it was written in would be a puzzle with no clue.
+     */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> removeElement() {
+        return Commands.literal("remove")
+                .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+                        .then(Commands.argument("element", word())
+                                .suggests((context, builder) -> suggestElements(builder))
+                                .executes(context -> {
+                                    String element = getString(context, "element");
+                                    int changed = 0;
+
+                                    for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
+                                            .getPlayers(context, "targets")) {
+                                        BendingData data = player.getData(ModAttachments.BENDING_DATA);
+
+                                        String held = null;
+                                        for (String named : data.getUnlockedElements()) {
+                                            if (named.equalsIgnoreCase(element)) {
+                                                held = named;
+                                                break;
+                                            }
+                                        }
+                                        if (held == null) continue;
+
+                                        data.getUnlockedElements().remove(held);
+                                        if (data.getActiveElement().equalsIgnoreCase(held)) {
+                                            data.setActiveElement(data.getUnlockedElements().isEmpty()
+                                                    ? "" : data.getUnlockedElements().get(0));
+                                        }
+                                        player.setData(ModAttachments.BENDING_DATA, data);
+                                        syncElements(player, data);
+                                        changed++;
+                                    }
+
+                                    final int total = changed;
+                                    context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                            "Took " + element + " from " + total + " player(s)."), true);
+                                    return changed;
+                                })
+                        )
+                );
+    }
+
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("bend")
@@ -296,71 +428,21 @@ public class ServerEvents {
                 // than offering commands that will only refuse.
                 .requires(source -> source.hasPermission(2))
 
-                // ADD ELEMENT COMMAND — /bend add <targets> <element>
+                // ELEMENT COMMANDS — /bend add|remove <targets> <element>, and the same
+                // two again under /bend element.
                 //
-                // The target is NOT optional, and there is deliberately no second
-                // "just me" form beside it. Brigadier would have to tell "/bend add
-                // fire" from "/bend add Steve fire" by trying one branch and falling
-                // through to the other, which makes a typo in an element name read as
-                // a missing player instead of a bad element. @s is two characters and
-                // says exactly what it means.
-                .then(Commands.literal("add")
-                        .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
-                                .then(Commands.argument("element", word())
-                                        .executes(context -> {
-                                            String element = getString(context, "element");
-                                            int changed = 0;
-
-                                            for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
-                                                    .getPlayers(context, "targets")) {
-                                                BendingData data = player.getData(ModAttachments.BENDING_DATA);
-                                                if (data.getUnlockedElements().contains(element)) continue;
-
-                                                data.getUnlockedElements().add(element);
-                                                if (data.getActiveElement().isEmpty()) data.setActiveElement(element);
-                                                player.setData(ModAttachments.BENDING_DATA, data);
-                                                syncElements(player, data);
-                                                changed++;
-                                            }
-
-                                            final int total = changed;
-                                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
-                                                    "Gave " + element + " to " + total + " player(s)."), true);
-                                            return changed;
-                                        })
-                                )
-                        )
-                )
-                // REMOVE ELEMENT COMMAND — /bend remove <targets> <element>
-                .then(Commands.literal("remove")
-                        .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
-                                .then(Commands.argument("element", word())
-                                        .executes(context -> {
-                                            String element = getString(context, "element");
-                                            int changed = 0;
-
-                                            for (ServerPlayer player : net.minecraft.commands.arguments.EntityArgument
-                                                    .getPlayers(context, "targets")) {
-                                                BendingData data = player.getData(ModAttachments.BENDING_DATA);
-                                                if (!data.getUnlockedElements().contains(element)) continue;
-
-                                                data.getUnlockedElements().remove(element);
-                                                if (data.getActiveElement().equals(element)) {
-                                                    data.setActiveElement(data.getUnlockedElements().isEmpty()
-                                                            ? "" : data.getUnlockedElements().get(0));
-                                                }
-                                                player.setData(ModAttachments.BENDING_DATA, data);
-                                                syncElements(player, data);
-                                                changed++;
-                                            }
-
-                                            final int total = changed;
-                                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
-                                                    "Took " + element + " from " + total + " player(s)."), true);
-                                            return changed;
-                                        })
-                                )
-                        )
+                // Both spellings exist on purpose and neither is a copy: addElement()
+                // and removeElement() each build a fresh node tree, so there is one
+                // implementation behind all four entry points. The grouped form reads
+                // better beside /bend avatar and is what anyone looking for "the command
+                // that removes an element" would reach for; the ungrouped pair is what
+                // already existed, and dropping it would break every note, macro and
+                // habit built on it for no gain.
+                .then(addElement())
+                .then(removeElement())
+                .then(Commands.literal("element")
+                        .then(addElement())
+                        .then(removeElement())
                 )
                 // LEVEL COMMAND — /bend level <targets> <amount>
                 .then(Commands.literal("level")
