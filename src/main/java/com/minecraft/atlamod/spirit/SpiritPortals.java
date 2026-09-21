@@ -172,8 +172,30 @@ public final class SpiritPortals {
             }
         }
 
-        BlockPos sound = frame.bottomLeft();
-        level.playSound(null, sound, SoundEvents.END_PORTAL_FRAME_FILL, SoundSource.BLOCKS, 1.0F, 0.6F);
+        opening(level, frame.bottomLeft());
+    }
+
+    /**
+     * The sound of a spirit portal opening.
+     *
+     * THREE SOUNDS AT ONCE RATHER THAN ONE, each chosen to sit in a different part of the
+     * range so they read as a single composite rather than a muddle: a deep swell
+     * underneath, the old portal-fill thunk in the middle, and a bright chime over the
+     * top. One vanilla sound on its own always sounds like that vanilla sound; three
+     * layered and re-pitched do not sound like any of them.
+     *
+     * Nothing is shipped for this. They are sounds the player's own copy of the game
+     * already has, the same trade the portal's blue makes with its texture.
+     *
+     * THE SWELL IS DELIBERATELY LOUDER THAN FULL. Volume above 1 does not clip in
+     * Minecraft — it widens the radius the sound carries to — so the low layer is audible
+     * well across an island while the detail layers stay local to the temple. A portal
+     * opening should be something other people notice.
+     */
+    private static void opening(Level level, BlockPos at) {
+        level.playSound(null, at, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 1.6F, 0.5F);
+        level.playSound(null, at, SoundEvents.END_PORTAL_FRAME_FILL, SoundSource.BLOCKS, 0.9F, 0.7F);
+        level.playSound(null, at, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.8F, 1.8F);
     }
 
     /** Drops a player's part-finished sequence and scan throttle when they leave. */

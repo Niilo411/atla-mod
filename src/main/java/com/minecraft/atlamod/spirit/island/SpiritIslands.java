@@ -12,9 +12,10 @@ package com.minecraft.atlamod.spirit.island;
  * and the mismatch would be invisible in the code because the two run at different times
  * in different parts of world generation.
  *
- * Everything here is a pure function of a position. Nothing is stored, nothing is
- * remembered between calls, and no chunk needs to have been generated for a question
- * about it to be answerable.
+ * Everything here is a pure function of a position, and no chunk needs to have been
+ * generated for a question about it to be answerable. Results ARE memoised per thread —
+ * see {@link Cache} — but only as a speed-up: a cached answer is the same answer, because
+ * the inputs are a cell's coordinates and a constant.
  *
  * THE SEED IS A CONSTANT, not the world seed, and that is a deliberate trade. A
  * BiomeSource is never handed the world seed — it is constructed from its codec and asked
@@ -108,15 +109,6 @@ public final class SpiritIslands {
         }
     }
 
-    /**
-     * The island belonging to one grid cell. Always the same answer for the same cell.
-     *
-     * Derived by HASHING rather than from a {@link Random}, and that is a performance
-     * decision rather than a style one. The biome source asks this about every quart of
-     * every chunk — roughly fifteen hundred times per chunk, each checking nine cells —
-     * so a {@code new Random()} here would be some fourteen thousand allocations per
-     * chunk generated. The hash is pure arithmetic and allocates nothing.
-     */
     /**
      * How many smaller islands orbit each main one.
      *
@@ -226,16 +218,85 @@ public final class SpiritIslands {
         int cellX = Math.floorDiv(x, CELL);
         int cellZ = Math.floorDiv(z, CELL);
 
+        Cache cache = CACHE.get();
+
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-                for (int index = 0; index <= SATELLITES; index++) {
-                    Island island = island(cellX + dx, cellZ + dz, index);
+                for (Island island : cache.islandsIn(cellX + dx, cellZ + dz)) {
                     if (island.covers(x, z)) return island;
                 }
             }
         }
         return null;
     }
+
+    /**
+     * How many cells each thread remembers. A power of two, so the slot is a mask.
+     *
+     * Nine would cover one chunk's queries exactly. This is far larger because the slots
+     * are hashed rather than assigned: at sixty-four, two of the nine cells in a
+     * neighbourhood typically landed in the same slot and evicted each other on every
+     * single query. Two hundred and fifty-six makes that rare, and costs a few kilobytes
+     * per worker thread.
+     */
+    private static final int CACHE_SLOTS = 256;
+
+    /**
+     * A per-thread memory of which islands live in which cell.
+     *
+     * THE POINT: the biome source asks {@link #coveringOrNull} about every quart of every
+     * chunk — roughly fifteen hundred times — and each of those walked nine cells and
+     * built all four islands in each from scratch. That is some fifty-five thousand
+     * island constructions per chunk, every one of them recomputing the same nine cells,
+     * each costing a dozen hashes, a little trigonometry and an allocation. The answers
+     * are now worked out nine times per chunk instead.
+     *
+     * NOTHING EVER NEEDS INVALIDATING, which is what makes this safe rather than clever.
+     * An island is a pure function of its cell and a constant seed — see the class note on
+     * why the seed is fixed — so a cached entry cannot go stale, cannot disagree with a
+     * fresh computation, and does not care what world it was filled in.
+     *
+     * THREAD LOCAL rather than shared, because chunk generation runs on several worker
+     * threads at once. A shared map would need locking or a concurrent structure on a path
+     * this hot; giving each thread its own small array costs a few kilobytes and no
+     * synchronisation at all. Direct-mapped and overwritten on collision, so it is bounded
+     * whatever a thread visits.
+     */
+    private static final class Cache {
+
+        private final long[] keys = new long[CACHE_SLOTS];
+        private final Island[][] values = new Island[CACHE_SLOTS][];
+
+        Island[] islandsIn(int cellX, int cellZ) {
+            long key = ((long) cellX << 32) | (cellZ & 0xFFFFFFFFL);
+
+            // Avalanched before masking. The raw mix is an XOR of two products, whose LOW
+            // bits barely move between neighbouring cells — and neighbouring cells are
+            // exactly what gets asked for, so taking them straight would put the whole
+            // nine-cell neighbourhood in a handful of slots and thrash.
+            long h = mix(0L, cellX, cellZ);
+            h ^= (h >>> 33);
+            h *= 0xFF51AFD7ED558CCDL;
+            h ^= (h >>> 33);
+
+            int slot = (int) (h & (CACHE_SLOTS - 1));
+
+            // The null test is not redundant: an empty slot's key is zero, which is also
+            // the key of cell (0, 0) — the one the temple sits in.
+            if (values[slot] != null && keys[slot] == key) return values[slot];
+
+            Island[] built = new Island[SATELLITES + 1];
+            for (int index = 0; index <= SATELLITES; index++) {
+                built[index] = island(cellX, cellZ, index);
+            }
+
+            keys[slot] = key;
+            values[slot] = built;
+            return built;
+        }
+    }
+
+    private static final ThreadLocal<Cache> CACHE = ThreadLocal.withInitial(Cache::new);
 
     /**
      * How much open void is kept clear around the temple at the world origin.

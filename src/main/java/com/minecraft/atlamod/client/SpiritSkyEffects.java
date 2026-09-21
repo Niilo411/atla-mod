@@ -100,12 +100,41 @@ public class SpiritSkyEffects extends DimensionSpecialEffects {
      * Falls back to overworld whenever there is no player or no level yet, which happens
      * during loading screens and between dimensions.
      */
+    /**
+     * The last answer, and the block it was worked out for.
+     *
+     * CACHED BECAUSE THIS IS A PER-FRAME PATH, not a per-tick one. Six of the methods
+     * below call it — sky type, fog, fogginess, ambient light, lightmap and sunrise — so
+     * at sixty frames a second it ran some three hundred and sixty times per second, each
+     * time doing a chunk lookup for the biome and then walking twelve styles to match it.
+     * A standing player asks the same question about the same block every time.
+     *
+     * Keyed on the exact block, so it is not really a cache so much as "has anything that
+     * could change the answer changed". Walking one block over recomputes; the level is
+     * compared too, so stepping through a portal cannot leave the old dimension's sky up.
+     */
+    private static net.minecraft.world.level.Level cachedLevel;
+    private static long cachedPos = Long.MIN_VALUE;
+    private static DimensionSpecialEffects cached = OVERWORLD;
+
     private static DimensionSpecialEffects current() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null) return OVERWORLD;
 
-        var biome = minecraft.level.getBiome(minecraft.player.blockPosition());
-        IslandStyle style = IslandStyle.forBiome(biome);
+        net.minecraft.core.BlockPos pos = minecraft.player.blockPosition();
+        long packed = pos.asLong();
+
+        if (minecraft.level == cachedLevel && packed == cachedPos) return cached;
+
+        cachedLevel = minecraft.level;
+        cachedPos = packed;
+        cached = lookUp(minecraft.level, pos);
+        return cached;
+    }
+
+    private static DimensionSpecialEffects lookUp(net.minecraft.world.level.Level level,
+                                                  net.minecraft.core.BlockPos pos) {
+        IslandStyle style = IslandStyle.forBiome(level.getBiome(pos));
 
         // Open void between islands, or some biome that is not ours at all.
         if (style == null) return OVERWORLD;

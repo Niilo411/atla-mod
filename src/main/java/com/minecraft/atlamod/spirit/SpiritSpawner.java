@@ -125,8 +125,10 @@ public final class SpiritSpawner {
     }
 
     private static void trySpawnNear(ServerLevel level, ServerPlayer player) {
-        if (crowded(level, player)) return;
+        Census census = survey(level, player);
+        if (census.living() >= CAP) return;
 
+        boolean allaysFull = census.allays() >= ALLAY_CAP;
         RandomSource random = level.random;
 
         for (int attempt = 0; attempt < ATTEMPTS; attempt++) {
@@ -135,7 +137,7 @@ public final class SpiritSpawner {
 
             EntityType<?> type = pick(level, pos, random);
             if (type == null) continue;
-            if (type == EntityType.ALLAY && tooManyAllays(level, player)) continue;
+            if (type == EntityType.ALLAY && allaysFull) continue;
 
             type.spawn(level, pos, MobSpawnType.NATURAL);
             return;
@@ -226,17 +228,8 @@ public final class SpiritSpawner {
     }
 
     /**
-     * Whether there is already enough life around this player.
-     *
-     * Counts every living thing but players, rather than only what we put there. A cap
-     * that ignored the herd a player had led home, or the mobs they brought with them,
-     * would keep adding to a crowd it could not see.
-     */
-    /** How many allays may be near one player. See {@link #tooManyAllays}. */
-    private static final int ALLAY_CAP = 18;
-
-    /**
-     * Allays need a tighter limit than everything else, because they NEVER GO AWAY.
+     * How many allays may be near one player — a tighter limit than everything else,
+     * because they NEVER GO AWAY.
      *
      * Vanilla's {@code Allay.removeWhenFarAway} returns false — they are meant to be pets
      * — so unlike every other mob here they are not cleaned up once a player wanders off.
@@ -244,22 +237,40 @@ public final class SpiritSpawner {
      * long exploring session would leave a permanent trail of them across the dimension.
      *
      * This bounds how thick they get in any one place, which is what is actually visible.
-     * It doubled to 18 with everything else, so allays stay the commonest sight.
      * It does NOT bound the total across a large explored area; if that ever becomes a
      * problem the answer is a sweep that removes ones far from any player, since there is
      * no way to make an individual allay despawn on its own.
      */
-    private static boolean tooManyAllays(ServerLevel level, ServerPlayer player) {
-        AABB box = player.getBoundingBox().inflate(CAP_RADIUS);
+    private static final int ALLAY_CAP = 18;
 
-        return level.getEntitiesOfClass(LivingEntity.class, box,
-                entity -> entity.getType() == EntityType.ALLAY).size() >= ALLAY_CAP;
+    /** What is already living near a player: everything but them, and allays alone. */
+    private record Census(int living, int allays) {
     }
 
-    private static boolean crowded(ServerLevel level, ServerPlayer player) {
+    /**
+     * One sweep of what is nearby, counting both caps at once.
+     *
+     * This used to be two separate queries over the same 128-block box, and the allay one
+     * sat INSIDE the attempt loop — so a single spawning attempt could sweep the area
+     * nine times over. Nothing spawns until the loop returns, so the counts cannot change
+     * while it runs and one sweep at the start is exactly equivalent.
+     *
+     * Players are left out of the total, but everything else is counted rather than only
+     * what we put there: a cap that ignored the herd a player had led home, or the mobs
+     * they brought with them, would keep adding to a crowd it could not see.
+     */
+    private static Census survey(ServerLevel level, ServerPlayer player) {
         AABB box = player.getBoundingBox().inflate(CAP_RADIUS);
 
-        return level.getEntitiesOfClass(LivingEntity.class, box,
-                entity -> !(entity instanceof ServerPlayer)).size() >= CAP;
+        int living = 0;
+        int allays = 0;
+
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box,
+                found -> !(found instanceof ServerPlayer))) {
+            living++;
+            if (entity.getType() == EntityType.ALLAY) allays++;
+        }
+
+        return new Census(living, allays);
     }
 }
