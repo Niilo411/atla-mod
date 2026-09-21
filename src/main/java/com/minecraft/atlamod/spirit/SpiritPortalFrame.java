@@ -5,6 +5,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,37 +14,46 @@ import java.util.Optional;
 /**
  * Finding and lighting a spirit portal's frame.
  *
- * This class deliberately knows NOTHING about temples. It looks for a shape in the
- * world — a ring of {@link TempleStructure#FRAME_BLOCK} around an empty hole — which
- * means a temple built by {@link TempleStructure#placeAt} and one loaded from a
- * hand-made .nbt file are equally findable, and a player who builds a frame by hand
- * gets one too. That is the whole reason portal activation is not wired to the temple
- * builder: the placeholder can be thrown away without this noticing.
+ * This class deliberately knows NOTHING about temples. It looks for a shape in the world
+ * — a ring of {@link TempleStructure#FRAME_BLOCK} around an empty opening — which means a
+ * temple loaded from a hand-made .nbt file and one a player laid by hand are equally
+ * findable. That is the whole reason portal activation is not wired to the temple builder.
  *
- * The only things shared with the temple are the frame BLOCK and the hole's size, and
- * those are the contract rather than an implementation detail.
+ * A FRAME CARRIES ITS OWN SIZE rather than reading it from shared constants, and that is
+ * what lets the two hand-built temples differ: the overworld's opening is three wide by
+ * three tall and the Spirit World's is five by four. Nothing here assumes either. The
+ * finder MEASURES the opening it has found, so a temple rebuilt to a different size needs
+ * no code change at all.
  */
 public final class SpiritPortalFrame {
+
+    /** The largest opening that will be recognised, in either direction. */
+    private static final int MAX_SPAN = 9;
 
     private SpiritPortalFrame() {
     }
 
     /**
-     * A located frame: the lowest, most negative interior block, and the axis the plane
-     * runs along.
+     * A located frame: its lowest, most negative interior block, the axis its plane runs
+     * along, and the size of the opening.
      */
-    public record Frame(BlockPos bottomLeft, Direction.Axis axis) {
+    public record Frame(BlockPos bottomLeft, Direction.Axis axis, int width, int height) {
 
-        /** Every block inside the hole, which is what gets filled when it lights. */
+        /** Every block inside the opening, which is what gets filled when it lights. */
         public List<BlockPos> interior() {
-            List<BlockPos> out = new ArrayList<>(TempleStructure.PORTAL_WIDTH * TempleStructure.PORTAL_HEIGHT);
+            List<BlockPos> out = new ArrayList<>(width * height);
 
-            for (int w = 0; w < TempleStructure.PORTAL_WIDTH; w++) {
-                for (int h = 0; h < TempleStructure.PORTAL_HEIGHT; h++) {
+            for (int w = 0; w < width; w++) {
+                for (int h = 0; h < height; h++) {
                     out.add(step(bottomLeft, axis, w, h));
                 }
             }
             return out;
+        }
+
+        /** The middle of the bottom row, which is where a temple's marker block sits. */
+        public BlockPos bottomCentre() {
+            return step(bottomLeft, axis, width / 2, 0);
         }
     }
 
@@ -58,18 +68,12 @@ public final class SpiritPortalFrame {
      * The reach is given separately for horizontal and vertical because they want very
      * different figures: wide enough to cover a whole temple from its doorway, but only a
      * few blocks up and down, since a portal is always about at the feet of whoever is
-     * looking at it. One cube of the horizontal radius would be several times the work for
-     * nothing.
+     * looking at it.
      *
-     * Nearest first matters when a temple has more than one frame, or when somebody has
-     * built a second one nearby: the portal that lights should be the one being stood
-     * in front of.
-     *
-     * The search is a cube of block reads and is not cheap, so it is only ever run at
-     * the moment a player completes the activation sequence — never on a tick. The
-     * cheap test comes first: a candidate interior block must be AIR with frame
-     * material directly beneath it, which rejects almost everything without looking at
-     * the other fifteen positions.
+     * The search is a cube of block reads and is not cheap, so it is only ever run at the
+     * moment a player completes the activation sequence — never on a tick. The cheap test
+     * comes first: a candidate must be AIR with frame material directly beneath it, which
+     * rejects almost everything without measuring anything.
      */
     public static Optional<Frame> findInactiveNear(LevelAccessor level, BlockPos centre,
                                                    int radius, int verticalRadius) {
@@ -83,17 +87,24 @@ public final class SpiritPortalFrame {
                 for (int dz = -radius; dz <= radius; dz++) {
                     cursor.set(centre.getX() + dx, centre.getY() + dy, centre.getZ() + dz);
 
-                    if (!level.getBlockState(cursor).isAir()) continue;
+                    if (!isOpen(level, cursor)) continue;
                     if (!isFrame(level, cursor.below())) continue;
 
                     for (Direction.Axis axis : new Direction.Axis[]{ Direction.Axis.X, Direction.Axis.Z }) {
                         BlockPos bottomLeft = cursor.immutable();
-                        if (!isUnlitFrame(level, bottomLeft, axis)) continue;
 
-                        double distance = centre.distSqr(bottomLeft);
-                        if (distance < bestDistance) {
-                            bestDistance = distance;
-                            best = new Frame(bottomLeft, axis);
+                        // Only the true bottom-left corner is measured. Every other block
+                        // of the opening also sits on frame material, and without this the
+                        // same portal would be found once per block along its bottom row.
+                        if (isFrame(level, step(bottomLeft, axis, -1, 0))) {
+                            Frame frame = measure(level, bottomLeft, axis);
+                            if (frame == null) continue;
+
+                            double distance = centre.distSqr(bottomLeft);
+                            if (distance < bestDistance) {
+                                bestDistance = distance;
+                                best = frame;
+                            }
                         }
                     }
                 }
@@ -104,38 +115,50 @@ public final class SpiritPortalFrame {
     }
 
     /**
-     * Whether this position is the bottom-left interior block of a complete, empty frame.
+     * Measures the opening that starts at this corner, or null if it is not a frame.
      *
-     * The four SIDES are required and the corners are not. TempleStructure fills its
-     * corners because they cost nothing, but a hand-built structure may leave them out
-     * the way a vanilla nether portal does, and refusing that frame would be a rule
-     * nothing announces.
+     * The size is DISCOVERED rather than assumed, which is what lets two temples have
+     * different portals. The opening is walked out along the axis and upward until frame
+     * material stops it, and the whole ring is then checked — so a random air pocket with
+     * one block of prismarine under it is rejected, and only a genuinely enclosed opening
+     * is accepted. That check matters because prismarine is also a decorative block in
+     * these temples.
+     *
+     * The four SIDES are required and the corners are not. A hand-built frame may leave
+     * its corners out the way a vanilla nether portal does, and refusing that would be a
+     * rule nothing announces.
      */
-    private static boolean isUnlitFrame(LevelAccessor level, BlockPos bottomLeft, Direction.Axis axis) {
-        int width = TempleStructure.PORTAL_WIDTH;
-        int height = TempleStructure.PORTAL_HEIGHT;
+    private static Frame measure(LevelAccessor level, BlockPos bottomLeft, Direction.Axis axis) {
+        int width = 0;
+        while (width < MAX_SPAN && isOpen(level, step(bottomLeft, axis, width, 0))) width++;
 
-        // The hole has to be completely empty. Anything in it — including our own portal
+        int height = 0;
+        while (height < MAX_SPAN && isOpen(level, step(bottomLeft, axis, 0, height))) height++;
+
+        // A portal has to be something you can walk through.
+        if (width < 2 || height < 2 || width >= MAX_SPAN || height >= MAX_SPAN) return null;
+
+        // The whole opening must be empty. Anything in it — including our own portal
         // blocks, which is how an already-lit portal is rejected — disqualifies it.
         for (int w = 0; w < width; w++) {
             for (int h = 0; h < height; h++) {
-                if (!level.getBlockState(step(bottomLeft, axis, w, h)).isAir()) return false;
+                if (!isOpen(level, step(bottomLeft, axis, w, h))) return null;
             }
         }
 
         // Floor and lintel.
         for (int w = 0; w < width; w++) {
-            if (!isFrame(level, step(bottomLeft, axis, w, -1))) return false;
-            if (!isFrame(level, step(bottomLeft, axis, w, height))) return false;
+            if (!isFrame(level, step(bottomLeft, axis, w, -1))) return null;
+            if (!isFrame(level, step(bottomLeft, axis, w, height))) return null;
         }
 
         // Both uprights.
         for (int h = 0; h < height; h++) {
-            if (!isFrame(level, step(bottomLeft, axis, -1, h))) return false;
-            if (!isFrame(level, step(bottomLeft, axis, width, h))) return false;
+            if (!isFrame(level, step(bottomLeft, axis, -1, h))) return null;
+            if (!isFrame(level, step(bottomLeft, axis, width, h))) return null;
         }
 
-        return true;
+        return new Frame(bottomLeft, axis, width, height);
     }
 
     private static boolean isFrame(LevelAccessor level, BlockPos pos) {
@@ -143,26 +166,44 @@ public final class SpiritPortalFrame {
     }
 
     /**
-     * Fills the hole with portal blocks.
+     * Whether this block counts as part of an opening rather than as something filling it.
      *
-     * Flag 2 (clients only, no neighbour updates) so that filling the hole one block at
-     * a time does not have each portal block immediately reconsider whether its
-     * neighbours still support it while the rest of the frame is still empty.
+     * Air, obviously — and a leftover {@link TempleStructure#MARKER_BLOCK}, which is a
+     * REPAIR for temples that generated before the marker was being cleared properly. It
+     * matters because the alternative is not an untidy doorway but a dead one: the walk
+     * below stops at anything solid, so a single block left in the bottom row measures the
+     * opening as one wide and the whole frame is rejected as not a portal. Those temples
+     * could never be lit by anybody.
      *
-     * Takes a {@link LevelAccessor} rather than a Level so WORLD GENERATION can call it:
-     * a spirit temple built by the feature is lit as it is placed, and a feature is only
-     * ever handed a WorldGenLevel. Nothing here needs a full Level — it is block writes
-     * and nothing else.
+     * Nothing has to clear the marker afterwards, because {@link #light} writes a portal
+     * block over every square of the opening and takes it with the rest.
+     *
+     * A player who deliberately stands a stripped oak log inside a prismarine frame of
+     * their own will have it swallowed when the portal lights. That is the entire cost of
+     * this, and it is a fair trade for frames that already exist in someone's world.
+     */
+    private static boolean isOpen(LevelAccessor level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.isAir() || state.is(TempleStructure.MARKER_BLOCK);
+    }
+
+    /**
+     * Fills the opening with portal blocks.
+     *
+     * Flag 2 (clients only, no neighbour updates) so that filling it one block at a time
+     * does not have each portal block immediately reconsider whether its neighbours still
+     * support it while the rest is still empty.
+     *
+     * Takes a {@link LevelAccessor} rather than a Level so WORLD GENERATION can call it: a
+     * spirit temple built by the structure is lit as it is placed, and a structure piece is
+     * only ever handed a WorldGenLevel. Nothing here needs a full Level.
      */
     public static void light(LevelAccessor level, Frame frame) {
         light(level, frame, null);
     }
 
-    /**
-     * The same, writing only inside {@code clip}, which world generation needs.
-     */
-    public static void light(LevelAccessor level, Frame frame,
-                             net.minecraft.world.level.levelgen.structure.BoundingBox clip) {
+    /** The same, writing only inside {@code clip}, which world generation needs. */
+    public static void light(LevelAccessor level, Frame frame, BoundingBox clip) {
         BlockState portal = com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get().defaultBlockState()
                 .setValue(SpiritPortalBlock.AXIS, frame.axis());
 

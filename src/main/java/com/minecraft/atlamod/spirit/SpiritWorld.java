@@ -61,7 +61,7 @@ public final class SpiritWorld {
      */
     public static TempleStructure.Temple ensureTemple(ServerLevel level) {
         TempleStructure.Temple temple = TempleStructure.isPresentAt(level, TEMPLE_ORIGIN)
-                ? TempleStructure.describeAt(TEMPLE_ORIGIN)
+                ? TempleStructure.describeAt(level, TEMPLE_ORIGIN)
                 : TempleStructure.placeAt(level, TEMPLE_ORIGIN);
 
         ensureLit(level, temple);
@@ -96,6 +96,11 @@ public final class SpiritWorld {
     public static BlockPos arrivalNear(ServerLevel spirit, BlockPos from) {
         TempleStructure.Temple temple = nearestTemple(spirit, from);
         if (temple == null) temple = ensureTemple(spirit);
+
+        // No temple at all means the .nbt is missing or misnamed, which is a data problem
+        // rather than a place problem. Setting them down on the fixed origin at least puts
+        // them somewhere findable instead of refusing to travel.
+        if (temple == null) return TEMPLE_ORIGIN.above();
 
         ensureLit(spirit, temple);
         return temple.arrival();
@@ -133,7 +138,7 @@ public final class SpiritWorld {
         // Built, if it was not already. Everything below reads real blocks.
         spirit.getChunk(origin);
 
-        return TempleStructure.isPresentAt(spirit, origin) ? TempleStructure.describeAt(origin) : null;
+        return TempleStructure.isPresentAt(spirit, origin) ? TempleStructure.describeAt(spirit, origin) : null;
     }
 
     /**
@@ -170,9 +175,9 @@ public final class SpiritWorld {
                                    TempleStructure.Temple temple,
                                    net.minecraft.world.level.levelgen.structure.BoundingBox clip) {
         if (!isSpiritWorld(level.getLevel())) return;
+        if (temple == null || temple.portal() == null) return;
 
-        SpiritPortalFrame.light(level,
-                new SpiritPortalFrame.Frame(temple.portalBottomLeft(), temple.portalAxis()), clip);
+        SpiritPortalFrame.light(level, temple.portal(), clip);
     }
 
     /**
@@ -190,8 +195,9 @@ public final class SpiritWorld {
      * it deliberately does not do so here — this portal is meant to burn forever.
      */
     private static void ensureLit(ServerLevel level, TempleStructure.Temple temple) {
-        SpiritPortalFrame.Frame frame =
-                new SpiritPortalFrame.Frame(temple.portalBottomLeft(), temple.portalAxis());
+        if (temple == null || temple.portal() == null) return;
+
+        SpiritPortalFrame.Frame frame = temple.portal();
 
         for (BlockPos pos : frame.interior()) {
             if (!level.getBlockState(pos).is(com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get())) {

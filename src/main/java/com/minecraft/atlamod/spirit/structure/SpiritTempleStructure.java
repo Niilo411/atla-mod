@@ -7,6 +7,7 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureType;
 
@@ -69,7 +70,14 @@ public class SpiritTempleStructure extends Structure {
         int lowest = floor;
         int highest = floor;
 
-        for (BlockPos offset : TempleStructure.footprintSamples()) {
+        // Which temple belongs here decides how much flat ground it needs, and the two
+        // are different sizes. The biome source is the only thing here that knows which
+        // dimension this is — a GenerationContext carries no dimension of its own.
+        var template = TempleStructure.templateFor(context.structureTemplateManager(),
+                context.chunkGenerator().getBiomeSource() instanceof SpiritBiomeSource);
+        if (template == null) return Optional.empty();
+
+        for (BlockPos offset : TempleStructure.footprintSamples(template)) {
             int height = surfaceAt(context, centreX + offset.getX(), centreZ + offset.getZ());
             if (height == NONE) return Optional.empty();
 
@@ -81,7 +89,10 @@ public class SpiritTempleStructure extends Structure {
 
         BlockPos origin = originIn(chunkPos, floor);
 
-        return Optional.of(new GenerationStub(origin, builder -> builder.addPiece(new SpiritTemplePiece(origin))));
+        BoundingBox bounds = TempleStructure.boundingBoxAt(template, origin);
+
+        return Optional.of(new GenerationStub(origin,
+                builder -> builder.addPiece(new SpiritTemplePiece(origin, bounds))));
     }
 
     /**

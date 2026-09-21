@@ -453,19 +453,34 @@ public class ServerEvents {
 
                 // TEMPLE COMMAND — /bend temple
                 //
-                // Spirit temples do not generate in the world yet, so without this there
-                // is no way to reach a portal at all. It is also the seam the hand-built
-                // .nbt will arrive through: whatever TempleStructure.placeAt becomes,
-                // this keeps working unchanged.
+                // Builds one where you stand, for testing and for anyone who would rather
+                // not go looking. It kept working unchanged when the procedural temple was
+                // replaced by hand-built .nbt structures, which was the point of putting
+                // every temple behind TempleStructure.placeAt in the first place.
                 .then(Commands.literal("temple")
                         .executes(context -> {
                             ServerPlayer player = context.getSource().getPlayerOrException();
 
-                            // One below the player's feet, because placeAt takes the
-                            // temple's FLOOR block and the room is built on top of it.
-                            // Passing their own position would bury them in the floor.
+                            // The structure is placed from its CORNER, so the player is
+                            // put at the middle of it rather than inside a wall. One below
+                            // their feet, since the temple's own floor is its bottom layer.
+                            var size = com.minecraft.atlamod.spirit.TempleStructure
+                                    .sizeFor(player.serverLevel());
+                            var corner = player.blockPosition().below()
+                                    .offset(-size.getX() / 2, 0, -size.getZ() / 2);
+
                             var temple = com.minecraft.atlamod.spirit.TempleStructure.placeAt(
-                                    player.serverLevel(), player.blockPosition().below());
+                                    player.serverLevel(), corner);
+
+                            // A missing or misnamed .nbt is the only way this happens, and
+                            // it is worth saying out loud rather than reporting success
+                            // over an empty patch of ground.
+                            if (temple == null) {
+                                context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                                        "No temple structure could be loaded. Check that the .nbt files are in "
+                                                + "data/atlamod/structure/."));
+                                return 0;
+                            }
 
                             // Built in the Spirit World, it comes up already burning —
                             // nothing can bend there, so a dark frame would never open.

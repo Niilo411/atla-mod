@@ -39,8 +39,16 @@ public class SpiritTemplePiece extends StructurePiece {
 
     private final BlockPos origin;
 
-    public SpiritTemplePiece(BlockPos origin) {
-        super(ModStructures.SPIRIT_TEMPLE_PIECE.get(), 0, TempleStructure.boundingBoxAt(origin));
+    /**
+     * The bounding box is handed IN rather than worked out here.
+     *
+     * A piece is constructed before any level exists, and which temple goes here — and so
+     * how big it is — depends on the dimension. The structure knows that when it decides
+     * the position; the piece does not, and asking it to find out would mean reaching for
+     * a server that is not there yet.
+     */
+    public SpiritTemplePiece(BlockPos origin, BoundingBox bounds) {
+        super(ModStructures.SPIRIT_TEMPLE_PIECE.get(), 0, bounds);
         this.origin = origin;
     }
 
