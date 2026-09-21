@@ -8,7 +8,7 @@
   "fixed_time": 6000,
   "monster_spawn_light_level": 0,
   "monster_spawn_block_light_limit": 0,
-  "piglin_safe": false,
+  "piglin_safe": true,
   "bed_works": false,
   "respawn_anchor_works": false,
   "has_raids": false,

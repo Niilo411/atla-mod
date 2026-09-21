@@ -161,7 +161,7 @@ public final class SpiritIslands {
         int diameter = MIN_DIAMETER + pick(seed, 3, MAX_DIAMETER - MIN_DIAMETER + 1);
         int centreY = MIN_Y + pick(seed, 4, MAX_Y - MIN_Y + 1);
 
-        IslandStyle style = IslandStyle.values()[pick(seed, 5, IslandStyle.values().length)];
+        IslandStyle style = styleFor(seed);
         int radius = diameter / 2;
 
         if (index == 0) return new Island(centreX, centreZ, centreY, radius, style, seed);
@@ -179,6 +179,25 @@ public final class SpiritIslands {
                 centreZ + (int) Math.round(Math.sin(angle) * orbit),
                 centreY - 12 + pick(satelliteSeed, 9, 25),
                 satelliteRadius, style, satelliteSeed);
+    }
+
+    /**
+     * What an island is made of: its FAMILY first, then a variant within that family.
+     *
+     * Two draws rather than one, and the order is what keeps the dimension balanced. A
+     * single draw across all twelve styles would make the four overworld variants a third
+     * of every island and drop the end islands from a sixth to a twelfth — adding looks to
+     * a family would quietly make that family commoner. Picking the family first keeps
+     * each kind at one in six however many ways it can look.
+     *
+     * Salt 5 was the old single draw and is kept for the family, so islands that were
+     * already nether islands stay nether islands. Their variant is a new draw on salt 10.
+     */
+    private static IslandStyle styleFor(long seed) {
+        IslandFamily family = IslandFamily.values()[pick(seed, 5, IslandFamily.values().length)];
+        IslandStyle[] variants = family.variants();
+
+        return variants[pick(seed, 10, variants.length)];
     }
 
     /** One value in 0..bound-1, stable for a given seed and salt. */

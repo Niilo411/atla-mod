@@ -11,12 +11,13 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * The Spirit World's biome keys, and the registration of the biome source that picks
- * between them.
+ * Registration of the biome source that picks between the Spirit World's biomes.
  *
- * The biomes themselves are data — data/atlamod/worldgen/biome/ — and the keys here are
- * how code refers to them. Only the SKY needs to: see SpiritSkyEffects, which asks which
- * biome the player is standing in to decide what to draw above them.
+ * THE ISLAND BIOMES THEMSELVES ARE NOT LISTED HERE. Each one is named by the
+ * {@link com.minecraft.atlamod.spirit.island.IslandStyle} that uses it, so a style's
+ * palette and its biome are declared together and cannot be given different answers by two
+ * files. Only the VOID biome lives here, because no style owns it — it is the open air
+ * between islands.
  */
 public final class SpiritBiomes {
 
@@ -31,22 +32,11 @@ public final class SpiritBiomes {
         BIOME_SOURCES.register("spirit", () -> SpiritBiomeSource.CODEC);
     }
 
-    /** Open air between the islands. */
-    public static final ResourceKey<Biome> VOID = key("spirit_void");
-
-    public static final ResourceKey<Biome> OVERWORLD = key("spirit_overworld");
-    public static final ResourceKey<Biome> NETHER = key("spirit_nether");
-    public static final ResourceKey<Biome> END = key("spirit_end");
-    public static final ResourceKey<Biome> CRIMSON = key("spirit_crimson");
-    public static final ResourceKey<Biome> WARPED = key("spirit_warped");
-    public static final ResourceKey<Biome> WASTELAND = key("spirit_wasteland");
+    /** Open air between the islands. Belongs to no style. */
+    public static final ResourceKey<Biome> VOID = ResourceKey.create(Registries.BIOME,
+            ResourceLocation.fromNamespaceAndPath(Atlamod.MODID, "spirit_void"));
 
     private SpiritBiomes() {
-    }
-
-    private static ResourceKey<Biome> key(String name) {
-        return ResourceKey.create(Registries.BIOME,
-                ResourceLocation.fromNamespaceAndPath(Atlamod.MODID, name));
     }
 
     public static void register(IEventBus modEventBus) {

@@ -1,7 +1,7 @@
 package com.minecraft.atlamod.client;
 
 import com.minecraft.atlamod.Atlamod;
-import com.minecraft.atlamod.spirit.SpiritBiomes;
+import com.minecraft.atlamod.spirit.island.IslandStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.resources.ResourceLocation;
@@ -105,11 +105,20 @@ public class SpiritSkyEffects extends DimensionSpecialEffects {
         if (minecraft.player == null || minecraft.level == null) return OVERWORLD;
 
         var biome = minecraft.level.getBiome(minecraft.player.blockPosition());
+        IslandStyle style = IslandStyle.forBiome(biome);
 
-        if (biome.is(SpiritBiomes.NETHER)) return NETHER;
-        if (biome.is(SpiritBiomes.END)) return END;
-        if (biome.is(SpiritBiomes.WASTELAND)) return WASTELAND;
-        return OVERWORLD;
+        // Open void between islands, or some biome that is not ours at all.
+        if (style == null) return OVERWORLD;
+
+        // Keyed on the FAMILY, not the individual biome, so every nether variant gets the
+        // nether sky without this having to list them — and a variant added later is
+        // covered the moment it names its family.
+        return switch (style.family()) {
+            case NETHER -> NETHER;
+            case END -> END;
+            case WASTELAND -> WASTELAND;
+            default -> OVERWORLD;
+        };
     }
 
     @Override

@@ -6,12 +6,20 @@
     "biome_source": {
       "type": "atlamod:spirit",
       "void": "atlamod:spirit_void",
-      "overworld": "atlamod:spirit_overworld",
-      "nether": "atlamod:spirit_nether",
-      "end": "atlamod:spirit_end",
-      "crimson": "atlamod:spirit_crimson",
-      "warped": "atlamod:spirit_warped",
-      "wasteland": "atlamod:spirit_wasteland"
+      "islands": {
+        "plains": "atlamod:spirit_plains",
+        "desert": "atlamod:spirit_desert",
+        "snowy": "atlamod:spirit_snowy",
+        "forest": "atlamod:spirit_forest",
+        "nether_wastes": "atlamod:spirit_nether_wastes",
+        "crimson_forest": "atlamod:spirit_crimson_forest",
+        "warped_forest": "atlamod:spirit_warped_forest",
+        "soul_sand_valley": "atlamod:spirit_soul_sand_valley",
+        "end": "atlamod:spirit_end",
+        "crimson": "atlamod:spirit_crimson",
+        "warped": "atlamod:spirit_warped",
+        "wasteland": "atlamod:spirit_wasteland"
+      }
     }
   }
 }

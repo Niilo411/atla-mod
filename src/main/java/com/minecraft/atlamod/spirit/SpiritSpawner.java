@@ -2,7 +2,7 @@ package com.minecraft.atlamod.spirit;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceKey;
+import com.minecraft.atlamod.spirit.island.IslandStyle;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -195,20 +195,28 @@ public final class SpiritSpawner {
         return null;
     }
 
-    /** What this biome adds on top of the allays and vexes. */
+    /**
+     * What this biome adds on top of the allays and vexes.
+     *
+     * Keyed on the island's FAMILY rather than its individual biome, so all four nether
+     * variants share one table and all four overworld climates share another — and a
+     * variant added later is covered the moment it names its family, with nothing here to
+     * remember to update.
+     *
+     * The wasteland and the open void between islands get nothing of their own, which is
+     * the point of the wasteland: nothing lives there but what drifts over.
+     */
     private static List<Spawn> localTable(Holder<Biome> biome) {
-        if (is(biome, SpiritBiomes.END)) return END;
-        if (is(biome, SpiritBiomes.NETHER)) return NETHER;
-        if (is(biome, SpiritBiomes.OVERWORLD) || is(biome, SpiritBiomes.CRIMSON)) return PASTURE;
-        if (is(biome, SpiritBiomes.WARPED)) return SWAMP;
+        IslandStyle style = IslandStyle.forBiome(biome);
+        if (style == null) return List.of();
 
-        // The wasteland and the open void between islands get nothing of their own,
-        // which is the point of the wasteland: nothing lives there but what drifts over.
-        return List.of();
-    }
-
-    private static boolean is(Holder<Biome> biome, ResourceKey<Biome> key) {
-        return biome.is(key);
+        return switch (style.family()) {
+            case END -> END;
+            case NETHER -> NETHER;
+            case OVERWORLD, CRIMSON -> PASTURE;
+            case WARPED -> SWAMP;
+            case WASTELAND -> List.of();
+        };
     }
 
     private static int weightOf(List<Spawn> table) {
