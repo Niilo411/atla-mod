@@ -5,6 +5,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -136,9 +138,44 @@ public class SpiritPortalBlock extends Block {
         SpiritTravel.through(entity, pos);
     }
 
-    /** Blue haze drifting out of the portal, matching the block's own colour. */
+    /**
+     * A blue haze and a steady buzz, for as long as the portal stands.
+     *
+     * NO TIMER AND NOTHING TO STOP. The buzz is emitted by the portal BLOCKS themselves,
+     * so it lasts exactly as long as they do — it starts the moment the frame fills and
+     * is gone the instant the blocks are, whether that is the overworld's one minute
+     * running out or somebody mining the frame out from under it. A sound started when the
+     * portal opened and stopped on a countdown would be a second clock to keep in step
+     * with the real one, and would outlive a portal that ended early.
+     *
+     * This is where vanilla puts a nether portal's hum too, at a 1 in 100 chance. The buzz
+     * layer is far more frequent than that because it is meant to be continuous rather
+     * than occasional, and is quiet enough to sit under everything else; the portal whoosh
+     * over the top of it stays rare, so it punctuates instead of droning.
+     *
+     * Note animateTick is not called every tick for every block — the client picks random
+     * positions near the player — so these chances are on top of that sampling, and the
+     * rate they produce is lower than the numbers suggest.
+     */
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        double x = pos.getX() + 0.5;
+        double y = pos.getY() + 0.5;
+        double z = pos.getZ() + 0.5;
+
+        // The buzz. Pitched well down, which is what turns a beacon's clean hum into
+        // something that sounds like current running through the air.
+        if (random.nextInt(10) == 0) {
+            level.playLocalSound(x, y, z, SoundEvents.BEACON_AMBIENT, SoundSource.BLOCKS,
+                    0.32F, 0.45F + random.nextFloat() * 0.1F, false);
+        }
+
+        // The portal underneath it, kept rare so it reads as character rather than noise.
+        if (random.nextInt(70) == 0) {
+            level.playLocalSound(x, y, z, SoundEvents.PORTAL_AMBIENT, SoundSource.BLOCKS,
+                    0.28F, 0.5F + random.nextFloat() * 0.2F, false);
+        }
+
         if (random.nextInt(80) != 0) return;
 
         level.addParticle(ParticleTypes.SOUL_FIRE_FLAME,
