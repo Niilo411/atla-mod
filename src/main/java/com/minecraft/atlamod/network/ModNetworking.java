@@ -12,7 +12,7 @@ public class ModNetworking {
 
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
-        final PayloadRegistrar registrar = event.registrar("1.2.2");
+        final PayloadRegistrar registrar = event.registrar("1.2.1");
 
         // 1. Element Choice Packet (Client -> Server)
         registrar.playToServer(
