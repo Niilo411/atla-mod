@@ -175,15 +175,14 @@ public enum IslandStyle {
                 //
                 // Not where the warp has taken hold: the infection reads better as
                 // something drying the swamp out ahead of itself.
+                // NOTHING IS PLACED ON A POND. Roots used to go here, meant to read as
+                // standing in the shallows, and they did nothing of the sort: the water
+                // fills the surface block and the one under it, while decoration goes a
+                // block ABOVE the surface — so every one of them floated a block clear of
+                // the waterline. The roots on dry ground below are unaffected.
                 if (!infected && pondAt(x, z)) {
                     set(level, new BlockPos(x, surface, z), Blocks.WATER.defaultBlockState());
                     set(level, new BlockPos(x, surface - 1, z), Blocks.WATER.defaultBlockState());
-
-                    // Mangrove roots stand in the shallows, which is most of what makes a
-                    // mangrove swamp look like one rather than like a flooded field.
-                    if (random.nextInt(12) == 0) {
-                        set(level, above, Blocks.MANGROVE_ROOTS.defaultBlockState());
-                    }
                     return;
                 }
 

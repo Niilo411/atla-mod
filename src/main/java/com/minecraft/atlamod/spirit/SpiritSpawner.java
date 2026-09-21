@@ -35,12 +35,14 @@ public final class SpiritSpawner {
     /**
      * How often a spawning attempt runs at all.
      *
-     * Shortened from 100. Weights alone could not make allays commoner: they only decide
-     * which mob a successful attempt produces, and allays already won most of them — so
-     * raising their share further would have taken animals away rather than added allays.
-     * More attempts is what actually raises the absolute rate.
+     * THIS IS THE RATE. The weights below decide only WHICH mob a successful attempt
+     * produces, never how many attempts there are — doubling every weight would change
+     * nothing at all, since an attempt yields exactly one mob whatever the numbers are.
+     * Halving this interval is what actually doubles how often something appears.
+     *
+     * Down from 100 originally, then 60, now 30.
      */
-    private static final int INTERVAL = 60;
+    private static final int INTERVAL = 30;
 
     /** How many positions are tried per player per attempt. */
     private static final int ATTEMPTS = 8;
@@ -49,8 +51,15 @@ public final class SpiritSpawner {
     private static final int MIN_RANGE = 20;
     private static final int MAX_RANGE = 60;
 
-    /** How many of our mobs may be near one player before we stop adding more. */
-    private static final int CAP = 26;
+    /**
+     * How many of our mobs may be near one player before we stop adding more.
+     *
+     * THIS IS THE OTHER HALF OF THE RATE, and the one that decides the steady state. A
+     * faster interval only fills the cap sooner; the population it settles at is this
+     * number. So doubling how many mobs are actually about means doubling both, which is
+     * why this went from 26 to 52 alongside the interval.
+     */
+    private static final int CAP = 52;
     private static final int CAP_RADIUS = 64;
 
     /** One entry in a biome's table. Weight is relative within that table. */
@@ -84,9 +93,18 @@ public final class SpiritSpawner {
             new Spawn(EntityType.COW, 7)
     );
 
+    /**
+     * The warped swamp's own.
+     *
+     * The SNIFFER's weight was halved from 2 to 1 at the same time the interval was
+     * halved, which is what leaves it alone while everything else doubles. Twice as many
+     * attempts at half the share is the same number of sniffers — they are meant to stay
+     * the rare thing worth stopping for, and doubling them would have made an ancient
+     * curiosity into livestock.
+     */
     private static final List<Spawn> SWAMP = List.of(
             new Spawn(EntityType.FROG, 6),
-            new Spawn(EntityType.SNIFFER, 2),
+            new Spawn(EntityType.SNIFFER, 1),
             new Spawn(EntityType.SHEEP, 5),
             new Spawn(EntityType.CHICKEN, 6),
             new Spawn(EntityType.COW, 5)
@@ -95,7 +113,7 @@ public final class SpiritSpawner {
     private SpiritSpawner() {
     }
 
-    /** Called every tick for the Spirit World; does nothing on all but one tick in sixty. */
+    /** Called every tick for the Spirit World; does nothing on all but one tick in thirty. */
     public static void tick(ServerLevel level) {
         if (!SpiritWorld.isSpiritWorld(level)) return;
         if (level.getGameTime() % INTERVAL != 0) return;
@@ -207,7 +225,7 @@ public final class SpiritSpawner {
      * would keep adding to a crowd it could not see.
      */
     /** How many allays may be near one player. See {@link #tooManyAllays}. */
-    private static final int ALLAY_CAP = 9;
+    private static final int ALLAY_CAP = 18;
 
     /**
      * Allays need a tighter limit than everything else, because they NEVER GO AWAY.
@@ -218,6 +236,7 @@ public final class SpiritSpawner {
      * long exploring session would leave a permanent trail of them across the dimension.
      *
      * This bounds how thick they get in any one place, which is what is actually visible.
+     * It doubled to 18 with everything else, so allays stay the commonest sight.
      * It does NOT bound the total across a large explored area; if that ever becomes a
      * problem the answer is a sweep that removes ones far from any player, since there is
      * no way to make an individual allay despawn on its own.

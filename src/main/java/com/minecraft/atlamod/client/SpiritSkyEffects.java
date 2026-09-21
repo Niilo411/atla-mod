@@ -2,13 +2,10 @@ package com.minecraft.atlamod.client;
 
 import com.minecraft.atlamod.Atlamod;
 import com.minecraft.atlamod.spirit.SpiritBiomes;
-import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -46,6 +43,41 @@ public class SpiritSkyEffects extends DimensionSpecialEffects {
     private static final DimensionSpecialEffects NETHER = new NetherEffects();
     private static final DimensionSpecialEffects END = new EndEffects();
 
+    /**
+     * The wasteland's dead, starless dark — and the reason it is not simply "night".
+     *
+     * NIGHT IS NOT AVAILABLE, and that is a limitation of the game rather than a choice.
+     * A sky is drawn from the LEVEL's time of day, which is one value for a whole
+     * dimension, so a single biome cannot be at a different hour from its neighbours. The
+     * previous attempt pinned the client's clock per biome and it flickered, because the
+     * server rebroadcasts the real time once a second and that packet lands between the
+     * ticks that would correct it. There is no hook between the two without a mixin.
+     *
+     * So this drops time out of the picture entirely. SkyType.NONE is the nether's mode:
+     * no dome, no sun, no moon, no stars — just fog in every direction. Given a near-black
+     * fog and the nether's flat lighting, the result is a lightless void overhead that
+     * never changes and cannot flicker, because nothing about it is derived from a clock.
+     *
+     * What is lost is stars. What is kept is that it reads as a dead place, it is stable,
+     * and it is nothing like the End islands' sky, which is a textured purple starfield.
+     */
+    private static final DimensionSpecialEffects WASTELAND = new DimensionSpecialEffects(
+            Float.NaN, true, SkyType.NONE, false, true) {
+
+        /** Very nearly black, with just enough blue left in it to read as night air. */
+        private static final Vec3 FOG = new Vec3(0.035, 0.035, 0.05);
+
+        @Override
+        public Vec3 getBrightnessDependentFogColor(Vec3 fogColor, float brightness) {
+            return FOG;
+        }
+
+        @Override
+        public boolean isFoggyAt(int x, int y) {
+            return false;
+        }
+    };
+
     public SpiritSkyEffects() {
         // The values passed here are only the defaults for anything not overridden
         // below. Overworld's are used because most islands are overworld-skied, and
@@ -59,11 +91,11 @@ public class SpiritSkyEffects extends DimensionSpecialEffects {
     }
 
     /**
-     * Which vanilla dimension's look the player is currently under.
+     * Which look the player is currently under.
      *
-     * Only NETHER and END islands differ; everything else — plain overworld islands, the
-     * crimson mountains, the warped swamps, the wasteland, and the open void between
-     * them — gets the ordinary overworld sky, which is what the design asks for.
+     * Three islands differ — nether, end, and the wasteland's starless dark. Everything
+     * else, including the crimson mountains, the warped swamps and the open void between
+     * islands, gets the ordinary overworld sky.
      *
      * Falls back to overworld whenever there is no player or no level yet, which happens
      * during loading screens and between dimensions.
@@ -76,22 +108,8 @@ public class SpiritSkyEffects extends DimensionSpecialEffects {
 
         if (biome.is(SpiritBiomes.NETHER)) return NETHER;
         if (biome.is(SpiritBiomes.END)) return END;
+        if (biome.is(SpiritBiomes.WASTELAND)) return WASTELAND;
         return OVERWORLD;
-    }
-
-    /**
-     * Pins the time immediately before the sky is drawn, then lets vanilla draw it.
-     *
-     * Returning false is the point: nothing here renders anything. It is the only hook
-     * that runs between the server's time broadcast and the sky being drawn, which is the
-     * gap that made the wasteland flash between day and night. See
-     * {@link SpiritDayTime#hold}.
-     */
-    @Override
-    public boolean renderSky(ClientLevel level, int ticks, float partialTick, Matrix4f modelViewMatrix,
-                             Camera camera, Matrix4f projectionMatrix, boolean isFoggy, Runnable setupFog) {
-        SpiritDayTime.hold(level);
-        return false;
     }
 
     @Override
