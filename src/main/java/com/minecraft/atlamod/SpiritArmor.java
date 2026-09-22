@@ -45,11 +45,19 @@ public final class SpiritArmor {
      *
      * The carry in {@link com.minecraft.atlamod.BendingData#getChiRegenCarry} is what
      * actually makes a fractional percentage land exactly — see the note there.
+     *
+     * A SETTING NOW ({@code spiritArmorRegenPerPieceTenths}), and everything above describes
+     * its default. The settings screen shows the TIME rather than the percentage while it is
+     * being dragged, because the time is what the figure was ever chosen for.
      */
-    public static final int REGEN_BONUS_PER_PIECE_TENTHS = 465;
+    public static int regenPerPieceTenths() {
+        return com.minecraft.atlamod.AtlaConfig.armorRegenPerPiece();
+    }
 
     /** What the whole set adds. Derived, so the two can never be quoted differently. */
-    public static final int FULL_SET_BONUS_TENTHS = REGEN_BONUS_PER_PIECE_TENTHS * 4;
+    public static int fullSetBonusTenths() {
+        return regenPerPieceTenths() * 4;
+    }
 
     /** The denominator the bonus is measured against: 1000 tenths of a percent = 100%. */
     public static final int BONUS_SCALE = 1000;
@@ -90,6 +98,6 @@ public final class SpiritArmor {
      * what it has always been.
      */
     public static int regenBonusTenths(LivingEntity entity) {
-        return wornPieces(entity) * REGEN_BONUS_PER_PIECE_TENTHS;
+        return wornPieces(entity) * com.minecraft.atlamod.AtlaConfig.armorRegenPerPiece();
     }
 }

@@ -22,8 +22,10 @@ import net.minecraft.world.level.Level;
  */
 public final class WaterSupply {
 
-    /** How far open water can be and still be usable directly. */
-    public static final int WATER_SEARCH_RADIUS = 15;
+    /** How far open water can be and still be usable directly. A setting; 15 by default. */
+    public static int searchRadius() {
+        return com.minecraft.atlamod.AtlaConfig.waterReach();
+    }
 
     private WaterSupply() {
     }
@@ -67,7 +69,7 @@ public final class WaterSupply {
         // Searched as expanding shells rather than a flat triple loop, so standing at
         // the edge of a lake — the common case — bails out almost immediately instead
         // of walking the whole 31-cube every time an ability is cast.
-        for (int radius = 0; radius <= WATER_SEARCH_RADIUS; radius++) {
+        for (int radius = 0, reach = searchRadius(); radius <= reach; radius++) {
             if (shellHasWater(level, centre, radius)) {
                 return true;
             }

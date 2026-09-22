@@ -171,6 +171,85 @@ public final class AtlaConfig {
             .defineInRange("templeChanceInHundred", 100, 0, 100);
 
     // ==========================================================================
+    //  Items
+    // ==========================================================================
+
+    public static final ModConfigSpec.IntValue ARMOR_REGEN_PER_PIECE = BUILDER
+            .comment("How much faster Chi regenerates per piece of Spirit Armor worn,",
+                    "in TENTHS OF A PERCENT. 465 is 46.5% a piece, which is what the set ships at.",
+                    "TENTHS RATHER THAN WHOLE PERCENT because the set was tuned to a TIME, and",
+                    "whole percent cannot hit it: 46% fills an empty bar in 35.2 seconds and 47%",
+                    "in 34.7, where 46.5% gives 35.0. To aim at a time of your own rather than at",
+                    "a percentage, the arithmetic is:  perPiece = (100000 / seconds - 1000) / 4",
+                    "0 switches the bonus off and leaves the armor as protection alone.",
+                    "Applies immediately, to armor already being worn.")
+            .defineInRange("spiritArmorRegenPerPieceTenths", 465, 0, 5000);
+
+    public static final ModConfigSpec.IntValue SHRINE_CHI = BUILDER
+            .comment("How much permanent maximum Chi one spirit shrine grants.",
+                    "FLAT, not a multiplier, so it is worth the same at level 20 as at level 1.",
+                    "NOTE the Chi bar's colour counts shrines by dividing the bonus by this, so",
+                    "changing it on a world where shrines have already been used will change what",
+                    "colour the bar reports. That is cosmetic - no Chi is lost either way.",
+                    "Applies immediately, but only to shrines used from now on.")
+            .defineInRange("spiritShrineChiBonus", 100, 0, 5000);
+
+    public static final ModConfigSpec.IntValue CANTEEN_CAPACITY = BUILDER
+            .comment("How many waterbending casts a full Water Canteen holds.",
+                    "20 is the shipped figure, which makes each cast exactly 5% of the bar.",
+                    "APPLIES TO CANTEENS THAT ALREADY EXIST, including ones sitting in a chest,",
+                    "because the capacity is answered live rather than stamped on the item when",
+                    "it was crafted. Lowering it below what a canteen currently holds simply",
+                    "reads as full until it is next drunk from - nothing is destroyed.",
+                    "Applies immediately.")
+            .defineInRange("waterCanteenCapacity", 20, 1, 1000);
+
+    public static final ModConfigSpec.IntValue WATER_REACH = BUILDER
+            .comment("How far open water counts as a bending source, in blocks.",
+                    "Inside this, waterbending is free; outside it, a cast drinks one unit from a",
+                    "Water Canteen, and with no canteen it is refused.",
+                    "Raising it makes canteens matter less; 0 makes every cast away from a block",
+                    "of water you are standing in cost a unit.",
+                    "The search walks outward in shells, so a large value only costs anything on a",
+                    "cast that is genuinely dry.",
+                    "Applies immediately.")
+            .defineInRange("waterSourceReach", 15, 0, 64);
+
+    // ==========================================================================
+    //  Chi and levels
+    // ==========================================================================
+
+    public static final ModConfigSpec.IntValue BASE_MAX_CHI = BUILDER
+            .comment("The Chi pool a level 0 bender has.",
+                    "Maximum Chi is  base + (level x perLevel) + whatever shrines have added.",
+                    "Worth knowing before lowering it: several abilities cost 750 or 1000 and are",
+                    "deliberately uncastable until the pool is big enough. Fire Rain, Tsunami,",
+                    "Combustion nuke and an upgraded Lightning Swarm all gate this way.",
+                    "Applies immediately.")
+            .defineInRange("baseMaxChi", 500, 100, 20000);
+
+    public static final ModConfigSpec.IntValue CHI_PER_LEVEL = BUILDER
+            .comment("How much maximum Chi each bending level adds.",
+                    "Applies immediately.")
+            .defineInRange("chiPerLevel", 100, 0, 5000);
+
+    public static final ModConfigSpec.IntValue CHI_REGEN_DELAY = BUILDER
+            .comment("How long Chi regeneration is held off after any Chi is spent, in TICKS.",
+                    "20 ticks is a second; 60 is the shipped three.",
+                    "This is what stops a cheap ability being paid for by regeneration as fast as",
+                    "it costs. Channels re-arm it every tick, so they drain at their full rate and",
+                    "only start refilling once released. 0 removes the delay entirely.",
+                    "Applies immediately.")
+            .defineInRange("chiRegenDelayTicks", 60, 0, 600);
+
+    public static final ModConfigSpec.IntValue XP_PER_LEVEL = BUILDER
+            .comment("Bending XP needed for one level.",
+                    "Used by the ordinary level and by the separate bloodbending one.",
+                    "Overflow carries into the next level, so a large grant can cross several.",
+                    "Applies immediately.")
+            .defineInRange("xpPerLevel", 200, 1, 100000);
+
+    // ==========================================================================
     //  Abilities
     // ==========================================================================
 
@@ -212,6 +291,14 @@ public final class AtlaConfig {
     private static volatile int oreXp = 15;
     private static volatile int shrineChance = 6;
     private static volatile int templeChance = 100;
+    private static volatile int armorRegenPerPiece = 465;
+    private static volatile int shrineChi = 100;
+    private static volatile int canteenCapacity = 20;
+    private static volatile int waterReach = 15;
+    private static volatile int baseMaxChi = 500;
+    private static volatile int chiPerLevel = 100;
+    private static volatile int chiRegenDelay = 60;
+    private static volatile int xpPerLevel = 200;
     private static volatile Set<String> disabled = Set.of();
 
     /**
@@ -281,6 +368,72 @@ public final class AtlaConfig {
         return templeChance;
     }
 
+    /** Tenths of a percent of extra chi regen per piece of spirit armor worn. */
+    public static int armorRegenPerPiece() {
+        return armorRegenPerPiece;
+    }
+
+    public static int shrineChi() {
+        return shrineChi;
+    }
+
+    public static int canteenCapacity() {
+        return canteenCapacity;
+    }
+
+    public static int waterReach() {
+        return waterReach;
+    }
+
+    public static int baseMaxChi() {
+        return baseMaxChi;
+    }
+
+    public static int chiPerLevel() {
+        return chiPerLevel;
+    }
+
+    public static int chiRegenDelay() {
+        return chiRegenDelay;
+    }
+
+    /** Never zero — the range starts at 1, so nothing dividing by it has to check. */
+    public static int xpPerLevel() {
+        return xpPerLevel;
+    }
+
+    /**
+     * How long a full set of spirit armor takes to fill an empty chi pool, in seconds.
+     *
+     * The figure the set was actually tuned to, which is why it is worked out here rather
+     * than left for a reader to derive: base regen is 1% of the pool a second, so an
+     * unaided bar fills in 100 seconds, and four pieces multiply that rate by
+     * {@code (1000 + 4 * perPiece) / 1000}.
+     *
+     * THE SAME AT EVERY LEVEL, which is not a coincidence — base regen is
+     * {@code maxChi / 100} and max chi is a multiple of 100, so the pool is always exactly
+     * a hundred times the per-second rate and the level cancels out. That stops being true
+     * if baseMaxChi or chiPerLevel is set to something not divisible by 100, where the
+     * {@code max(1, ...)} floor starts to bite at low levels; the figure is then a close
+     * approximation rather than exact.
+     */
+    public static int armorSecondsToFull() {
+        return armorSecondsToFull(armorRegenPerPiece);
+    }
+
+    /**
+     * The same for a bonus that is not the one currently in force.
+     *
+     * The settings screen needs this while a slider is being DRAGGED: the cached field
+     * above is only refreshed when the change is saved, which is on mouse release, so a
+     * readout built from it would show the time for the value the slider used to have.
+     */
+    public static int armorSecondsToFull(int perPieceTenths) {
+        int scaled = 1000 + 4 * perPieceTenths;
+
+        return Math.max(1, Math.round(100.0F * 1000.0F / scaled));
+    }
+
     /**
      * Whether this ability may be used at all.
      *
@@ -338,6 +491,14 @@ public final class AtlaConfig {
         oreXp = 15;
         shrineChance = 6;
         templeChance = 100;
+        armorRegenPerPiece = 465;
+        shrineChi = 100;
+        canteenCapacity = 20;
+        waterReach = 15;
+        baseMaxChi = 500;
+        chiPerLevel = 100;
+        chiRegenDelay = 60;
+        xpPerLevel = 200;
         disabled = Set.of();
 
         generation++;
@@ -387,6 +548,15 @@ public final class AtlaConfig {
         oreXp = ORE_XP.get();
         shrineChance = SHRINE_CHANCE.get();
         templeChance = TEMPLE_CHANCE.get();
+
+        armorRegenPerPiece = ARMOR_REGEN_PER_PIECE.get();
+        shrineChi = SHRINE_CHI.get();
+        canteenCapacity = CANTEEN_CAPACITY.get();
+        waterReach = WATER_REACH.get();
+        baseMaxChi = BASE_MAX_CHI.get();
+        chiPerLevel = CHI_PER_LEVEL.get();
+        chiRegenDelay = CHI_REGEN_DELAY.get();
+        xpPerLevel = XP_PER_LEVEL.get();
 
         Set<String> off = new HashSet<>();
         for (String name : DISABLED_ABILITIES.get()) {

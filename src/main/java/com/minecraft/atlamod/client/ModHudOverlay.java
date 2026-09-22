@@ -56,7 +56,12 @@ public class ModHudOverlay {
             // every short name exactly where it has always been and only pushes the
             // stats right when the name actually needs the room, so it also covers
             // whatever gets added next without anyone having to remember this line.
-            String statsText = "Lvl: " + data.getLevel() + " | XP: " + data.getXp() + "/200";
+            // The threshold is ASKED FOR rather than written as 200. It used to be a
+            // literal here, which was harmless while it could never change and is a plain
+            // lie now that it is a setting — a server running a different one would show
+            // everybody a bar counting towards a number that was not their level.
+            String statsText = "Lvl: " + data.getLevel() + " | XP: " + data.getXp()
+                    + "/" + com.minecraft.atlamod.abilities.AbilitySupport.xpPerLevel();
             int statsX = textStartX + Math.max(50, mc.font.width(displayText) + 8);
 
             guiGraphics.drawString(mc.font, statsText, statsX, y + 4, 0x55FF55);
@@ -136,7 +141,7 @@ public class ModHudOverlay {
             guiGraphics.drawString(mc.font, bloodText, 8, 8, 0xFFCC2222);
 
             String bloodXp = data.getBloodXp() + "/"
-                    + com.minecraft.atlamod.abilities.blood.Blood.XP_PER_LEVEL;
+                    + com.minecraft.atlamod.abilities.blood.Blood.xpPerLevel();
             guiGraphics.drawString(mc.font, bloodXp, 8, 19, 0xFF883333);
         }
 

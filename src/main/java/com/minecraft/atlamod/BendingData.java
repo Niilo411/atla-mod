@@ -306,7 +306,7 @@ public class BendingData {
     public void consumeChi(int amount) {
         if (amount <= 0) return;
         this.currentChi = Math.max(0, this.currentChi - amount);
-        this.chiRegenDelay = CHI_REGEN_DELAY_TICKS;
+        this.chiRegenDelay = chiRegenDelayTicks();
     }
 
     /**
@@ -316,15 +316,19 @@ public class BendingData {
      * be worth the same at level 1 as at level 20, or the reward for crossing the Spirit
      * World would be worth least to exactly the player who has just arrived there.
      */
-    public int getMaxChi() { return 500 + (this.level * 100) + this.bonusMaxChi; }
+    public int getMaxChi() {
+        return AtlaConfig.baseMaxChi() + (this.level * AtlaConfig.chiPerLevel()) + this.bonusMaxChi;
+    }
 
     // --- SPIRIT SHRINES ---
     // Permanent max chi, drawn one shrine at a time from the Spirit World's floating
     // islands. Both fields are SAVED: a shrine is a place a player went once, and
     // forgetting either of them would either take the reward away or hand it back.
 
-    /** What one shrine is worth, and the step the chi bar's colour moves by. */
-    public static final int SHRINE_CHI = 100;
+    /** What one shrine is worth, and the step the chi bar's colour moves by. A setting. */
+    public static int shrineChi() {
+        return AtlaConfig.shrineChi();
+    }
 
     private int bonusMaxChi = 0;
 
@@ -371,7 +375,7 @@ public class BendingData {
         if (hasUsedShrine(shrine)) return false;
 
         getUsedShrines().add(shrine);
-        this.bonusMaxChi += SHRINE_CHI;
+        this.bonusMaxChi += shrineChi();
         return true;
     }
 
@@ -383,15 +387,24 @@ public class BendingData {
      * where the bonus has to anyway because the HUD draws the chi bar against the maximum.
      * One number on the wire, one truth on both sides, and the chi bar's colour provably
      * changes on exactly the ticks the maximum does.
+     *
+     * THE DIVISOR IS A SETTING, so two things follow. A shrine worth 0 would divide by
+     * zero, which is guarded here rather than in the config so nothing else has to
+     * remember; and changing what a shrine is worth on a world where some have already
+     * been used changes what this reports, since the count is derived rather than stored.
+     * That only moves the chi bar's COLOUR — no chi is lost either way.
      */
-    public int getShrinesUsed() { return bonusMaxChi / SHRINE_CHI; }
+    public int getShrinesUsed() {
+        int step = shrineChi();
+        return step <= 0 ? 0 : bonusMaxChi / step;
+    }
 
     // --- CHI REGEN DELAY ---
     // Spending chi holds off passive regen briefly, so regen can't be used to pay
     // for an ability as fast as the ability costs.
 
-    /** Ticks of quiet required after spending chi before regen resumes (3 seconds). */
-    public static final int CHI_REGEN_DELAY_TICKS = 60;
+    /** Ticks of quiet required after spending chi before regen resumes. A setting. */
+    public static int chiRegenDelayTicks() { return AtlaConfig.chiRegenDelay(); }
 
     private transient int chiRegenDelay = 0;
 
@@ -409,7 +422,7 @@ public class BendingData {
      *
      * THOUSANDTHS rather than hundredths because the bonus is quoted in tenths of a
      * percent, which is what it takes to hit a whole number of seconds — see
-     * {@link com.minecraft.atlamod.SpiritArmor#REGEN_BONUS_PER_PIECE_TENTHS}.
+     * {@link com.minecraft.atlamod.SpiritArmor#regenPerPieceTenths()}.
      *
      * Transient: at most 999 thousandths of one chi point, which is not worth saving.
      */
@@ -648,6 +661,16 @@ public class BendingData {
 
     public boolean hasBassBounceLeftGround() { return bassBounceLeftGround; }
     public void setBassBounceLeftGround(boolean left) { this.bassBounceLeftGround = left; }
+
+    // --- FIRE ROCKET ---
+    // Whether the rocket is lit. Transient for the same reason every other toggle billed
+    // by the second is: nobody should log back in to an ability quietly draining chi they
+    // did not choose to spend — and the flight flags it opens are PERSISTED, so the login
+    // and respawn safety nets in ServerEvents close those whatever this says.
+    private transient boolean fireRocketing = false;
+
+    public boolean isFireRocketing() { return fireRocketing; }
+    public void setFireRocketing(boolean rocketing) { this.fireRocketing = rocketing; }
 
     // --- COMPRESSED PUNCHES ---
     // Whether the toggle is up. Transient, so a relog switches it off — which is the

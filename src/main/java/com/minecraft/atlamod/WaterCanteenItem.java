@@ -25,19 +25,51 @@ import net.minecraft.world.phys.HitResult;
  */
 public class WaterCanteenItem extends Item {
 
-    /** Units in a full canteen. Twenty makes each ability cost exactly 5%. */
-    public static final int CAPACITY = 20;
+    /**
+     * Units in a full canteen. A setting; twenty by default, which makes each ability
+     * cost exactly 5%.
+     *
+     * ANSWERED LIVE RATHER THAN STAMPED ON THE ITEM, which is what makes it configurable
+     * at all. Durability is a data component set when the stack is made, so a canteen
+     * crafted before a change would keep the old capacity for ever — and the item itself
+     * is registered during mod construction, long before a server config exists to read.
+     * NeoForge routes {@code ItemStack#getMaxDamage} through {@link #getMaxDamage(ItemStack)}
+     * for exactly this, so overriding it below makes every canteen in the world, including
+     * ones already sitting in a chest, answer the current setting.
+     */
+    public static int capacity() {
+        return AtlaConfig.canteenCapacity();
+    }
 
     /** Blue, so the gauge reads as water rather than as wear. */
     private static final int BAR_COLOUR = 0x3388FF;
 
     public WaterCanteenItem(Properties properties) {
-        super(properties.stacksTo(1).durability(CAPACITY));
+        // The component still has to be set to SOMETHING for the stack to be damageable
+        // at all; the override below is what decides the figure in use.
+        super(properties.stacksTo(1).durability(20));
     }
 
-    /** How many ability-uses of water are left in this canteen. */
+    /**
+     * The live capacity, which is what everything asking a stack for its maximum gets.
+     *
+     * Vanilla's own damage clamping, the durability bar and the tooltip all read through
+     * here, so lowering the setting cannot leave a canteen reporting more than it holds.
+     */
+    @Override
+    public int getMaxDamage(ItemStack stack) {
+        return capacity();
+    }
+
+    /**
+     * How many ability-uses of water are left in this canteen.
+     *
+     * Clamped at zero, because lowering the capacity below what a canteen has already
+     * drunk would otherwise give a NEGATIVE reading — which {@link #isEmpty} would answer
+     * correctly but the bar would draw backwards.
+     */
     public static int getWater(ItemStack stack) {
-        return CAPACITY - stack.getDamageValue();
+        return Math.max(0, capacity() - stack.getDamageValue());
     }
 
     public static boolean isEmpty(ItemStack stack) {
@@ -54,7 +86,7 @@ public class WaterCanteenItem extends Item {
      * destroy the canteen once it ran out.
      */
     public static void drink(ItemStack stack) {
-        stack.setDamageValue(Math.min(CAPACITY, stack.getDamageValue() + 1));
+        stack.setDamageValue(Math.min(capacity(), stack.getDamageValue() + 1));
     }
 
     @Override
@@ -65,7 +97,7 @@ public class WaterCanteenItem extends Item {
             return InteractionResultHolder.pass(stack);
         }
 
-        if (getWater(stack) >= CAPACITY) {
+        if (getWater(stack) >= capacity()) {
             return InteractionResultHolder.pass(stack);
         }
 
@@ -100,7 +132,7 @@ public class WaterCanteenItem extends Item {
 
     @Override
     public int getBarWidth(ItemStack stack) {
-        return Math.round(13.0F * getWater(stack) / (float) CAPACITY);
+        return Math.round(13.0F * getWater(stack) / (float) capacity());
     }
 
     @Override

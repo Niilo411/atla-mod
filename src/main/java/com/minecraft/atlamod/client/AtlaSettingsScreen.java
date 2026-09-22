@@ -50,7 +50,7 @@ public class AtlaSettingsScreen extends Screen {
     /** Where to go back to. The mods list, the pause screen, or the bending menu. */
     private final Screen parent;
 
-    private static final String[] TAB_NAMES = { "World", "Abilities" };
+    private static final String[] TAB_NAMES = { "World", "Items & Chi", "Abilities" };
     private static final int TAB_W = 100;
     private static final int TAB_H = 20;
     private static final int TAB_Y = 28;
@@ -216,13 +216,68 @@ public class AtlaSettingsScreen extends Screen {
     private void buildRows() {
         rows.clear();
 
-        if (activeTab == 0) {
-            buildWorldRows();
-        } else {
-            buildAbilityRows();
+        switch (activeTab) {
+            case 0 -> buildWorldRows();
+            case 1 -> buildItemRows();
+            default -> buildAbilityRows();
         }
 
         clampScroll();
+    }
+
+    private void buildItemRows() {
+        rows.add(new HeaderRow("Spirit Armor"));
+        rows.add(new NoteRow("Applies immediately, to armor already being worn."));
+        rows.add(new SliderRow("Chi regen per piece", AtlaConfig.ARMOR_REGEN_PER_PIECE, 0, 5000,
+                AtlaSettingsScreen::describeArmorRegen,
+                "How much faster Chi regenerates for each piece of Spirit Armor worn."
+                        + " The second figure is what a FULL SET takes to fill an empty bar,"
+                        + " which is what the shipped 46.5% was actually chosen for:"
+                        + " 100 seconds unaided, 35 in a full set."));
+
+        rows.add(new HeaderRow("Spirit Shrines"));
+        rows.add(new SliderRow("Max Chi per shrine", AtlaConfig.SHRINE_CHI, 0, 5000,
+                value -> value == 0 ? "nothing" : "+" + value + " max Chi",
+                "What one shrine grants, permanently. Flat rather than a multiplier, so it"
+                        + " is worth the same at level 20 as at level 1. The Chi bar's colour"
+                        + " counts shrines by dividing by this, so changing it on a world"
+                        + " where shrines have been used changes what colour it reports —"
+                        + " which is cosmetic, no Chi is lost."));
+
+        rows.add(new HeaderRow("Waterbending supply"));
+        rows.add(new SliderRow("Canteen capacity", AtlaConfig.CANTEEN_CAPACITY, 1, 200,
+                value -> value + " casts",
+                "How many waterbending casts a full Water Canteen holds. Applies to canteens"
+                        + " that already exist, including ones in a chest — the capacity is"
+                        + " answered live rather than stamped on the item when it was crafted."));
+        rows.add(new SliderRow("Open water reach", AtlaConfig.WATER_REACH, 0, 64,
+                value -> value == 0 ? "must stand in it" : value + " blocks",
+                "How far open water counts as a source. Inside this waterbending is free;"
+                        + " outside it, a cast drinks a unit from a Water Canteen, and with"
+                        + " no canteen it is refused. Raising it makes canteens matter less."));
+
+        rows.add(new HeaderRow("Chi and levels"));
+        rows.add(new NoteRow("Maximum Chi is base + (level x per level) + shrines."));
+        rows.add(new SliderRow("Base max Chi", AtlaConfig.BASE_MAX_CHI, 100, 20000,
+                value -> String.valueOf(value),
+                "The pool a level 0 bender has. Several abilities cost 750 or 1000 and are"
+                        + " deliberately uncastable until the pool is big enough — Fire Rain,"
+                        + " Tsunami, Combustion nuke and an upgraded Lightning Swarm all gate"
+                        + " this way, so lowering this locks them further away."));
+        rows.add(new SliderRow("Max Chi per level", AtlaConfig.CHI_PER_LEVEL, 0, 5000,
+                value -> "+" + value + " a level",
+                "How much maximum Chi each bending level adds."));
+        rows.add(new SliderRow("Regen delay", AtlaConfig.CHI_REGEN_DELAY, 0, 600,
+                AtlaSettingsScreen::describeTicks,
+                "How long Chi regeneration is held off after any Chi is spent. This is what"
+                        + " stops a cheap ability being paid for by regeneration as fast as it"
+                        + " costs. Channels re-arm it every tick, so they drain at full rate"
+                        + " and only refill once released."));
+        rows.add(new SliderRow("XP per level", AtlaConfig.XP_PER_LEVEL, 1, 2000,
+                value -> value + " XP",
+                "Bending XP needed for one level, for the ordinary track and the separate"
+                        + " bloodbending one. Overflow carries, so a large grant can cross"
+                        + " several levels at once."));
     }
 
     private void buildWorldRows() {
@@ -291,6 +346,30 @@ public class AtlaSettingsScreen extends Screen {
                 rows.add(new ToggleRow(ability));
             }
         }
+    }
+
+    /**
+     * The armor bonus as a percentage AND as the time it actually buys.
+     *
+     * THE TIME IS THE POINT. The set was never tuned to a percentage — it was tuned to
+     * "a full set fills an empty bar in 35 seconds", and 46.5% is simply the number that
+     * lands there. Showing only the percentage would hide the figure anybody adjusting
+     * this is actually aiming at.
+     */
+    private static String describeArmorRegen(int tenths) {
+        if (tenths == 0) return "no bonus";
+
+        // Worked out from the value being DRAWN, not from the cached setting — the cache
+        // is only refreshed on save, so mid-drag it would report the old time.
+        return String.format(java.util.Locale.ROOT, "%.1f%%  (set: %ds)",
+                tenths / 10.0F, AtlaConfig.armorSecondsToFull(tenths));
+    }
+
+    /** Ticks, with the seconds spelled out beside them. */
+    private static String describeTicks(int ticks) {
+        if (ticks == 0) return "none";
+
+        return String.format(java.util.Locale.ROOT, "%d ticks (%.1fs)", ticks, ticks / 20.0F);
     }
 
     /**
@@ -594,10 +673,19 @@ public class AtlaSettingsScreen extends Screen {
     private void resetTab() {
         if (!editable()) return;
 
-        if (activeTab == 0) {
-            for (Row row : rows) {
-                if (row instanceof SliderRow slider) slider.reset();
+        // Asks what the rows ARE rather than which tab is open, so a tab added later
+        // resets correctly without this method being touched. It went wrong exactly that
+        // way once: the ability list was "not tab 0", which stopped being true the moment
+        // a second slider tab existed.
+        boolean sliders = false;
+        for (Row row : rows) {
+            if (row instanceof SliderRow slider) {
+                slider.reset();
+                sliders = true;
             }
+        }
+
+        if (sliders) {
             save();
         } else {
             disabled.clear();

@@ -27,8 +27,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class Blood {
 
-    /** Blood xp needed for a blood level. The same 200 the ordinary track uses. */
-    public static final int XP_PER_LEVEL = AbilitySupport.XP_PER_LEVEL;
+    /** Blood xp needed for a blood level. The same figure the ordinary track uses. */
+    public static int xpPerLevel() { return AbilitySupport.xpPerLevel(); }
 
     private Blood() {
     }
@@ -47,8 +47,9 @@ public final class Blood {
 
         data.setBloodXp(data.getBloodXp() + amount);
 
-        while (data.getBloodXp() >= XP_PER_LEVEL) {
-            data.setBloodXp(data.getBloodXp() - XP_PER_LEVEL);
+        int perLevel = xpPerLevel();
+        while (data.getBloodXp() >= perLevel) {
+            data.setBloodXp(data.getBloodXp() - perLevel);
             data.setBloodLevel(data.getBloodLevel() + 1);
         }
     }

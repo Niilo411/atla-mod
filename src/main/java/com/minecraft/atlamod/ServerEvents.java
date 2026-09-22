@@ -936,7 +936,7 @@ public class ServerEvents {
         player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                 "§b+" + com.minecraft.atlamod.spirit.island.SpiritOre.xpPerBlock()
                         + " bending XP §7(" + data.getXp() + "/"
-                        + com.minecraft.atlamod.abilities.AbilitySupport.XP_PER_LEVEL + ")"), true);
+                        + com.minecraft.atlamod.abilities.AbilitySupport.xpPerLevel() + ")"), true);
     }
 
     /**
@@ -1046,6 +1046,23 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
+
+            // The rocket cannot follow its rider through a portal either, and unlike a
+            // scooter it leaves something behind if it is not put out: this event builds
+            // a FRESH BendingData and copies the saved fields across by hand, so the
+            // transient "is the rocket lit" flag comes over as false — while the vanilla
+            // flight flags it opened are saved in player NBT and come over as they were.
+            // Nothing else would ever close them, because nothing would believe the
+            // rocket was still running. That is permanent creative flight from one trip
+            // through a portal.
+            //
+            // The login and respawn nets cover the other two ways out; a dimension change
+            // fires neither, so it needs its own. Creative and spectator are skipped
+            // inside stopFlight, so legitimate flight is never taken away.
+            if (!player.isCreative() && !player.isSpectator()
+                    && (player.getAbilities().mayfly || player.getAbilities().flying)) {
+                com.minecraft.atlamod.abilities.fire.FireRocket.stopFlight(player);
+            }
 
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
@@ -1553,6 +1570,21 @@ public class ServerEvents {
                 // of chi must not be a cheaper way to end it than running out of time.
                 if (outOfTime || !affordable) {
                     com.minecraft.atlamod.abilities.sound.CompressedPunches.stop(player, data);
+                }
+            }
+
+            // --- FIRE ROCKET (toggle) ---
+            // Was a channel, so the dispatcher used to hold the flight open and drain the
+            // chi. As a toggle both are this loop's job: the per-tick half keeps vanilla
+            // from clearing the flight flag, and the per-second half bills it and puts the
+            // rocket out when the pool runs dry.
+            if (data.isFireRocketing()) {
+                com.minecraft.atlamod.abilities.fire.FireRocket.tick(player, data);
+
+                if (!chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.fire.FireRocket.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.fire.FireRocket.XP_PER_SECOND)) {
+                    com.minecraft.atlamod.abilities.fire.FireRocket.stop(player, data);
                 }
             }
 

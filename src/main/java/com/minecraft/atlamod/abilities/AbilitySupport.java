@@ -13,8 +13,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
  */
 public final class AbilitySupport {
 
-    /** XP needed to gain a level. */
-    public static final int XP_PER_LEVEL = 200;
+    /** XP needed to gain a level. A setting; 200 by default, and never below 1. */
+    public static int xpPerLevel() {
+        return com.minecraft.atlamod.AtlaConfig.xpPerLevel();
+    }
 
     private AbilitySupport() {
     }
@@ -32,13 +34,26 @@ public final class AbilitySupport {
         return true;
     }
 
-    /** Adds XP and rolls over into a level when the threshold is crossed. */
+    /**
+     * Adds XP and rolls over into a level whenever the threshold is crossed.
+     *
+     * A LOOP THAT CARRIES THE REMAINDER, where this used to be a single {@code if} that
+     * set the XP back to zero. Two things were wrong with that and the threshold becoming
+     * a setting made both matter. A grant larger than the threshold only ever gave ONE
+     * level, so a non-bender killing a wither for 225 would gain one level and lose the
+     * rest — and at a low configured threshold a single ore block could be worth several
+     * levels and pay one. And levelling at 195 with a 15 XP grant threw away the 10 that
+     * should have carried, which is a small loss but a steady one.
+     */
     public static void grantXp(BendingData data, int amount) {
         if (amount <= 0) return;
+
+        int perLevel = xpPerLevel();
         data.setXp(data.getXp() + amount);
-        if (data.getXp() >= XP_PER_LEVEL) {
+
+        while (data.getXp() >= perLevel) {
             data.setLevel(data.getLevel() + 1);
-            data.setXp(0);
+            data.setXp(data.getXp() - perLevel);
         }
     }
 

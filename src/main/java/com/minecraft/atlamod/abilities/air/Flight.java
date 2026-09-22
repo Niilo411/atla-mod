@@ -62,9 +62,15 @@ public class Flight implements PassiveAbility {
         // direction. Revoking it would be a genuinely destructive bug.
         if (player.isCreative() || player.isSpectator()) return;
 
-        // Fire Rocket owns the flight flags while it is channelling, and sets its own
-        // speed. Two things writing them in the same tick would fight.
-        if (data.getActiveChanneledAbility().equals(FireRocket.KEY)) return;
+        // Fire Rocket owns the flight flags while it is lit, and sets its own speed. Two
+        // things writing them in the same tick would fight.
+        //
+        // ASKS THE ROCKET'S OWN FLAG, not the channel it used to be. When the rocket
+        // became a toggle it stopped being the active CHANNEL, so this test silently
+        // started answering false — and a bender carrying the Flight passive would have
+        // had the passive's 0.025 speed written over the rocket's 0.03 every tick, and
+        // the rocket's flight put back by the passive after it was switched off.
+        if (data.isFireRocketing()) return;
 
         if (data.hasPassiveEquipped(KEY)) {
             grantFlying(player, data);

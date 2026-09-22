@@ -193,14 +193,30 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   - Fire Spikes (2s hold to charge, then ~25 fire blocks scattered randomly out to
     15 blocks, even across the area rather than bunched near the player; burns at
     2x for 30s. 100 chi, 10 xp, no cooldown)
-  - Fire Rocket (channeled flight at 0.03 fly speed vs vanilla creative's 0.05, no
-    height limit; flame venting from the feet; 15 chi/sec, 5 xp/sec, no cooldown.
+  - Fire Rocket (TOGGLE — press to light it, press again to put it out. Flight at 0.03
+    fly speed vs vanilla creative's 0.05, no height limit; flame venting from the feet;
+    15 chi/sec, 5 xp/sec, no cooldown.
     Fall damage applies normally — the height you gain is yours to survive)
   - Taller fire (PASSIVE — equip it in the Passives tab; ability-laid fire becomes
     2 blocks tall. Affects Firewall, Fire Ring, Fire Spikes, and Fire Blow when it
     exists, since all of them go through BendingFire.placeGrounded)
+- **Fire Rocket is a TOGGLE, and used to be a held channel.** Flight is the one ability
+  you want to stay in for minutes at a time, and holding a key for a whole journey is a
+  poor way to ask for that; it also puts the rocket in the company it belongs to, since
+  Air scooter, Tornado and Water Surf are all travel and all switch rather than hold.
+  **That moved the billing**: a channel is drained by the dispatcher, a toggle is the
+  player tick's business, so the 15/sec is taken by `chargeSoundToggle` on the same beat
+  Sound wall, Metal shield and Combustion Beam use, and the rocket puts itself out when
+  the pool runs dry. `FireRocket.stop` is the single exit both endings go through.
+  **Two things had to move with it**: `Flight` gated on
+  `getActiveChanneledAbility().equals(FireRocket.KEY)`, which silently started answering
+  false — the passive would have written its own 0.025 speed over the rocket's 0.03 every
+  tick and put flight back after the rocket was switched off. It asks
+  `data.isFireRocketing()` now. And casting another ability no longer refuses, because
+  the "only one held ability at a time" rule was what used to stop it; bending while
+  flying is allowed, the same as it already is under the Flight passive.
 - **Fire Rocket owns flight outright**: the keybind is the ONLY thing that starts or
-  ends it. Two vanilla behaviours fight that and are both undone in `onTick` —
+  ends it. Two vanilla behaviours fight that and are both undone in `tick` —
   double-tapping space is vanilla's flight toggle for anyone with `mayfly`, and the
   client clears flight whenever the player is on the ground. `keepFlying()` re-asserts
   the flag, and touching down also earns an upward kick, because re-asserting alone
@@ -209,10 +225,18 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   and the client would switch it straight back off.
 - **Flight flags are persisted, so they need a safety net**: Fire Rocket grants
   flight via `player.getAbilities().mayfly/flying`, which `Abilities.addSaveData`
-  writes to player NBT. Disconnecting or dying mid-flight means `onStop()` never
-  runs, which would leave permanent creative flight. `FireRocket.stopFlight()` is
-  called from BOTH the login and respawn handlers in `ServerEvents`, and skips
+  writes to player NBT. Disconnecting or dying mid-flight means the toggle is never
+  switched off, which would leave permanent creative flight. `FireRocket.stopFlight()` is
+  called from the login, respawn AND clone handlers in `ServerEvents`, and skips
   players actually in creative/spectator so it can't strip legitimate flight.
+- **The CLONE handler is the third net and was missing.** `PlayerEvent.Clone` fires on a
+  DIMENSION CHANGE as well as a death, and it builds a fresh `BendingData` and copies the
+  saved fields across by hand — so the transient "is the rocket lit" flag arrives false
+  while the flight flags, being player NBT, arrive exactly as they were. Nothing would
+  ever close them again, because nothing believed the rocket was still running. One trip
+  through a portal mid-flight was permanent creative flight, and login and respawn fire
+  for neither. The gap predates the toggle; converting the ability is only what made it
+  worth looking for.
 - Fire Masterclass path COMPLETE (gated behind the other three):
   - blue fire (PASSIVE — all ability fire and flame particles turn blue, and every
     fire ability deals double damage. Standing in blue fire burns for a flat 6.0
@@ -2010,6 +2034,55 @@ drawn up to that point, the GUI included.
   renderables. Miss that and it is an invisible control that still answers clicks, since
   `super.mouseClicked` reaches it whatever tab is open.
 
+### The Items & Chi tab
+
+The second tab, and the one place a number can change how an ITEM behaves rather than how
+the world is laid out.
+
+- **Spirit Armor's chi regen is quoted in tenths of a percent, and the screen shows the
+  TIME.** The set was never tuned to a percentage — it was tuned to "a full set fills an
+  empty bar in 35 seconds", and 46.5% is simply the figure that lands there. Showing only
+  the percentage would hide the number anybody adjusting it is actually aiming at, so the
+  slider reads `46.5%  (set: 35s)`. To aim at a time of your own the arithmetic is
+  `perPiece = (100000 / seconds - 1000) / 4`.
+- **That readout is computed from the value being DRAWN, not from the cached setting.**
+  The cache is only refreshed on save, which is mouse release, so building it from the
+  cache would report the time for the value the slider used to have. Worth remembering for
+  any future readout that depends on more than its own slider.
+- Also here: the Water Canteen's capacity, how far open water counts as a bending source,
+  what a shrine grants, base max chi, max chi per level, the regen delay, and XP per level.
+- **A DURABILITY-BACKED FIGURE *CAN* BE MADE LIVE, which was got wrong once.** The
+  canteen's capacity was written off as unconfigurable on the grounds that durability is a
+  data component stamped on the stack when it is made, and the item is registered during
+  mod construction long before a server config exists. Both of those are true and the
+  conclusion was still wrong: NeoForge routes `ItemStack#getMaxDamage` through
+  `IItemExtension#getMaxDamage(ItemStack)`, so overriding that on the item answers the
+  question live — every canteen in the world, including ones already sitting in a chest,
+  reads the current setting. The constructor still has to pass SOME durability or the
+  stack is not damageable at all; the override decides the figure in use.
+- **What genuinely cannot be configured** is anything nothing asks the item for at runtime
+  — armour points come off the `ArmorMaterial` at registration, and there is no per-stack
+  hook to reroute them. Those need a datapack or a rebuild.
+
+#### Two things a configurable XP threshold exposed
+
+- **`grantXp` discarded overflow.** It was a single `if` that set XP back to zero, so a
+  grant larger than the threshold gave ONE level and lost the rest — a non-bender killing
+  a wither for 225 gained one level and dropped 25, and at a low configured threshold a
+  single ore block could be worth several levels and pay one. It is a loop that carries
+  the remainder now.
+- **The HUD had `/200` written into it as a literal.** Harmless while the figure could
+  never change, and a plain lie the moment it could: a server running a different one
+  would show everybody a bar counting towards a number that was not their level.
+
+#### The shrine divisor
+
+`getShrinesUsed` is DERIVED — `bonusMaxChi / shrineChi` — which is what lets the client
+answer it without the server sending the list. Making the divisor a setting means two
+things follow: a shrine worth 0 would divide by zero, guarded in `getShrinesUsed` so
+nothing else has to remember; and changing it on a world where shrines have been used
+changes what the count reports. That moves the chi bar's COLOUR only — no chi is lost.
+
 ### Why a screen of our own rather than NeoForge's
 
 NeoForge's generic config screen renders a config exactly as the FILE is shaped, which is
@@ -2600,7 +2673,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   unequipping the passive in mid-air would leave permanent creative flight — the same
   trap Fire Rocket has, and it shares the login/respawn safety nets. The flag is
   transient, so a relog clears it and the tick simply re-grants.
-- **Flight stands aside while Fire Rocket is channelling** (`FireRocket.KEY`), since
+- **Flight stands aside while Fire Rocket is lit** (`data.isFireRocketing()`), since
   both write the same flags and set different speeds. Creative and spectator players
   are never touched in either direction.
 - **Flight has a ceiling of 120 blocks ABOVE SEA LEVEL**, taken from
