@@ -357,16 +357,23 @@ public class ServerEvents {
                                         data.getUnlockedElements().add(element);
                                         if (data.getActiveElement().isEmpty()) data.setActiveElement(element);
 
-                                        // No bending is not a thing you can have ALONGSIDE
-                                        // something, which every other element here is —
-                                        // it is a statement about what you are, and the
-                                        // whole path reads it off the MAIN element. So
-                                        // gifting it takes them over rather than adding to
-                                        // them: this command is the only route to it apart
-                                        // from picking it on a first join, and a gift that
-                                        // left the recipient still bending would not have
-                                        // given them anything the tree could see.
-                                        if (com.minecraft.atlamod.abilities.ElementPaths.isNoBending(element)) {
+                                        // NO BENDING IS GRANTED LIKE ANYTHING ELSE now,
+                                        // and the special case that used to sit here is
+                                        // gone. It overwrote the recipient's main element
+                                        // so the path would register, which meant gifting
+                                        // it to a firebender silently took their chi away
+                                        // — the thing this command has no business doing.
+                                        // Nothing needs overwriting any more: what makes
+                                        // somebody a non-bender is having no bending art
+                                        // at all, which the unlocked list above answers by
+                                        // itself. See NoBending.
+                                        //
+                                        // A player who has not reached the selection
+                                        // screen yet DOES take the gift as their own,
+                                        // whatever it is. Without this their main element
+                                        // stays empty, so the screen still opens on their
+                                        // next login and overwrites whatever was given.
+                                        if (!data.hasChosenElement()) {
                                             data.setMainElement(element);
                                             data.setActiveElement(element);
                                         }

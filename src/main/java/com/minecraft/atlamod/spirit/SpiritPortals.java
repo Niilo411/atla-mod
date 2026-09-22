@@ -169,7 +169,11 @@ public final class SpiritPortals {
         if (!data.isMeditating()) return false;
 
         for (int distance : TORN_DISTANCES) {
-            if (tearAt(level, player, distance)) return true;
+            if (openAt(level, player, distance, true)) {
+                player.displayClientMessage(Component.literal(
+                        "§bYou tear a way open. It will not hold long."), true);
+                return true;
+            }
         }
 
         // TOLD, not silent. Five casts is a real effort to spend on nothing, and "there
@@ -188,7 +192,7 @@ public final class SpiritPortals {
      * post was there is not a portal you can walk through, and carving out the fence post
      * to make room would be the griefing the air-only rule exists to prevent.
      */
-    private static boolean tearAt(ServerLevel level, ServerPlayer player, int distance) {
+    private static boolean openAt(ServerLevel level, ServerPlayer player, int distance, boolean toIsland) {
         net.minecraft.core.Direction facing = player.getDirection();
 
         // The plane stands ACROSS the way they are looking, so they walk into its face
@@ -220,7 +224,7 @@ public final class SpiritPortals {
         net.minecraft.world.level.block.state.BlockState portal =
                 com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get().defaultBlockState()
                         .setValue(SpiritPortalBlock.AXIS, axis)
-                        .setValue(SpiritPortalBlock.ISLAND, true);
+                        .setValue(SpiritPortalBlock.ISLAND, toIsland);
 
         for (BlockPos at : opening) {
             level.setBlock(at, portal, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
@@ -230,72 +234,87 @@ public final class SpiritPortals {
             // the chunk unloading with nobody near it — none of which a countdown held in
             // memory would. Every block gets one; whichever fires first tears down the
             // rest. See SpiritPortalBlock.
+            //
+            // THE SPIRIT WORLD SIDE IS NORMALLY GIVEN NO TICK AT ALL — see activate, where
+            // that one `if` is the only difference between the two sides and is what makes
+            // a temple portal a permanent way home. A way the Avatar opened is scheduled
+            // on BOTH sides deliberately: it is a tear rather than a temple, and a
+            // permanent hole on a random island is what it must not leave behind.
             level.scheduleTick(at, com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get(), TORN_TICKS);
         }
 
         opening(level, opening.get(0));
-        player.displayClientMessage(Component.literal(
-                "§bYou tear a way open. It will not hold long."), true);
-
         return true;
     }
 
+    // ==========================================================================
+    //  The way back
+    // ==========================================================================
+
+    /** How long the Avatar must sit in meditation before a way home can be opened. */
+    public static final int RETURN_MEDITATE_TICKS = 20 * 5;
+
+    /** How far the "is anything actually there" test reaches when checking for a punch at air. */
+    private static final double PUNCH_REACH = 5.0;
+
     /**
-     * The far end, standing on the island somebody is about to arrive on.
+     * Meditate five seconds in the Spirit World, then punch the air: a way home opens.
      *
-     * WITHOUT THIS THERE IS NO WAY BACK. Every other portal in the mod leads to a temple,
-     * and a temple's own portal never closes, so the return trip takes care of itself. An
-     * island has nothing on it — so unless the far end is built too, the Avatar's portal
-     * is one way and whoever used it is walking until they find a temple.
+     * THE COUNTERPART TO THE TEAR, and it had to be a different ritual because the tear's
+     * own one is impossible on this side — that wants five casts, and nothing bends in the
+     * Spirit World. Meditation is the one thing a bender can still do here, so the way
+     * home is paid for in stillness instead.
      *
-     * ITS FIFTEEN SECONDS START WHEN IT IS BUILT, not when the near end was torn, and that
-     * is an INTERPRETATION rather than something the design settles. Both ends closing on
-     * the same clock would be more literally "the portal lasts fifteen seconds", and would
-     * also strand anyone who stepped through on the fourteenth. Giving this end its own
-     * fifteen makes the trip a round one: cross, look, and come back, or stay and walk.
+     * IT REPLACED A TWIN PORTAL BUILT AUTOMATICALLY AT THE FAR END. That version put a way
+     * back on the island whether it was wanted or not, on a clock that started before the
+     * traveller had looked around — so the trip was either rushed or the portal was
+     * already gone. Asking for it means it is there when it is wanted and nowhere when it
+     * is not.
      *
-     * The arrival is INSIDE it, exactly as a temple arrival is — that is what the portal
-     * cooldown on the arriving entity is for, and the same pattern already proven there.
+     * WHERE IT LEADS IS NOT THIS METHOD'S BUSINESS. It lays an ordinary spirit portal, and
+     * every spirit portal on this side already means "out": {@code SpiritTravel.through}
+     * sends whatever walks into one back to the position it entered from. So the way home
+     * needed no travel code at all, only somewhere to walk into.
+     *
+     * THE MEDITATION IS SPENT. Five seconds is a floor rather than a gate, so without
+     * clearing the timer a player holding the key could click once a tick and fill the
+     * island with portals. Resetting it makes each way home cost its own five seconds, and
+     * needs no new state — the timer already exists and already clears itself when the key
+     * is released.
+     *
+     * @return whether a portal was opened, so the caller knows to spend the click
      */
-    public static void tearFarSide(ServerLevel spirit, BlockPos arrival) {
-        net.minecraft.core.Direction.Axis axis = net.minecraft.core.Direction.Axis.X;
+    public static boolean tryReturn(ServerPlayer player, com.minecraft.atlamod.BendingData data) {
+        // Ordered cheapest first, because this runs for every left click any player makes
+        // anywhere. The two boolean reads reject almost all of them.
+        if (!data.isMeditating()) return false;
+        if (data.getMeditateTickTimer() < RETURN_MEDITATE_TICKS) return false;
+        if (!data.isAvatar()) return false;
+        if (!SpiritWorld.isSpiritWorld(player.level())) return false;
+        if (!(player.level() instanceof ServerLevel level)) return false;
 
-        net.minecraft.world.level.block.state.BlockState portal =
-                com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get().defaultBlockState()
-                        .setValue(SpiritPortalBlock.AXIS, axis)
-                        .setValue(SpiritPortalBlock.ISLAND, true);
+        // AT THE AIR, not at something. Left clicking a block is mining it, and somebody
+        // chipping away at the ground in front of them should not have the world open up
+        // by accident.
+        if (player.pick(PUNCH_REACH, 1.0F, false).getType()
+                != net.minecraft.world.phys.HitResult.Type.MISS) {
+            return false;
+        }
 
-        java.util.List<BlockPos> opening = new java.util.ArrayList<>(TORN_WIDTH * TORN_HEIGHT);
+        for (int distance : TORN_DISTANCES) {
+            if (openAt(level, player, distance, false)) {
+                data.setMeditateTickTimer(0);
+                player.setData(com.minecraft.atlamod.ModAttachments.BENDING_DATA, data);
 
-        for (int w = 0; w < TORN_WIDTH; w++) {
-            for (int h = 0; h < TORN_HEIGHT; h++) {
-                BlockPos at = arrival.offset(w - (TORN_WIDTH / 2), h, 0);
-
-                // Anything already there is left alone and simply not filled. An island's
-                // surface carries trees and boulders, and a portal missing a corner is
-                // still a portal you can step into — where clearing the tree to square it
-                // off would be the one thing every block-placing rule in this mod forbids.
-                if (!spirit.getBlockState(at).isAir()) continue;
-                opening.add(at);
+                player.displayClientMessage(Component.literal(
+                        "§bA way home opens."), true);
+                return true;
             }
         }
 
-        // Nothing could be placed at all, which would take a very unlucky arrival. The
-        // traveller still gets there; they just have to walk home the long way.
-        if (opening.isEmpty()) return;
-
-        for (BlockPos at : opening) {
-            spirit.setBlock(at, portal, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-
-            // THE SPIRIT WORLD SIDE IS NORMALLY GIVEN NO TICK AT ALL — see activate, where
-            // that one `if` is the only difference between the two sides and is what makes
-            // a temple portal a permanent way home. This one is scheduled deliberately:
-            // it is a tear rather than a temple, and a permanent hole on a random island
-            // is exactly what the Avatar's portal is not meant to leave behind.
-            spirit.scheduleTick(at, com.minecraft.atlamod.Atlamod.SPIRIT_PORTAL.get(), TORN_TICKS);
-        }
-
-        opening(spirit, opening.get(0));
+        player.displayClientMessage(Component.literal(
+                "§bThere is no room in front of you to open a way."), true);
+        return false;
     }
 
     /**

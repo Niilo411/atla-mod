@@ -7,11 +7,24 @@ import net.minecraft.world.entity.LivingEntity;
 /**
  * What it means to have no bending, and the rules that follow from it.
  *
- * A NON-BENDER IS DEFINED BY THEIR MAIN ELEMENT, not by having no abilities. The main
- * element is the one they picked on their first join and is never overwritten — the
- * ACTIVE element changes every time somebody presses [Y] — so it is the only field that
- * still answers "what did this person choose to be" after they have been granted
- * something else by command.
+ * A NON-BENDER IS SOMEBODY WHO HAS NO BENDING ART AT ALL — not somebody who once picked
+ * "no bending" off the selection screen. The test is the unlocked element list: hold the
+ * no-bending path and nothing else, and you are a non-bender; hold anything else as well
+ * and you are a bender who has also learned to block chi.
+ *
+ * THIS USED TO ASK THE MAIN ELEMENT, and that was wrong in both directions. Somebody who
+ * picked no bending and was then GIVEN firebending by command kept a main element of
+ * "nobending" for ever, so they were a firebender with no chi bar and no way to fill a
+ * pool they could now spend from. And granting no bending by command had to overwrite the
+ * main element to register at all, which silently took a bender's chi away. Asking "do you
+ * actually bend anything" answers both at once and needs no special case in either command:
+ *
+ * <pre>
+ *   picked no bending                      -> no chi        (nothing else unlocked)
+ *   picked no bending, then given fire     -> chi comes back (fire is a bending art)
+ *   picked fire, then given no bending     -> chi stays      (fire is still there)
+ *   given no bending having nothing at all -> no chi
+ * </pre>
  *
  * THREE THINGS ARE TAKEN AWAY, and they are all the same thing said three ways: a
  * non-bender has no chi. So chi does not regenerate ({@code ServerEvents}' regen block),
@@ -41,9 +54,23 @@ public final class NoBending {
     private NoBending() {
     }
 
-    /** Whether this data belongs to somebody who chose no bending. */
+    /**
+     * Whether this player has no bending art at all.
+     *
+     * Holding the no-bending path is necessary but not sufficient — one single other
+     * element and the answer is no, whatever order the two arrived in. Somebody who has
+     * chosen nothing yet is NOT a non-bender either: an empty list is a player who has not
+     * reached the selection screen, not one who turned it down.
+     */
     public static boolean is(BendingData data) {
-        return data != null && ElementPaths.isNoBending(data.getMainElement());
+        if (data == null) return false;
+
+        boolean hasPath = false;
+        for (String element : data.getUnlockedElements()) {
+            if (!ElementPaths.isNoBending(element)) return false;
+            hasPath = true;
+        }
+        return hasPath;
     }
 
     /**

@@ -69,8 +69,13 @@ public class ModHudOverlay {
         // NOT FOR A NON-BENDER. They have no chi — it does not regenerate and nothing
         // they can do spends any — so a bar would sit permanently full at a number that
         // means nothing, which is worse than no bar at all.
+        //
+        // Asks NoBending.is rather than the main element, so the bar follows what the
+        // player can actually do: it comes back the moment they are granted a bending art
+        // and stays put when a bender is granted the no-bending path. The unlocked element
+        // list it reads is on the client already, carried by SyncBendingDataPacket.
         if (data.hasChosenElement()
-                && !com.minecraft.atlamod.abilities.ElementPaths.isNoBending(data.getMainElement())) {
+                && !com.minecraft.atlamod.abilities.nobending.NoBending.is(data)) {
             int screenHeight = mc.getWindow().getGuiScaledHeight();
             int screenWidth = mc.getWindow().getGuiScaledWidth();
 

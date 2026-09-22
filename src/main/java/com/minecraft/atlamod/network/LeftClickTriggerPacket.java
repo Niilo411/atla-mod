@@ -21,6 +21,13 @@ public record LeftClickTriggerPacket() implements CustomPacketPayload {
             if (context.player() instanceof ServerPlayer player) {
                 BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
+                // The Avatar's way home: meditate five seconds in the Spirit World, then
+                // punch the air. Checked FIRST and it CONSUMES the click, because the same
+                // press would otherwise also throw whatever happened to be armed — and
+                // somebody sitting in meditation asking for a portal did not mean to loose
+                // a fireball at the same moment.
+                if (com.minecraft.atlamod.spirit.SpiritPortals.tryReturn(player, data)) return;
+
                 // Compressed punches throws a wave on EVERY click, whether or not
                 // anything is armed — it is a ranged attack in its own right, not a
                 // bonus on a two-phase release. Fired before the two-phase routing so

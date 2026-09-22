@@ -77,24 +77,18 @@ public final class SpiritTravel {
         // rather than anything remembered about it — see SpiritPortalBlock.ISLAND. An
         // ordinary portal leads to the nearest temple, which is the dimension's whole
         // navigation; the Avatar's meditation portal leads to open ground on the nearest
-        // island instead, with nothing there and no way back but the way you came.
+        // island instead, where there is nothing at all until somebody opens a way home.
         boolean toIsland = entity.level().getBlockState(portalPos)
                 .getOptionalValue(SpiritPortalBlock.ISLAND).orElse(false);
 
-        if (!toIsland) {
-            send(entity, spirit, SpiritWorld.arrivalNear(spirit, portalPos));
-            return;
-        }
-
-        BlockPos arrival = SpiritWorld.islandArrivalNear(spirit, portalPos);
-
-        // The far end is built BEFORE the traveller is sent, so they arrive standing in it
-        // rather than beside a portal that appears a tick later. Temple arrivals work the
-        // same way and the portal cooldown is what stops the two ends bouncing somebody
-        // back and forth.
-        SpiritPortals.tearFarSide(spirit, arrival);
-
-        send(entity, spirit, arrival);
+        // NOTHING IS BUILT AT THE FAR END. An island portal is a one-way step: you walk in
+        // and you are simply put down on the nearest island, with nothing there and no
+        // portal standing over you. The way back is a separate ritual the Avatar performs
+        // on the other side — see SpiritPortals.tryReturn — rather than a twin portal that
+        // appears whether it was wanted or not.
+        send(entity, spirit, toIsland
+                ? SpiritWorld.islandArrivalNear(spirit, portalPos)
+                : SpiritWorld.arrivalNear(spirit, portalPos));
     }
 
     /**

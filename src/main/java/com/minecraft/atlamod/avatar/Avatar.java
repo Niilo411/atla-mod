@@ -81,8 +81,12 @@ public class Avatar {
         // this method directly, and it is the one that had to be closed. Granting it
         // would also destroy the choice outright, since becoming the Avatar hands over
         // all four elements — the exact opposite of what they picked.
+        //
+        // Asks whether they BEND anything rather than what they once chose, so somebody
+        // who picked no bending and was later given a real element can hold the title like
+        // anyone else, and a bender who was given the no-bending path is unaffected.
         BendingData chosen = player.getData(ModAttachments.BENDING_DATA);
-        if (com.minecraft.atlamod.abilities.ElementPaths.isNoBending(chosen.getMainElement())) {
+        if (com.minecraft.atlamod.abilities.nobending.NoBending.is(chosen)) {
             return false;
         }
 
@@ -257,11 +261,23 @@ public class Avatar {
         return false;
     }
 
-    /** Everyone online whose FIRST chosen element is the one given. */
+    /**
+     * Everyone online whose FIRST chosen element is the one given.
+     *
+     * THE CYCLE CAN NEVER REACH NO BENDING. Its list is the four bending arts
+     * ({@link AvatarState#CYCLE}) and nothing adds to it, so a non-bender is already
+     * unreachable by the element match alone. The second test is belt and braces: it
+     * states the rule where a reader looking for it would look, and it means a candidate
+     * this method returns is always one {@link #grant} will accept — which matters because
+     * {@link #findAvatar} treats a returned candidate as the search being over, and a
+     * refusal it did not expect would leave the cycle believing it had found somebody.
+     */
     private static List<ServerPlayer> candidatesFor(MinecraftServer server, String element) {
         List<ServerPlayer> candidates = new ArrayList<>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
+
+            if (com.minecraft.atlamod.abilities.nobending.NoBending.is(data)) continue;
             if (element.equalsIgnoreCase(data.getMainElement())) candidates.add(player);
         }
         return candidates;

@@ -1777,15 +1777,42 @@ fifth element, which is the one thing it is not.
   closed by hand, and `Avatar.grant` now returns a boolean so `/bend avatar` can say why it
   refused rather than reporting a success that did not happen. Granting it would destroy
   the choice outright anyway, since becoming the Avatar hands over all four elements.
-- **`/bend add nobending` TAKES THEM OVER rather than adding to them**, which no other
-  element in that command does. Every other element is a thing you can have alongside
-  something; this is a statement about what you are, and the whole path reads it off the
-  MAIN element — so a gift that left the recipient still bending would not have given them
-  anything the tree could see.
-- **A non-bender is defined by their MAIN element, not by having no abilities.** The main
-  element is the one they picked first and is never overwritten, where the ACTIVE element
-  changes every time somebody presses [Y] — so it is the only field that still answers
-  "what did this person choose to be" after they have been granted something else.
+- **`/bend add nobending` grants it like anything else**, with no special case at all.
+
+### A non-bender is somebody who BENDS NOTHING
+
+Not somebody who once picked "no bending" off the screen. The test is the unlocked element
+list: hold the no-bending path and nothing else and you are a non-bender; hold anything
+else as well and you are a bender who has also learned to block chi.
+
+**THIS USED TO ASK THE MAIN ELEMENT and was wrong in both directions**, which is what made
+the commands misbehave:
+
+<pre>
+  picked no bending                      -> no chi         (nothing else unlocked)
+  picked no bending, then given fire     -> chi comes back  (fire is a bending art)
+  picked fire, then given no bending     -> chi stays       (fire is still there)
+  given no bending having nothing at all -> no chi
+</pre>
+
+- Somebody who picked no bending and was then GIVEN firebending kept a main element of
+  "nobending" for ever — a firebender with no chi bar and no way to fill a pool they could
+  now spend from.
+- And granting no bending by command had to OVERWRITE the main element to register at all,
+  which silently took a bender's chi away. That special case is gone; nothing needs
+  overwriting, because "do you actually bend anything" answers both cases at once.
+- **`/bend add` does still take over for a player who has not reached the selection screen
+  yet**, whatever the element is. Without that their main element stays empty, so the
+  screen opens on their next login and overwrites whatever they were given.
+- The chi bar reads `NoBending.is` rather than the main element, so it follows what the
+  player can actually do. The unlocked list it needs is on the client already, carried by
+  `SyncBendingDataPacket`.
+- **The Avatar cycle can never reach no bending.** Its list is the four bending arts and
+  nothing adds to it, so the element match alone already excludes a non-bender;
+  `candidatesFor` says so explicitly as well, because `findAvatar` treats a returned
+  candidate as the search being over and a `grant` refusal it did not expect would leave
+  the cycle believing it had found somebody. `grant` asks whether they BEND anything, so
+  somebody who picked no bending and was later given a real element can hold the title.
 
 ### It has a centre that is not an ability
 
@@ -2142,31 +2169,45 @@ and a way into the Spirit World tears open in front of you. It stands fifteen se
   generation keeps that clear so the fixed temple is not buried, and it falls back to the
   temple arrival rather than setting somebody down in open void.
 
-### The far end is built too
+### The way back is asked for, not given
 
-**WITHOUT IT THERE IS NO WAY BACK.** Every other portal in the mod leads to a temple, and a
-temple's own portal never closes, so the return trip takes care of itself. An island has
-nothing on it — so unless the far end is built, the Avatar's portal is one way and whoever
-used it is walking until they find a temple.
+**A TWIN PORTAL USED TO BE BUILT AUTOMATICALLY at the far end, and it was wrong.** It put a
+way back on the island whether it was wanted or not, on a clock that started before the
+traveller had looked around — so the trip was either rushed or the portal had already gone
+by the time they turned round. Walking into an island portal now simply puts you down on
+the island. Nothing stands over you.
 
-- Built BEFORE the traveller is sent, so they arrive standing IN it rather than beside a
-  portal that appears a tick later. Temple arrivals work the same way, and the portal
-  cooldown on the arriving entity is what stops the two ends bouncing somebody back and
-  forth.
-- **It is the one Spirit World portal that is given a scheduled tick.** `activate`'s single
-  `if` — overworld portals get a clock, spirit ones do not — is what makes a temple portal
-  a permanent way home. This one is scheduled deliberately: it is a tear rather than a
-  temple, and a permanent hole on a random island is exactly what it must not leave behind.
-- Anything already standing where a block would go is left alone and simply not filled. An
-  island's surface carries trees, and a portal missing a corner is still one you can step
-  into, where clearing the tree to square it off is the thing the air-only rule forbids.
-- **ITS FIFTEEN SECONDS START WHEN IT IS BUILT, and that is an INTERPRETATION.** Both ends
-  closing on one clock would be more literally "the portal lasts fifteen seconds" — and
-  would strand anyone who stepped through on the fourteenth. Giving this end its own
-  fifteen makes the trip a round one: cross, look, and come back, or stay and walk. Coming
-  home does not actually need the near end to still exist, since `SpiritTravel` remembers
-  the position rather than the portal, so the only thing at risk is the way OUT of the
-  Spirit World.
+The way home is its own ritual: **meditate five seconds in the Spirit World, then punch the
+air.**
+
+- **It had to be a different ritual from the tear**, because the tear's own one is
+  impossible on that side — it wants five casts and nothing bends in the Spirit World.
+  Meditation is the one thing a bender can still do there, so the way home is paid for in
+  stillness rather than in bending.
+- **Where it leads is not the ritual's business.** It lays an ordinary spirit portal, and
+  every spirit portal on that side already means "out": `SpiritTravel.through` sends
+  whatever walks into one back to the position it entered from. So the return needed no
+  travel code at all, only somewhere to walk into.
+- **The meditation is SPENT** — the timer is cleared on success. Five seconds is a floor
+  rather than a gate, so without that a player holding the key could click once a tick and
+  fill the island with portals. It needs no new state either: `meditateTickTimer` already
+  exists and already clears itself when the key is released.
+- **Punching AT AIR is checked, not just left-clicking.** Left clicking a block is mining
+  it, and somebody chipping away at the ground in front of them should not have the world
+  open up by accident. Entities are not distinguished — `Entity#pick` only traces blocks —
+  which is a knowing gap rather than an oversight: a mob standing in front of a meditating
+  Avatar is a rare enough false positive to be worth the simpler check.
+- **The click is CONSUMED**, checked before anything else in `LeftClickTriggerPacket`. The
+  same press would otherwise also release whatever two-phase ability happened to be armed,
+  and somebody sitting in meditation asking for a portal did not mean to loose a fireball
+  at the same moment.
+- **Avatar only**, matching the way in. Worth knowing the consequence: somebody who is NOT
+  the Avatar and follows one through a torn portal cannot open their own way back, and has
+  to find a temple (`/locate structure atlamod:spirit_temple`) and walk.
+- **Both of the Avatar's portals are scheduled on BOTH sides.** `activate`'s single `if` —
+  overworld portals get a clock, spirit ones do not — is what makes a temple portal a
+  permanent way home. A torn one is not a temple, and a permanent hole on a random island
+  is exactly what it must not leave behind, so `openAt` always schedules.
 
 ## The Avatar
 
