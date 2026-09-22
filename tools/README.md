@@ -78,3 +78,23 @@ Anti-aliased by supersampling rather than by `Graphics2D` — every shape is a d
 against a circle centre, so sampling several points per pixel is shorter than setting up
 rendering hints and exactly reproducible across JDKs. Averaged in premultiplied alpha, or
 the rim comes out grey where white meets transparency.
+
+## GenComet.java
+
+Draws Sozin's Comet to
+`src/main/resources/assets/atlamod/textures/environment/sozins_comet.png`.
+
+```
+java tools/GenComet.java src/main/resources/assets/atlamod/textures/environment
+```
+
+128x128, and **drawn for ADDITIVE blending** — that is the thing to know before editing
+it. The sky renderer uses vanilla's own sun blend function, so the texture is ADDED to
+whatever is behind it rather than covering it: the alpha channel is really a brightness
+channel, black is invisible, and the sheet needs no background. It is also why the comet
+glows on a night sky and cannot punch a dark hole in a bright one.
+
+Small on purpose. The head is a handful of pixels and the rest of the sheet is tail
+thinning to nothing, so on the sky it reads as a bright speck with a streak behind it
+rather than a second sun. Raising `COMET_SIZE` in `WorldEventSky` grows the whole streak,
+head included.

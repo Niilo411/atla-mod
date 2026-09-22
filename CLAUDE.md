@@ -2066,10 +2066,44 @@ keying on `IS_FIRE` because fire is the exception.
   be invisible — and the black sun in particular should be noticeable from inside a house.
   The eclipse's wash is far heavier than the other two, because "the sun went out" is the
   whole event, and it follows a sine so the sun dims and returns rather than switching.
-- **THE COMET IS NOT DRAWN AS AN OBJECT**, and that is the honest limit. Its day is
-  unmistakable — the sky burns orange from dawn to dawn — but there is no streak overhead
-  to look up at. Doing it properly means a textured quad on the sky dome through
-  `RenderLevelStageEvent`, which cannot be checked without running the game.
+### The comet is an OBJECT, not a tint
+
+Two different techniques for two different kinds of thing. The blood moon and the eclipse
+are about the QUALITY of the light — everything should look wrong — and that is the fog's
+job. The comet is a thing in the sky, and no amount of tinting makes a thing.
+
+**IT USED TO BE A TINT AND THAT WAS THE WRONG ANSWER.** Washing the whole world orange for
+a full day is exhausting to play under and still puts a comet nowhere: you could look
+straight up and see nothing. It is drawn now, and the orange is gone entirely — neither
+the fog nor the screen wash touches the comet's day.
+
+- **`RenderLevelStageEvent` at `AFTER_SKY` is the only stage this works at.** It fires
+  right after vanilla's sky is drawn and before the fog is set up for terrain, so the dome
+  is there to draw onto and nothing solid has been laid over it yet.
+- **Its pose stack is NULL at that stage** — NeoForge passes none — so one is built from
+  `getModelViewMatrix()`, which is exactly what `LevelRenderer.renderSky` does for the sun
+  and moon a few lines earlier.
+- **ADDITIVE, with vanilla's own sun blend function.** That is what makes the texture's
+  alpha behave as a BRIGHTNESS rather than an opacity: the comet is added to the sky, so
+  it glows against a dark one and cannot punch a dark hole in a bright one. It is also why
+  `tools/GenComet.java` draws for additive and the sheet has no background.
+- **Fixed in the sky, not following the sun**, which is why its position is two constants
+  rather than a function of the clock. It is meant to be up for the whole day AND night,
+  so anything derived from the time would have it rise and set like everything else.
+- **Every piece of render state is put back** exactly as `renderSky` left it — colour
+  white, depth mask on, blend off, default blend func. Leaving one changed would not show
+  up here; it would show up as something unrelated rendering wrongly later in the frame,
+  which is the worst kind of bug to trace.
+- Skipped where there is no ordinary sky (`skyType() != NORMAL`, so not the Nether, the
+  End or the Spirit World) and when the camera is in a fluid, where vanilla draws no sky
+  at all and there would be nothing behind it.
+
+**WHY THE MOON IS STILL DONE WITH FOG**, when the comet is not. The comet is drawn by
+ADDING to the sky and needs no cooperation from anything vanilla already drew. The moon is
+the opposite problem: it already exists, drawn from a texture this mod does not own, by a
+`DimensionSpecialEffects` that is looked up once per dimension — so recolouring it means
+replacing the overworld's effects object wholesale and taking over vanilla sky rendering
+to alter one quad.
 
 ### `/bend event <name>` starts one
 
