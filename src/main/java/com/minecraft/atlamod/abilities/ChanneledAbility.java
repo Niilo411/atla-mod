@@ -83,6 +83,23 @@ public interface ChanneledAbility extends Ability {
     }
 
     /**
+     * How much incoming damage is divided by while this channel runs, for a shield
+     * that reduces rather than blocks — Repel Shield takes 8 times less damage
+     * rather than none at all.
+     *
+     * A SEPARATE HOOK FROM blocks/grantsInvulnerability rather than a reuse of
+     * either, because the two full shields' all-or-nothing cancel is a different
+     * shape of answer than a factor: folding a reduction into blocks() would mean
+     * blocks() sometimes cancels and sometimes doesn't, which is not what that
+     * method's callers expect. AbilityHandler#blocksDamage still wins outright when
+     * an ability grants full invulnerability — this only matters for one that
+     * doesn't. 1.0, the default, means no reduction at all.
+     */
+    default double damageReductionFactor(BendingData data) {
+        return 1.0;
+    }
+
+    /**
      * Whether the player is held in place while this channel runs (both shields).
      *
      * Rooting is done on the server AND on the client. Zeroing motion server-side

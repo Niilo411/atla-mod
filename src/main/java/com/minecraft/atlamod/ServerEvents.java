@@ -70,6 +70,12 @@ public class ServerEvents {
         // through MetalWorks, so anything they release still gets settled here.
         com.minecraft.atlamod.abilities.metal.MetalWorks.tickAll(event.getServer());
 
+        com.minecraft.atlamod.abilities.gravity.GravitySlams.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.gravity.GravityOrbits.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.gravity.GravityEncases.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.gravity.GravityCrushes.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.gravity.MeteorBlocks.tickAll(event.getServer());
+
         // Tells everybody when the sky changes. Checked once a second — see the class.
         com.minecraft.atlamod.events.WorldEventAnnouncer.tick(event.getServer());
 
@@ -124,6 +130,12 @@ public class ServerEvents {
             // Melts LAST: the two above hand their own blocks back through IceWorks,
             // so anything they release still gets settled by this sweep.
             com.minecraft.atlamod.abilities.ice.IceWorks.forgetLevel(level);
+
+            com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetLevel(level);
+            com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetLevel(level);
+            com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetLevel(level);
+            com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetLevel(level);
+            com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetLevel(level);
         }
     }
     /**
@@ -271,6 +283,27 @@ public class ServerEvents {
                     new net.minecraft.world.item.ItemStack(
                             net.minecraft.world.item.Items.FEATHER, 32),
                     new net.minecraft.world.item.ItemStack(Atlamod.SOUND_SCROLL.get()),
+                    2,
+                    12,
+                    0.05F));
+        }
+    }
+
+    /**
+     * Puts the Gravitybending Scroll in the cartographer's book, for 6 pistons.
+     *
+     * Same two levels as every other scroll, for the same reason: a villager picks
+     * only a couple of trades at random from each level's pool.
+     */
+    @SubscribeEvent
+    public static void onCartographerTrades(net.neoforged.neoforge.event.village.VillagerTradesEvent event) {
+        if (event.getType() != net.minecraft.world.entity.npc.VillagerProfession.CARTOGRAPHER) return;
+
+        for (int level : new int[] { 1, 3 }) {
+            event.getTrades().get(level).add(new net.neoforged.neoforge.common.BasicItemListing(
+                    new net.minecraft.world.item.ItemStack(
+                            net.minecraft.world.item.Items.PISTON, 6),
+                    new net.minecraft.world.item.ItemStack(Atlamod.GRAVITY_SCROLL.get()),
                     2,
                     12,
                     0.05F));
@@ -867,6 +900,13 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
+
+            com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.forgetPlayer(player);
         }
     }
 
@@ -956,6 +996,13 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
+
+            com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.forgetPlayer(player);
 
             // One of the Avatar's three lives. Deliberately last: it can strip the
             // title and pass the cycle on, and the cleanup above should run for a
@@ -1199,6 +1246,13 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
 
+            com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.forgetPlayer(player);
+
             // The rocket cannot follow its rider through a portal either, and unlike a
             // scooter it leaves something behind if it is not put out: this event builds
             // a FRESH BendingData and copies the saved fields across by hand, so the
@@ -1264,7 +1318,10 @@ public class ServerEvents {
         // The second is the Spirit World's low-gravity tide: vanilla charges for fall
         // DISTANCE rather than for impact speed, so a player who drifted gently down would
         // otherwise be billed exactly as if they had plummeted. See SpiritGravity.
+        // The third is the Gravitybending Scroll's confirmation window — see
+        // GravityScrollItem.
         if (data.getAirJumpTicks() > 0
+                || data.getGravityFallImmuneTicks() > 0
                 || com.minecraft.atlamod.spirit.SpiritGravity.isDrifting(player)) {
             event.setCanceled(true);
         }
@@ -1308,6 +1365,15 @@ public class ServerEvents {
             if (AbilityHandler.blocksDamage(data, event.getSource())) {
                 event.setCanceled(true);
                 return;
+            }
+
+            // Repel Shield: not a cancel like the two full shields above, a division —
+            // see ChanneledAbility#damageReductionFactor. Applied here, before anything
+            // below has a chance to raise or lower the figure, so the shield always
+            // divides the same blow the rest of this handler would otherwise see.
+            double reduction = AbilityHandler.damageReductionFor(data, event.getSource());
+            if (reduction > 1.0) {
+                event.setAmount((float) (event.getAmount() / reduction));
             }
 
             // Fire immunity: nothing that burns gets through. Checked against the
@@ -1725,6 +1791,11 @@ public class ServerEvents {
                 data.setBlastImmuneTicks(data.getBlastImmuneTicks() - 1);
             }
 
+            // --- GRAVITY SCROLL FALL IMMUNITY ---
+            if (data.getGravityFallImmuneTicks() > 0) {
+                data.setGravityFallImmuneTicks(data.getGravityFallImmuneTicks() - 1);
+            }
+
             // --- BENDING LOCKOUT (Deafen) ---
             if (data.getBendingLockedTicks() > 0) {
                 data.setBendingLockedTicks(data.getBendingLockedTicks() - 1);
@@ -1789,6 +1860,17 @@ public class ServerEvents {
                         com.minecraft.atlamod.abilities.sound.SoundWall.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.sound.SoundWall.XP_PER_SECOND)) {
                     com.minecraft.atlamod.abilities.sound.SoundWalls.drop(player);
+                }
+            }
+
+            // --- SPEED BOOST (toggle) ---
+            if (com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.has(player)) {
+                com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.tick(player);
+
+                if (!chargeSoundToggle(player, data,
+                        com.minecraft.atlamod.abilities.gravity.GravitySpeedBoost.CHI_PER_SECOND,
+                        com.minecraft.atlamod.abilities.gravity.GravitySpeedBoost.XP_PER_SECOND)) {
+                    com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.stop(player);
                 }
             }
 

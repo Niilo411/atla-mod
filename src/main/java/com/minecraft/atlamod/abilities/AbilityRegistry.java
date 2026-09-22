@@ -243,6 +243,24 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.lava.LavaThrow());
         register(new com.minecraft.atlamod.abilities.lava.LavaRain());
 
+        // --- GRAVITY : Offensive (air's second sub-element — no balanced path) ---
+        register(new com.minecraft.atlamod.abilities.gravity.GravityPull());
+        register(new com.minecraft.atlamod.abilities.gravity.GravityPin());
+        register(new com.minecraft.atlamod.abilities.gravity.GravityThrow());
+        register(new com.minecraft.atlamod.abilities.gravity.GravitySlam());
+
+        // --- GRAVITY : Defensive ---
+        register(new com.minecraft.atlamod.abilities.gravity.GravityLevitation());
+        register(new com.minecraft.atlamod.abilities.gravity.GravitySpeedBoost());
+        register(new com.minecraft.atlamod.abilities.gravity.GravityOrbit());
+        register(new com.minecraft.atlamod.abilities.gravity.RepelShield());
+
+        // --- GRAVITY : Masterclass ---
+        register(new com.minecraft.atlamod.abilities.gravity.GravityPush());
+        register(new com.minecraft.atlamod.abilities.gravity.GravityEncase());
+        register(new com.minecraft.atlamod.abilities.gravity.GravityCrush());
+        register(new com.minecraft.atlamod.abilities.gravity.Meteor());
+
         // --- NO BENDING : one ability on each of its two arms ---
         //
         // Its CENTRE node, "Chi blocking", is deliberately absent: it is a step rather

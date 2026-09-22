@@ -762,6 +762,21 @@ public class BendingData {
     public int getBlastImmuneTicks() { return blastImmuneTicks; }
     public void setBlastImmuneTicks(int ticks) { this.blastImmuneTicks = Math.max(0, ticks); }
 
+    // --- GRAVITY SCROLL ---
+    // Ticks left in which fall damage cannot touch this player at all.
+    //
+    // Only the Gravitybending Scroll sets it, as part of the same "levitate for 5s,
+    // then land safely" unlock confirmation Air jump grants for its own hop —
+    // reusing airJumpTicks would have been wrong, since that field also carries
+    // launch-tracking semantics (hasAirJumpLeftGround) this has no use for.
+    //
+    // Transient: a relog clears it, and ten seconds of fall immunity is not worth
+    // persisting.
+    private transient int gravityFallImmuneTicks = 0;
+
+    public int getGravityFallImmuneTicks() { return gravityFallImmuneTicks; }
+    public void setGravityFallImmuneTicks(int ticks) { this.gravityFallImmuneTicks = Math.max(0, ticks); }
+
     // --- BENDING LOCKOUT ---
     // Ticks left during which this player cannot bend at all. Deafen is the only
     // thing that sets it.

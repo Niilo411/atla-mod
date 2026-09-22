@@ -192,6 +192,10 @@ public class Atlamod {
     public static final DeferredItem<Item> LIGHTNING_SCROLL = ITEMS.register("lightning_scroll",
             () -> new LightningScrollItem(new Item.Properties()));
 
+    // Gravitybending's key. Bought from a village cartographer, read once, spent.
+    public static final DeferredItem<Item> GRAVITY_SCROLL = ITEMS.register("gravity_scroll",
+            () -> new GravityScrollItem(new Item.Properties()));
+
     public static final DeferredItem<Item> WATER_CANTEEN = ITEMS.register("water_canteen",
             () -> new WaterCanteenItem(new Item.Properties()));
 
@@ -312,6 +316,7 @@ public class Atlamod {
             event.accept(COMBUSTION_SCROLL);
             event.accept(BLOOD_SCROLL);
             event.accept(LAVA_SCROLL);
+            event.accept(GRAVITY_SCROLL);
         }
     }
 

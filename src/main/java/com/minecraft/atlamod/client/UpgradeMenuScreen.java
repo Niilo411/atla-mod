@@ -586,7 +586,15 @@ public class UpgradeMenuScreen extends Screen {
 
         if (node.index() == 0) {
             if (node.path().equals("masterclass")) {
-                return offComp && defComp && balComp;
+                // An element with no balanced arm at all (Gravitybending is the
+                // first) can never satisfy balComp — isPathComplete treats an
+                // empty path as never complete, on purpose, so an absent path
+                // can't be farmed as a free "complete" one elsewhere. Masterclass
+                // still has to open for such an element, so a MISSING balanced
+                // path is treated as already satisfied rather than permanently
+                // blocking; an element that HAS a balanced path still has to
+                // finish it, same as always.
+                return offComp && defComp && (bal.length == 0 || balComp);
             } else {
                 return !anyInProgress;
             }
@@ -724,6 +732,7 @@ public class UpgradeMenuScreen extends Screen {
             case "sound"      -> new int[]{0xFF8A3CC4, 0xFF2E1046, 0xFF321C42, 0xFF150A1C};
             case "combustion" -> new int[]{0xFF6E6E6E, 0xFF262626, 0xFF2E2E2E, 0xFF141414};
             case "lightning"  -> new int[]{0xFFD6BE1E, 0xFF4A400A, 0xFF3E3814, 0xFF191608};
+            case "gravity"    -> new int[]{0xFF6A5ACD, 0xFF241C42, 0xFF2A2242, 0xFF120E1C};
             default -> null;
         };
     }

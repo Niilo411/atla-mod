@@ -1,7 +1,7 @@
 # Atla Mod
 
-A Minecraft mod that adds Avatar-style **elemental bending** — four elements, seven
-sub-elements, and 107 abilities behind a progression tree you unlock as you play.
+A Minecraft mod that adds Avatar-style **elemental bending** — four elements, eight
+sub-elements, and 121 abilities behind a progression tree you unlock as you play.
 
 Bending here is not a set of spells on a hotbar. Each element has its own resource
 rules, its own way of moving through the world, and its own idea of what a fight looks
@@ -12,7 +12,7 @@ bloodbender can only be stopped by another bloodbender.
 ![Build](https://github.com/Niilo411/atla-mod/actions/workflows/build.yml/badge.svg)
 
 > **Status:** in active development. Playable and feature-complete across all four
-> elements and all seven sub-elements, but not yet released on Modrinth and not yet
+> elements and all eight sub-elements, but not yet released on Modrinth and not yet
 > versioned for public consumption. Expect rough edges.
 
 ## Requirements
@@ -88,11 +88,11 @@ half speed.
 | **Earth** | Moves the world and puts it back. Walls, pillars, pits and traps, none of which leave anything behind. |
 | **Air** | Mobility and control. Very little of it does much damage; nearly all of it decides where everyone else is standing. |
 
-### The seven sub-elements
+### The eight sub-elements
 
 Sub-elements are not chosen at the start. Each is **earned** by buying a scroll from a
 villager and reading it, and each is gated behind progress in its parent element. Four
-branch off after two completed paths; three are the *end* of their element's road and
+branch off after two completed paths; four are the *end* of their element's road and
 need all four.
 
 | Sub-element | From | Costs | Requires |
@@ -104,15 +104,20 @@ need all four.
 | **Combustion** | Armorer | 32 gunpowder | **all 4** fire paths |
 | **Blood** | Cleric | 5 rabbit feet | **all 4** water paths |
 | **Lava** | Shepherd | 5 nether bricks | **all 4** earth paths |
+| **Gravity** | Cartographer | 6 pistons | **all 4** air paths |
 
-Each has two paths rather than four. Read a scroll you do not qualify for and you
-keep it — the requirement is stated, not punished.
+Each has two paths rather than four — except **Gravity**, which skips a Balanced arm
+entirely and goes straight from its two ordinary paths to a Masterclass, the only
+sub-element shaped that way. Read a scroll you do not qualify for and you keep it —
+the requirement is stated, not punished.
 
 A few of them change how the element plays rather than just adding to it.
 **Lightning** makes every ability serve a wind-up, so nothing fires on the press.
 **Combustion** goes further: letting go of a charge early is a *misfire* that drops
 live TNT on you. **Blood** keeps an experience track entirely of its own, and a
-bloodbender cannot bend anyone whose blood level is higher than theirs.
+bloodbender cannot bend anyone whose blood level is higher than theirs. **Gravity**
+pins and lifts rather than pushing and burning — encasing a target buries them in
+stone, and its masterclass throws a four-block meteor that explodes on impact.
 
 ## The Avatar
 

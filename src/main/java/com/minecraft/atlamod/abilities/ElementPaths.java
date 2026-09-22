@@ -51,6 +51,13 @@ public final class ElementPaths {
                     "Blood freeze", "Blood Slow", "Blood suck", "Blood manipulation"};
             case "lava" -> new String[]{
                     "Lava river", "Lava geyser", "Lava sinkhole", "Lava tsunami"};
+            // Gravitybending, air's second sub-element. It has no balanced path at
+            // all (see balanced() below) but DOES have a masterclass — the first
+            // sub-element to be shaped that way. isComplete/completedPaths already
+            // treat an empty path as never complete, so nothing here needed to
+            // change for that; only UpgradeMenuScreen's masterclass gate did.
+            case "gravity" -> new String[]{
+                    "Gravity pull", "Gravity Pin", "Gravity Throw", "Gravity Slam"};
             case NO_BENDING -> new String[]{"Chi block"};
             default -> NONE;
         };
@@ -79,6 +86,8 @@ public final class ElementPaths {
             case "blood" -> new String[]{"Blood strength", "Flesh shield"};
             case "lava" -> new String[]{
                     "Lava wall", "Lava resistance", "Lava throw", "lava rain"};
+            case "gravity" -> new String[]{
+                    "Levitation", "Speed Boost", "Gravity Orbit", "Repel Shield"};
             case NO_BENDING -> new String[]{"Kick"};
             default -> NONE;
         };
@@ -105,6 +114,11 @@ public final class ElementPaths {
             case "air" -> new String[]{"breathless", "Tornado", "Flight"};
             case "earth" -> new String[]{"Earthquake", "Ravine", "Earth sink"};
             case "energy" -> new String[]{"Give and take"}; // Avatar special element
+            // Gravitybending has a masterclass with no balanced path beneath it —
+            // see UpgradeMenuScreen.checkTreeLogic, whose masterclass gate had to
+            // stop requiring a completed balanced path when there isn't one.
+            case "gravity" -> new String[]{
+                    "Gravity Push", "Encase", "Gravity Crush", "Meteor"};
             default -> NONE;
         };
     }
@@ -255,7 +269,7 @@ public final class ElementPaths {
      */
     private static final String[] ELEMENTS = {
             "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion",
-            "blood", "lava", "energy",
+            "blood", "lava", "gravity", "energy",
 
             // Not a bending art, but it IS a tree with abilities in it, which is the only
             // test this list applies — and /bend add is the one way to hand it to somebody

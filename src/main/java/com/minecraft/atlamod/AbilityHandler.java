@@ -767,6 +767,23 @@ public class AbilityHandler {
     }
 
     /**
+     * How much the player's active channel divides this particular damage by, for a
+     * shield that reduces rather than blocks outright (Repel Shield). 1.0 — no
+     * reduction — for anyone not channeling, whatever they're channeling if it
+     * isn't a ChanneledAbility, and anything blocksDamage already cancelled: a
+     * reduction only matters for damage that is actually going to land.
+     */
+    public static double damageReductionFor(BendingData data, DamageSource source) {
+        if (!data.isChanneling()) return 1.0;
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return 1.0;
+
+        Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
+        if (!(ability instanceof ChanneledAbility channeled)) return 1.0;
+
+        return Math.max(1.0, channeled.damageReductionFactor(data));
+    }
+
+    /**
      * Pushes the current charge/armed state to the player's HUD.
      *
      * Reads the state rather than being told it, so callers only have to say "this
