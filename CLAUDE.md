@@ -1990,7 +1990,7 @@ much; nothing else knows an event exists.
 | | How often | How long | What it touches |
 |---|---|---|---|
 | **Blood Moon** | night of every 3rd day | dusk to dawn, ~9 min | waterbending, lifted |
-| **Sozin's Comet** | every 6th day | the whole day, 20 min | firebending, lifted hard |
+| **Sozin's Comet** | every 6th day | midnight to midnight, 20 min | firebending, lifted hard |
 | **Day of Black Sun** | every 12th day | 6 min across noon | firebending, gone |
 
 - **DERIVED FROM THE CLOCK, NEVER COUNTED DOWN**, which is the one structural decision
@@ -1999,14 +1999,33 @@ much; nothing else knows an event exists.
   and somebody who just joined, and an event cannot be left half-running by a crash. It
   also means events need no new world — they start happening in a save that has been
   played for years.
-- Periods VERIFIED by simulation: first blood moon on day 2 then every 3, first comet on
-  day 5 then every 6, first eclipse on day 11 then every 12. The eclipse is exactly 7200
-  ticks — six real minutes — and straddles noon rather than following it.
-- **THE COMET AND THE ECLIPSE ALWAYS COINCIDE**, because 12 is a multiple of 6. Every
-  twelfth day is a comet day, and six minutes of it are an eclipse. That is not a clash to
-  be fixed: firebending spends the day at its absolute height and then goes out entirely
-  at noon, which is the most dramatic thing either event could do. The suppression wins
-  outright while it lasts, since "not at all" is not a multiplier.
+- Periods VERIFIED by simulation: every 3, 6 and 12 days respectively. The eclipse is
+  exactly 7200 ticks — six real minutes — and straddles noon rather than following it.
+
+### MINECRAFT'S DAY COUNTER ROLLS OVER AT SUNRISE, NOT MIDNIGHT
+
+`dayTime` 0 is six in the morning — noon is 6000, sunset 12000, midnight 18000. So
+`floorDiv(time, DAY)` counts sunrise to sunrise, and anything meant to run for "a day"
+starting at midnight has to say so.
+
+**That was a real bug.** The comet ran on the raw day counter, so its twenty minutes began
+and ended at SUNRISE. Two things followed: its second half sat in the same calendar day as
+the blood moon that comes after it, and `/bend event` from inside a comet could land
+somewhere the comet was still up — which is exactly how it was noticed.
+
+- **Each event now has an EPOCH**, which is how far its own calendar is shifted from
+  Minecraft's. Zero for the blood moon and the eclipse, because an event that happens
+  WITHIN a day does not care where the day begins — a night is a night and noon is noon.
+  `MIDNIGHT` for the comet, which occupies a whole day, so where that day starts is the
+  entire question.
+- Everything is then expressed the same way — `dayIndex`, `within`, `startWithin`,
+  `length` — so the three events need one shape of arithmetic rather than three, and
+  `nextStart` is by construction consistent with `isActive`.
+- **THE COMET AND THE ECLIPSE NO LONGER COINCIDE**, which falls out of the shift rather
+  than being arranged. They used to, because 12 is a multiple of 6; with the comet's day
+  running midnight to midnight, the eclipse's noon always falls in the gap. Verified at
+  zero overlapping samples across 400 days. An earlier note here said the coincidence was
+  deliberate and worth keeping — it was neither, it was the sunrise boundary.
 
 ### What an event actually changes
 

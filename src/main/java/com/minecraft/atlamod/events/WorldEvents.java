@@ -85,29 +85,74 @@ public final class WorldEvents {
      * asking whichever level is to hand gives the same answer everywhere and needs no
      * cross-dimension lookup.
      */
+    /**
+     * MINECRAFT'S DAY COUNTER ROLLS OVER AT SUNRISE, NOT AT MIDNIGHT.
+     *
+     * {@code dayTime} 0 is six in the morning; noon is 6000, sunset 12000 and midnight
+     * 18000. So {@code floorDiv(time, DAY)} counts sunrise to sunrise, and anything meant
+     * to run for "a day" from midnight has to say so.
+     *
+     * THAT WAS A REAL BUG. The comet ran on the raw day counter, so its twenty minutes
+     * began and ended at sunrise — which put its last half in the same calendar day as the
+     * blood moon that follows it, and made {@code /bend event} from inside the comet land
+     * somewhere the comet was still up. Shifting its epoch to midnight is the fix, and as
+     * a side effect it is what stops the comet and the eclipse ever coinciding.
+     */
+    private static final int MIDNIGHT = 18000;
+
+    /**
+     * How far an event's own calendar is shifted from Minecraft's.
+     *
+     * Zero for the two events that happen WITHIN a day and so do not care where the day
+     * begins — a night is a night and noon is noon whatever the counter says. The comet
+     * occupies a whole day, so where that day starts is the entire question.
+     */
+    private static int epoch(Event event) {
+        return event == Event.SOZINS_COMET ? MIDNIGHT : 0;
+    }
+
+    /** How far into its own day an event begins. */
+    private static int startWithin(Event event) {
+        return switch (event) {
+            case BLOOD_MOON -> NIGHT_FROM;
+            case SOZINS_COMET -> 0;
+            case BLACK_SUN -> NOON - ECLIPSE_LENGTH / 2;
+        };
+    }
+
+    /**
+     * Which of the event's own days this moment falls in.
+     *
+     * Counted from that event's epoch, so the comet's days run midnight to midnight and
+     * the other two run sunrise to sunrise. Everything below is expressed against this,
+     * which is what keeps the three from needing three different shapes of arithmetic.
+     */
+    private static long dayIndex(long time, Event event) {
+        return Math.floorDiv(time - epoch(event), (long) DAY);
+    }
+
+    /** How far into that day this moment is, always 0 up to one day. */
+    private static long within(long time, Event event) {
+        return time - epoch(event) - dayIndex(time, event) * DAY;
+    }
+
     public static boolean isActive(Level level, Event event) {
         if (level == null) return false;
         if (!enabled(event)) return false;
 
         long time = level.getDayTime();
-        long day = Math.floorDiv(time, DAY);
-        int hour = (int) Math.floorMod(time, (long) DAY);
 
-        return switch (event) {
-            // The NIGHT of every third day. Counted so that day 2 is the first one, which
-            // puts the first blood moon on the third night a world is played rather than
-            // making a brand new world start under one.
-            case BLOOD_MOON -> Math.floorMod(day, 3L) == 2L && hour >= NIGHT_FROM;
+        // The right day of the cycle — every third, sixth or twelfth. Counted so that the
+        // first of each falls a little way in rather than on a brand new world's first
+        // night.
+        if (Math.floorMod(dayIndex(time, event), (long) period(event)) != dayOfPeriod(event)) {
+            return false;
+        }
 
-            // The WHOLE of every sixth day, dark hours included — the comet is the one
-            // event that is meant to be overhead however late it gets.
-            case SOZINS_COMET -> Math.floorMod(day, 6L) == 5L;
+        long into = within(time, event);
+        long from = startWithin(event);
 
-            // Six minutes across noon on every twelfth day.
-            case BLACK_SUN -> Math.floorMod(day, 12L) == 11L
-                    && hour >= NOON - ECLIPSE_LENGTH / 2
-                    && hour < NOON + ECLIPSE_LENGTH / 2;
-        };
+        return into >= from && into < from + length(event);
     }
 
     /**
@@ -119,14 +164,9 @@ public final class WorldEvents {
     public static float progress(Level level, Event event) {
         if (!isActive(level, event)) return 0.0F;
 
-        long time = level.getDayTime();
-        int hour = (int) Math.floorMod(time, (long) DAY);
+        long into = within(level.getDayTime(), event) - startWithin(event);
 
-        return switch (event) {
-            case BLOOD_MOON -> (hour - NIGHT_FROM) / (float) (DAY - NIGHT_FROM);
-            case SOZINS_COMET -> hour / (float) DAY;
-            case BLACK_SUN -> (hour - (NOON - ECLIPSE_LENGTH / 2)) / (float) ECLIPSE_LENGTH;
-        };
+        return into / (float) length(event);
     }
 
     /**
@@ -164,15 +204,6 @@ public final class WorldEvents {
         return period(event) - 1;
     }
 
-    /** The tick within the day that the event begins at. */
-    private static int startHour(Event event) {
-        return switch (event) {
-            case BLOOD_MOON -> NIGHT_FROM;
-            case SOZINS_COMET -> 0;
-            case BLACK_SUN -> NOON - ECLIPSE_LENGTH / 2;
-        };
-    }
-
     /** How long it runs for, in ticks. */
     public static int length(Event event) {
         return switch (event) {
@@ -202,16 +233,18 @@ public final class WorldEvents {
      */
     public static long nextStart(long now, Event event) {
         int period = period(event);
-        int offset = dayOfPeriod(event);
-        int hour = startHour(event);
+        int wanted = dayOfPeriod(event);
 
-        long day = Math.floorDiv(now, (long) DAY);
+        // Counted in the EVENT'S OWN days, which for the comet begin at midnight — the
+        // same arithmetic isActive uses, so the moment this returns is by construction one
+        // isActive agrees is the first tick.
+        long index = dayIndex(now, event);
 
         for (int ahead = 0; ahead <= period * 2; ahead++) {
-            long candidate = day + ahead;
-            if (Math.floorMod(candidate, (long) period) != offset) continue;
+            long candidate = index + ahead;
+            if (Math.floorMod(candidate, (long) period) != wanted) continue;
 
-            long start = candidate * DAY + hour;
+            long start = candidate * DAY + epoch(event) + startWithin(event);
             if (start >= now) return start;
         }
 
