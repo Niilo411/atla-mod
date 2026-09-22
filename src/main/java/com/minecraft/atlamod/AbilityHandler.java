@@ -35,19 +35,77 @@ public class AbilityHandler {
      * places, none of which an ability class touches — asking each one to shorten its
      * own would be a rule the next ability added would quietly break.
      */
-    private static int cooldownFor(BendingData data, Ability ability) {
+    private static int cooldownFor(ServerPlayer player, BendingData data, Ability ability) {
         int base = ability.getCooldownTicks();
         if (base <= 0) return base;
 
-        return boostable(ability) ? com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base) : base;
+        if (boostable(ability)) {
+            base = com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base);
+        }
+        return scaled(base, com.minecraft.atlamod.events.WorldEvents
+                .cooldownMultiplier(player.level(), ability.getName()));
     }
 
     /** The same quarter off an ability's charge time. */
-    private static int chargeTicksFor(BendingData data, ChargedAbility ability) {
+    private static int chargeTicksFor(ServerPlayer player, BendingData data, ChargedAbility ability) {
         int base = ability.getChargeTicks();
         if (base <= 0) return base;
 
-        return boostable(ability) ? com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base) : base;
+        if (boostable(ability)) {
+            base = com.minecraft.atlamod.abilities.sound.Sound.shorten(data, base);
+        }
+        return scaled(base, com.minecraft.atlamod.events.WorldEvents
+                .chargeMultiplier(player.level(), ability.getName()));
+    }
+
+    /**
+     * What an ability costs to cast right now, after any world event.
+     *
+     * THE ONE PLACE THE COST IS DECIDED, which matters because three separate things ask
+     * for it — the chi check before a cast, the message that names the figure when it is
+     * refused, and the spend itself. Left as three calls to getChiCost, a comet would have
+     * made an ability cost less but still be refused at the old price.
+     */
+    public static int chiCostFor(ServerPlayer player, BendingData data, Ability ability) {
+        return scaled(ability.getChiCost(data), com.minecraft.atlamod.events.WorldEvents
+                .chiMultiplier(player.level(), ability.getName()));
+    }
+
+    /**
+     * A figure times a multiplier, never dropping to zero.
+     *
+     * A cooldown or a charge rounded away would be a genuine change of shape rather than
+     * a discount — a two-phase ability with no charge is not the same ability cheaply. A
+     * chi cost of zero is the same problem in reverse: free is not what "a quarter of the
+     * price" means, and it would let an empty pool cast anything. Anything that was
+     * already zero stays zero, since {@code Math.max} is only reached by a positive base.
+     */
+    private static int scaled(int base, float multiplier) {
+        if (base <= 0 || multiplier == 1.0F) return base;
+
+        return Math.max(1, Math.round(base * multiplier));
+    }
+
+    /**
+     * Runs an ability's effect with its ELEMENT recorded on the caster.
+     *
+     * The damage handler is where a world event's damage multiplier has to be applied,
+     * and it is the one place that cannot tell which element caused a blow — damage
+     * arrives as a source and an attacker, and nearly every element here hits through
+     * indirectMagic. The dispatcher knows, for exactly as long as the effect is running.
+     *
+     * CLEARED IN A FINALLY, which is the whole reason this is a method rather than two
+     * lines at each of the three call sites: an ability that threw would otherwise leave
+     * every later blow that player landed wearing the element of the cast that failed.
+     */
+    private static void runWithElement(BendingData data, Ability ability, Runnable effect) {
+        data.setCastingElement(
+                com.minecraft.atlamod.abilities.ElementPaths.elementOf(ability.getName()));
+        try {
+            effect.run();
+        } finally {
+            data.setCastingElement("");
+        }
     }
 
     /**
@@ -111,6 +169,28 @@ public class AbilityHandler {
      * one also freezes regeneration — so a player reading "you cannot bend right now"
      * would have no idea which of the two had happened to them or how long it lasts.
      */
+    /**
+     * Refuses firebending while the sun is out.
+     *
+     * THE DAY OF BLACK SUN'S WHOLE POINT, and a refusal rather than a multiplier because
+     * no multiplier says "not at all" — one small enough to try would leave abilities
+     * casting for nothing, which reads as the mod being broken rather than as an eclipse.
+     *
+     * Overworld only, and switchable off in the settings, where turning it off leaves the
+     * event's multipliers in force: that is how it goes from "firebending is gone" to
+     * "firebending is worse" without a second setting deciding which.
+     */
+    private static boolean refusedByBlackSun(ServerPlayer player, Ability ability) {
+        if (!com.minecraft.atlamod.events.WorldEvents
+                .firebendingSuppressed(player.level(), ability.getName())) {
+            return false;
+        }
+
+        player.displayClientMessage(Component.literal(
+                "§8The sun is dark. There is no fire in you."), true);
+        return true;
+    }
+
     private static boolean refusedChiBlocked(ServerPlayer player, BendingData data) {
         if (!data.isChiBlocked()) return false;
 
@@ -153,6 +233,7 @@ public class AbilityHandler {
         // is spent or stamped. It stops the no-bending abilities too, deliberately: a
         // chi blocker whose own points have been struck is as stopped as anyone else.
         if (refusedChiBlocked(player, data)) return;
+        if (refusedByBlackSun(player, ability)) return;
 
         // Held shapes do NOT start here — they come in through executeAbilityHold().
         // The client can't tell the shapes apart, so it fires UseAbilityPacket AND
@@ -226,7 +307,7 @@ public class AbilityHandler {
             return;
         }
 
-        if (!AbilitySupport.consumeChiAndGiveXp(player, data, ability.getChiCost(data), ability.getXpReward())) {
+        if (!AbilitySupport.consumeChiAndGiveXp(player, data, chiCostFor(player, data, ability), ability.getXpReward())) {
             return;
         }
 
@@ -239,11 +320,11 @@ public class AbilityHandler {
             data.setTwoPhaseShots(twoPhase.getShots());
         }
 
-        ability.execute(player, data);
+        runWithElement(data, ability, () -> ability.execute(player, data));
 
         // Two-phase cooldowns start on release instead — see TwoPhaseAbility.
         if (ability.getCooldownTicks() > 0 && !(ability instanceof TwoPhaseAbility)) {
-            data.setCooldown(ability.getKey(), cooldownFor(data, ability));
+            data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
         }
 
         AbilitySupport.syncData(player, data);
@@ -322,7 +403,7 @@ public class AbilityHandler {
             return;
         }
 
-        twoPhase.onRelease(player, data);
+        runWithElement(data, ability, () -> twoPhase.onRelease(player, data));
 
         // An ability may be good for several clicks (Water Bullets fires three). The
         // slot stays armed until they are all spent, so a partly used one is still
@@ -337,7 +418,7 @@ public class AbilityHandler {
 
             // The cooldown waits for the last shot, not the first.
             if (ability.getCooldownTicks() > 0) {
-                data.setCooldown(ability.getKey(), cooldownFor(data, ability));
+                data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
             }
         }
 
@@ -370,6 +451,7 @@ public class AbilityHandler {
         // Only a PRESS again, for the reason above it: a channel already running when the
         // chi block landed has to be able to be let go of.
         if (isHeld && refusedChiBlocked(player, data)) return;
+        if (isHeld && ability != null && refusedByBlackSun(player, ability)) return;
 
         // Switched off in this world's settings — and, like the two guards above, only a
         // PRESS is refused. A channel or a charge that was already running when the
@@ -429,9 +511,9 @@ public class AbilityHandler {
 
         // Chi is only CHECKED here — it is spent when the cast actually lands, so
         // winding up and letting go early costs the player nothing.
-        if (data.getCurrentChi() < ability.getChiCost(data)) {
+        if (data.getCurrentChi() < chiCostFor(player, data, ability)) {
             player.displayClientMessage(Component.literal(
-                    "§cNot enough Chi! (Requires " + ability.getChiCost(data) + ")"), true);
+                    "§cNot enough Chi! (Requires " + chiCostFor(player, data, ability) + ")"), true);
             return;
         }
 
@@ -487,7 +569,7 @@ public class AbilityHandler {
         int held = data.getChargeTicks() + 1;
         data.setChargeTicks(held);
 
-        if (held < chargeTicksFor(data, charged)) {
+        if (held < chargeTicksFor(player, data, charged)) {
             charged.onChargeTick(player, data, held);
             // Every other tick is smooth enough for the meter without flooding packets.
             if (held % 2 == 0) syncChargeStatus(player, data);
@@ -561,7 +643,7 @@ public class AbilityHandler {
         data.setChannelTicks(0);
 
         if (ability.getCooldownTicks() > 0) {
-            data.setCooldown(ability.getKey(), cooldownFor(data, ability));
+            data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
         }
 
         setRooted(player, false);
@@ -613,7 +695,7 @@ public class AbilityHandler {
         // this point and the duration cap is already counting, so holding the key
         // through it is a real commitment rather than a free run-up.
         if (channeled.isReady(data)) {
-            channeled.onTick(player, data);
+            runWithElement(data, ability, () -> channeled.onTick(player, data));
         } else {
             channeled.onWindupTick(player, data, data.getChannelTicks() + 1);
         }
@@ -696,7 +778,7 @@ public class AbilityHandler {
             Ability ability = AbilityRegistry.get(charging);
             // The SHORTENED total, so the meter fills against the charge the player is
             // actually serving rather than the ability's unboosted figure.
-            int total = (ability instanceof ChargedAbility charged) ? chargeTicksFor(data, charged) : 0;
+            int total = (ability instanceof ChargedAbility charged) ? chargeTicksFor(player, data, charged) : 0;
             String label = ability != null ? ability.getName() : charging;
 
             PacketDistributor.sendToPlayer(player,
@@ -796,7 +878,7 @@ public class AbilityHandler {
             data.setTwoPhaseShots(0);
 
             if (ability.getCooldownTicks() > 0) {
-                data.setCooldown(ability.getKey(), cooldownFor(data, ability));
+                data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
             }
 
             twoPhase.onArmedExpire(player, data);

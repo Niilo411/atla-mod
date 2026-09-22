@@ -175,6 +175,19 @@ public final class BendingProjectiles {
         final UUID ownerId;
         final ServerLevel level;
         final Spec spec;
+
+        /**
+         * The world-event damage multiplier this shot was launched under.
+         *
+         * CAPTURED AT LAUNCH, not read when it lands, and the difference is the whole
+         * reason it is a field. A projectile flies for a second or two and is resolved
+         * from the server tick, long after the cast that made it has finished — so by
+         * the time it hits, the caster is no longer recorded as casting anything and the
+         * damage handler has nothing to go on. It is also the honest answer: a shot
+         * loosed under a blood moon was loosed under a blood moon, whatever the sky is
+         * doing when it arrives.
+         */
+        final float damageScale;
         Vec3 pos;
         Vec3 velocity;
         int ticksLeft;
@@ -183,7 +196,8 @@ public final class BendingProjectiles {
         @Nullable net.minecraft.world.level.block.state.BlockState carried;
         @Nullable net.minecraft.world.entity.item.FallingBlockEntity display;
 
-        Shot(UUID ownerId, ServerLevel level, Spec spec, Vec3 pos, Vec3 velocity) {
+        Shot(UUID ownerId, ServerLevel level, Spec spec, Vec3 pos, Vec3 velocity, float damageScale) {
+            this.damageScale = damageScale;
             this.ownerId = ownerId;
             this.level = level;
             this.spec = spec;
@@ -193,12 +207,27 @@ public final class BendingProjectiles {
         }
     }
 
+    /**
+     * The world-event damage multiplier in force for whatever is being cast right now.
+     *
+     * Read at LAUNCH because that is the only moment the caster is recorded as casting
+     * anything — see {@code BendingData.castingElement}. Every launch in the mod happens
+     * inside an ability's own effect, so the element is always there to be read.
+     */
+    private static float eventScale(ServerPlayer owner) {
+        String casting = owner.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA)
+                .getCastingElement();
+
+        return com.minecraft.atlamod.events.WorldEvents
+                .damageMultiplier(owner.level(), casting);
+    }
+
     /** Sends a shot on its way. */
     public static void launch(ServerPlayer owner, Vec3 from, Vec3 direction, Spec spec) {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
         IN_FLIGHT.add(new Shot(owner.getUUID(), level, spec, from,
-                direction.normalize().scale(spec.speed())));
+                direction.normalize().scale(spec.speed()), eventScale(owner)));
     }
 
     /**
@@ -214,7 +243,7 @@ public final class BendingProjectiles {
         if (!(owner.level() instanceof ServerLevel level)) return;
 
         Shot shot = new Shot(owner.getUUID(), level, spec, from,
-                direction.normalize().scale(spec.speed()));
+                direction.normalize().scale(spec.speed()), eventScale(owner));
         shot.carried = carried;
         shot.display = display;
         IN_FLIGHT.add(shot);
@@ -290,7 +319,7 @@ public final class BendingProjectiles {
             if (shot.spec.style() == Style.LIGHTNING
                     && living instanceof ServerPlayer victim
                     && com.minecraft.atlamod.abilities.lightning.LightningRedirection
-                            .absorb(victim, shot.spec.damage())) {
+                            .absorb(victim, shot.spec.damage() * shot.damageScale)) {
                 return true;
             }
 
@@ -303,7 +332,8 @@ public final class BendingProjectiles {
                     living.invulnerableTime = 0;
                 }
 
-                living.hurt(owner.damageSources().indirectMagic(owner, owner), shot.spec.damage());
+                living.hurt(owner.damageSources().indirectMagic(owner, owner),
+                        shot.spec.damage() * shot.damageScale);
             }
 
             if (shot.spec.onHit() != null) {

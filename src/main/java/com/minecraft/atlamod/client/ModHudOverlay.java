@@ -18,6 +18,10 @@ public class ModHudOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
+        // FIRST, under everything else this layer draws, so the readouts stay legible
+        // through it. A world event washes the screen; it should not wash the numbers.
+        WorldEventSky.renderScreenTint(guiGraphics);
+
         var data = mc.player.getData(ModAttachments.BENDING_DATA);
         String activeElement = data.getActiveElement();
 

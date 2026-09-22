@@ -70,6 +70,9 @@ public class ServerEvents {
         // through MetalWorks, so anything they release still gets settled here.
         com.minecraft.atlamod.abilities.metal.MetalWorks.tickAll(event.getServer());
 
+        // Tells everybody when the sky changes. Checked once a second — see the class.
+        com.minecraft.atlamod.events.WorldEventAnnouncer.tick(event.getServer());
+
         // Keeps a running cycle looking for an Avatar when nobody holds the title.
         // Rate-limited inside, and does nothing at all once one is in place.
         com.minecraft.atlamod.avatar.Avatar.tickCycle(event.getServer());
@@ -973,6 +976,54 @@ public class ServerEvents {
         com.minecraft.atlamod.spirit.island.SpiritShrines.use(player, pos);
     }
 
+    /**
+     * Every toggle goes out at the threshold.
+     *
+     * FIRED BEFORE THE MOVE, which is the whole reason this is its own handler rather
+     * than more lines in the clone handler below. That one runs AFTER the change, on a
+     * fresh BendingData whose transient flags have already come back false — so by the
+     * time it looks, no toggle appears to be on and nothing would be switched off. Here
+     * the player is still standing in the old level with their state intact.
+     *
+     * ASKS THE REGISTRY rather than naming the toggles, so one added later is covered
+     * without this being touched. {@code isActive} answers false for everything that is
+     * not a toggle and for every toggle that is not running, which is nearly all of them
+     * nearly always — a hundred and six boolean reads on a portal, once.
+     *
+     * Each one goes out through its OWN deactivate, so whatever it does on the way down
+     * still happens: Metal shield gives its blocks back, Compressed punches stamps its
+     * cooldown, Fire Rocket closes the flight flags. Cleaning up by hand here would be a
+     * second copy of every one of those.
+     */
+    /**
+     * Forgets which world events were running when a server stops.
+     *
+     * Single player is one process that opens and closes worlds: without this, loading a
+     * second world would start out believing the first one's sky was still overhead, and
+     * the announcer would say nothing until it next changed.
+     */
+    @SubscribeEvent
+    public static void onServerStopping(net.neoforged.neoforge.event.server.ServerStoppingEvent event) {
+        com.minecraft.atlamod.events.WorldEventAnnouncer.forget();
+    }
+
+    @SubscribeEvent
+    public static void onTravelToDimension(
+            net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        BendingData data = player.getData(ModAttachments.BENDING_DATA);
+
+        for (com.minecraft.atlamod.abilities.Ability ability
+                : com.minecraft.atlamod.abilities.AbilityRegistry.all().values()) {
+            if (ability.isActive(player, data)) {
+                ability.deactivate(player, data);
+            }
+        }
+
+        player.setData(ModAttachments.BENDING_DATA, data);
+    }
+
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
         // Copies your data to your new body when respawning OR traveling to the Nether
@@ -1303,6 +1354,26 @@ public class ServerEvents {
             }
         }
 
+        // A world event's damage multiplier, applied to ANY damage source rather than to
+        // fire's alone — a blood moon lifts waterbending, which hits through indirectMagic
+        // and drown, and neither is a tag this handler could key off on its own.
+        //
+        // WHICH ELEMENT is read off the attacker, where the dispatcher records it for the
+        // duration of an ability's effect. That is exact for anything that damages as it
+        // casts, which is nearly everything; a PROJECTILE lands long after its cast has
+        // finished, so it carries its own copy taken at launch instead. See
+        // BendingProjectiles and BendingData.castingElement.
+        if (event.getSource().getEntity() instanceof ServerPlayer caster) {
+            String casting = caster.getData(ModAttachments.BENDING_DATA).getCastingElement();
+
+            if (!casting.isEmpty()) {
+                float eventScale = com.minecraft.atlamod.events.WorldEvents
+                        .damageMultiplier(caster.level(), casting);
+
+                if (eventScale != 1.0F) event.setAmount(event.getAmount() * eventScale);
+            }
+        }
+
         if (!event.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) return;
         if (!(event.getEntity().level() instanceof ServerLevel level)) return;
 
@@ -1383,6 +1454,14 @@ public class ServerEvents {
                 player.setAirSupply(player.getMaxAirSupply());
             }
             player.setData(ModAttachments.BENDING_DATA, data);
+
+            // --- PASSIVES ARE SILENT IN THE SPIRIT WORLD ---
+            // Set BEFORE anything below reads a passive, because almost everything below
+            // does. Bending is already refused there; a passive is bending that happens
+            // to need no cast, so leaving them running would have meant fire immunity,
+            // flight and doubled chi regen all working in the one place nothing else does.
+            data.setPassivesSuppressed(
+                    com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(player.level()));
 
             // --- CHI BLOCKED ---
             // Counted down here rather than in the tracker, because the tracker only

@@ -1981,6 +1981,138 @@ like the armor sheets and for the same reason.
   rendering hints and exactly reproducible across JDKs, which the hint-driven path is not.
   Averaged in PREMULTIPLIED alpha, or the rim would come out grey where white meets nothing.
 
+## World events
+
+Three things the sky does to bending. `events/WorldEvents.java` decides when and by how
+much; nothing else knows an event exists.
+
+| | How often | How long | What it touches |
+|---|---|---|---|
+| **Blood Moon** | night of every 3rd day | dusk to dawn, ~9 min | waterbending, lifted |
+| **Sozin's Comet** | every 6th day | the whole day, 20 min | firebending, lifted hard |
+| **Day of Black Sun** | every 12th day | 6 min across noon | firebending, gone |
+
+- **DERIVED FROM THE CLOCK, NEVER COUNTED DOWN**, which is the one structural decision
+  here and the same one the low-gravity tide makes. Every player asks the same clock, so
+  there is no state to persist, nothing to sync, no drift between somebody already online
+  and somebody who just joined, and an event cannot be left half-running by a crash. It
+  also means events need no new world — they start happening in a save that has been
+  played for years.
+- Periods VERIFIED by simulation: first blood moon on day 2 then every 3, first comet on
+  day 5 then every 6, first eclipse on day 11 then every 12. The eclipse is exactly 7200
+  ticks — six real minutes — and straddles noon rather than following it.
+- **THE COMET AND THE ECLIPSE ALWAYS COINCIDE**, because 12 is a multiple of 6. Every
+  twelfth day is a comet day, and six minutes of it are an eclipse. That is not a clash to
+  be fixed: firebending spends the day at its absolute height and then goes out entirely
+  at noon, which is the most dramatic thing either event could do. The suppression wins
+  outright while it lasts, since "not at all" is not a multiplier.
+
+### What an event actually changes
+
+**FOUR PLACES, all central**, so no ability class knows an event is running and none added
+later can miss out: the dispatcher's cooldown, its charge time, its chi cost, and the
+damage handler.
+
+- **Everything is a PERCENTAGE OF NORMAL**, 100 meaning untouched. Set all four of an
+  event's numbers to 100 and it still happens — it simply becomes scenery.
+- **`scaled` never rounds a figure away.** A cooldown or charge of zero is a change of
+  shape rather than a discount — a two-phase ability with no charge is not the same
+  ability cheaply — and a chi cost of zero would let an empty pool cast anything.
+- **`chiCostFor` is now the single place a cost is decided**, which it had to become:
+  three separate things ask for it, and left as three calls a comet would have made an
+  ability cost less while still refusing it at the old price.
+- **Sub-elements are deliberately NOT swept up.** A blood moon lifts waterbending, not
+  icebending or bloodbending however closely related — an event that quietly buffed three
+  trees would be three times the change anybody reading the config expected.
+- **The black sun's suppression is a REFUSAL, not a multiplier**, because no multiplier
+  says "not at all" and one small enough to try would leave abilities casting for nothing.
+  Overworld only: the sun is what is being eclipsed. Turning it off in the config leaves
+  the multipliers in force, which is how the event goes from "firebending is gone" to
+  "firebending is worse" without a second setting deciding which.
+
+### The damage multiplier needed something new
+
+The damage handler is where a damage change has to be applied and is the one place that
+cannot tell which element caused a blow — damage arrives as a source and an attacker, and
+nearly every element in this mod hits through `indirectMagic`. Blue Fire gets away with
+keying on `IS_FIRE` because fire is the exception.
+
+- **`BendingData.castingElement`** is the answer: the dispatcher records the element of
+  whatever it is running, immediately before the effect and cleared immediately after, by
+  `runWithElement`. Cleared in a `finally`, which is the whole reason it is a method
+  rather than two lines at each of the three call sites — an ability that threw would
+  otherwise leave every later blow that player landed wearing the element of the cast that
+  failed.
+- **A PROJECTILE CARRIES ITS OWN COPY, taken at launch.** It flies for a second or two and
+  is resolved from the server tick, long after its cast has finished, so by the time it
+  lands the caster is recorded as casting nothing. It is also the honest answer: a shot
+  loosed under a blood moon was loosed under a blood moon, whatever the sky is doing when
+  it arrives.
+
+### What the events look like
+
+- **THE FOG IS THE SKY**, as far as a mod without a mixin is concerned. Sun, moon and
+  stars are drawn by `DimensionSpecialEffects`, looked up once per dimension — recolouring
+  the overworld's moon means replacing the overworld's effects object wholesale and taking
+  over vanilla sky rendering to change one quad. The fog colour IS an ordinary hook, and
+  fog is what the whole sky dome is washed with at distance. Pushing it red turns the
+  night red, and the moon reads as red because everything around it does.
+- **Tinted, never replaced.** Every colour is blended TOWARDS the fog vanilla already
+  chose, so weather, biome, time of day and depth still show through. A flat colour would
+  look identical underwater, in a cave, and on a hilltop at sunset.
+- **A slight screen wash on top**, drawn first by `ModHudOverlay` so the readouts stay
+  legible through it. The fog only shows at distance, so indoors an event would otherwise
+  be invisible — and the black sun in particular should be noticeable from inside a house.
+  The eclipse's wash is far heavier than the other two, because "the sun went out" is the
+  whole event, and it follows a sine so the sun dims and returns rather than switching.
+- **THE COMET IS NOT DRAWN AS AN OBJECT**, and that is the honest limit. Its day is
+  unmistakable — the sky burns orange from dawn to dawn — but there is no streak overhead
+  to look up at. Doing it properly means a textured quad on the sky dome through
+  `RenderLevelStageEvent`, which cannot be checked without running the game.
+
+### Announcing them
+
+An event is a function of time, so "is it happening" is answerable at any moment and "did
+it just start" is not. `WorldEventAnnouncer` remembers what was true last tick and speaks
+when the answer moves. Held in memory rather than saved: the worst a restart can do is
+announce an event twice, which is a line of chat, and persisting booleans to avoid that
+would be a second record of something the clock already knows. Checked once a second, not
+every tick — the edges are minutes apart.
+
+## Two rules about leaving where you are
+
+### Every toggle goes out at the threshold
+
+`EntityTravelToDimensionEvent`, which fires BEFORE the move — and that is the whole reason
+it is its own handler rather than more lines in `PlayerEvent.Clone`. Clone runs AFTER, on
+a fresh `BendingData` whose transient flags have already come back false, so by the time it
+looks no toggle appears to be on and nothing would be switched off.
+
+- **Asks the registry rather than naming the toggles**, so one added later is covered
+  without the handler being touched. `isActive` answers false for everything that is not a
+  toggle and for every toggle that is not running, which is nearly all of them nearly
+  always — a hundred-odd boolean reads on a portal, once.
+- Each goes out through its OWN `deactivate`, so whatever it does on the way down still
+  happens: Metal shield gives its blocks back, Compressed punches stamps its cooldown,
+  Fire Rocket closes the flight flags. Cleaning up by hand would be a second copy of all
+  of those.
+
+### Passives are silent in the Spirit World
+
+Bending is already refused there; a passive is bending that happens to need no cast, so
+leaving them running meant fire immunity, flight and doubled chi regen all working in the
+one place nothing else does.
+
+- **`BendingData.passivesSuppressed` is a FLAG rather than a level check inside
+  `hasPassiveEquipped`**, because that method has no player and no level — it is asked of
+  the DATA, by thirteen different passives, and giving it a level would mean threading one
+  through every call site. The flag is set once a tick from whichever side is ticking,
+  which keeps the single choke point that makes "switch every passive off at once" a
+  one-line change.
+- **Set on BOTH sides.** The server decides what a passive does; the client draws the menu
+  and the blood level readout, and a client that thought a passive was still running would
+  disagree with the server about both.
+
 ## Settings
 
 What a player may change about the mod, and the screen that changes it. `AtlaConfig.java`

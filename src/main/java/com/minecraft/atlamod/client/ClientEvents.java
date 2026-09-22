@@ -111,6 +111,14 @@ public class ClientEvents {
         }
         if (mc.player != null && mc.level != null) {
 
+            // The client's own copy of "passives do not work here". The server sets the
+            // same flag from its player tick; this side needs it because the menu and the
+            // blood level readout both ask whether a passive is equipped, and a client
+            // that thought one was still running would disagree with the server.
+            mc.player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA)
+                    .setPassivesSuppressed(
+                            com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(mc.level));
+
             // 4. Check Meditation Hold (M key)
             if (mc.player != null && mc.level != null) {
                 boolean isMeditateKeyDown = KeyBindings.MEDITATE.isDown();

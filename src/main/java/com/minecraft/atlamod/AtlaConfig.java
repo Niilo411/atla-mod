@@ -250,6 +250,118 @@ public final class AtlaConfig {
             .defineInRange("xpPerLevel", 200, 1, 100000);
 
     // ==========================================================================
+    //  World events
+    // ==========================================================================
+
+    /**
+     * The three events' settings, built by one helper each so the four numbers cannot
+     * drift apart in wording or in range.
+     *
+     * EVERY MULTIPLIER IS A PERCENTAGE OF NORMAL, where 100 means untouched. That is the
+     * one convention to know: 50 on a cooldown is half as long, 200 on damage is double,
+     * and setting all four to 100 leaves the event running as a purely visual one.
+     */
+    public static final ModConfigSpec.BooleanValue BLOOD_MOON_ENABLED;
+    public static final ModConfigSpec.IntValue BLOOD_MOON_COOLDOWN;
+    public static final ModConfigSpec.IntValue BLOOD_MOON_CHARGE;
+    public static final ModConfigSpec.IntValue BLOOD_MOON_CHI;
+    public static final ModConfigSpec.IntValue BLOOD_MOON_DAMAGE;
+
+    public static final ModConfigSpec.BooleanValue COMET_ENABLED;
+    public static final ModConfigSpec.IntValue COMET_COOLDOWN;
+    public static final ModConfigSpec.IntValue COMET_CHARGE;
+    public static final ModConfigSpec.IntValue COMET_CHI;
+    public static final ModConfigSpec.IntValue COMET_DAMAGE;
+
+    public static final ModConfigSpec.BooleanValue BLACK_SUN_ENABLED;
+    public static final ModConfigSpec.BooleanValue BLACK_SUN_DISABLES_FIRE;
+    public static final ModConfigSpec.IntValue BLACK_SUN_COOLDOWN;
+    public static final ModConfigSpec.IntValue BLACK_SUN_CHARGE;
+    public static final ModConfigSpec.IntValue BLACK_SUN_CHI;
+    public static final ModConfigSpec.IntValue BLACK_SUN_DAMAGE;
+
+    static {
+        BUILDER.comment("Things the sky does to bending.",
+                        "Every multiplier below is a PERCENTAGE OF NORMAL: 100 leaves a figure",
+                        "untouched, 50 halves it, 200 doubles it. Set all four of an event's",
+                        "numbers to 100 and it still happens - it simply becomes scenery.",
+                        "Events are worked out from the world clock rather than stored, so they",
+                        "need no new world and cannot be left half-running by a crash.")
+                .push("worldEvents");
+
+        BUILDER.comment("BLOOD MOON. The night of every third day: the moon runs red and",
+                        "waterbending is lifted.")
+                .push("bloodMoon");
+        BLOOD_MOON_ENABLED = BUILDER.define("enabled", true);
+        BLOOD_MOON_COOLDOWN = BUILDER
+                .comment("Waterbending cooldowns, as a percentage of normal.")
+                .defineInRange("cooldownPercent", 50, 1, 1000);
+        BLOOD_MOON_CHARGE = BUILDER
+                .comment("Waterbending charge and wind-up times, as a percentage of normal.")
+                .defineInRange("chargePercent", 50, 1, 1000);
+        BLOOD_MOON_CHI = BUILDER
+                .comment("Waterbending chi costs, as a percentage of normal.")
+                .defineInRange("chiPercent", 60, 1, 1000);
+        BLOOD_MOON_DAMAGE = BUILDER
+                .comment("Waterbending damage, as a percentage of normal.")
+                .defineInRange("damagePercent", 150, 1, 1000);
+        BUILDER.pop();
+
+        BUILDER.comment("SOZIN'S COMET. The whole of every sixth day, overhead day and night:",
+                        "firebending at its height.")
+                .push("sozinsComet");
+        COMET_ENABLED = BUILDER.define("enabled", true);
+        COMET_COOLDOWN = BUILDER
+                .comment("Firebending cooldowns, as a percentage of normal.")
+                .defineInRange("cooldownPercent", 40, 1, 1000);
+        COMET_CHARGE = BUILDER
+                .comment("Firebending charge and wind-up times, as a percentage of normal.")
+                .defineInRange("chargePercent", 40, 1, 1000);
+        COMET_CHI = BUILDER
+                .comment("Firebending chi costs, as a percentage of normal.",
+                        "25 is the shipped figure - the comet is meant to feel like firebending",
+                        "costing almost nothing.")
+                .defineInRange("chiPercent", 25, 1, 1000);
+        COMET_DAMAGE = BUILDER
+                .comment("Firebending damage, as a percentage of normal.")
+                .defineInRange("damagePercent", 200, 1, 1000);
+        BUILDER.pop();
+
+        BUILDER.comment("DAY OF BLACK SUN. Six minutes across noon on every twelfth day:",
+                        "the moon crosses the sun and firebending goes out.",
+                        "TO SOFTEN IT rather than switch it off, set disablesFirebending to false",
+                        "and leave the multipliers as a debuff - the event still happens, the sky",
+                        "still darkens, and firebending is merely worse instead of gone.",
+                        "TO REMOVE IT entirely, set enabled to false.")
+                .push("dayOfBlackSun");
+        BLACK_SUN_ENABLED = BUILDER.define("enabled", true);
+        BLACK_SUN_DISABLES_FIRE = BUILDER
+                .comment("Whether firebending is refused outright in the OVERWORLD for the",
+                        "whole six minutes. True is the shipped behaviour. When false, only the",
+                        "multipliers below apply.")
+                .define("disablesFirebending", true);
+        BLACK_SUN_COOLDOWN = BUILDER
+                .comment("Firebending cooldowns, as a percentage of normal.",
+                        "Only used when disablesFirebending is false.")
+                .defineInRange("cooldownPercent", 200, 1, 1000);
+        BLACK_SUN_CHARGE = BUILDER
+                .comment("Firebending charge and wind-up times, as a percentage of normal.",
+                        "Only used when disablesFirebending is false.")
+                .defineInRange("chargePercent", 200, 1, 1000);
+        BLACK_SUN_CHI = BUILDER
+                .comment("Firebending chi costs, as a percentage of normal.",
+                        "Only used when disablesFirebending is false.")
+                .defineInRange("chiPercent", 200, 1, 1000);
+        BLACK_SUN_DAMAGE = BUILDER
+                .comment("Firebending damage, as a percentage of normal.",
+                        "Only used when disablesFirebending is false.")
+                .defineInRange("damagePercent", 50, 1, 1000);
+        BUILDER.pop();
+
+        BUILDER.pop();
+    }
+
+    // ==========================================================================
     //  Abilities
     // ==========================================================================
 
@@ -299,6 +411,25 @@ public final class AtlaConfig {
     private static volatile int chiPerLevel = 100;
     private static volatile int chiRegenDelay = 60;
     private static volatile int xpPerLevel = 200;
+    private static volatile boolean bloodMoonEnabled = true;
+    private static volatile int bloodMoonCooldown = 50;
+    private static volatile int bloodMoonCharge = 50;
+    private static volatile int bloodMoonChi = 60;
+    private static volatile int bloodMoonDamage = 150;
+
+    private static volatile boolean cometEnabled = true;
+    private static volatile int cometCooldown = 40;
+    private static volatile int cometCharge = 40;
+    private static volatile int cometChi = 25;
+    private static volatile int cometDamage = 200;
+
+    private static volatile boolean blackSunEnabled = true;
+    private static volatile boolean blackSunDisablesFire = true;
+    private static volatile int blackSunCooldown = 200;
+    private static volatile int blackSunCharge = 200;
+    private static volatile int blackSunChi = 200;
+    private static volatile int blackSunDamage = 50;
+
     private static volatile Set<String> disabled = Set.of();
 
     /**
@@ -434,6 +565,25 @@ public final class AtlaConfig {
         return Math.max(1, Math.round(100.0F * 1000.0F / scaled));
     }
 
+    public static boolean bloodMoonEnabled() { return bloodMoonEnabled; }
+    public static int bloodMoonCooldown() { return bloodMoonCooldown; }
+    public static int bloodMoonCharge() { return bloodMoonCharge; }
+    public static int bloodMoonChi() { return bloodMoonChi; }
+    public static int bloodMoonDamage() { return bloodMoonDamage; }
+
+    public static boolean cometEnabled() { return cometEnabled; }
+    public static int cometCooldown() { return cometCooldown; }
+    public static int cometCharge() { return cometCharge; }
+    public static int cometChi() { return cometChi; }
+    public static int cometDamage() { return cometDamage; }
+
+    public static boolean blackSunEnabled() { return blackSunEnabled; }
+    public static boolean blackSunDisablesFire() { return blackSunDisablesFire; }
+    public static int blackSunCooldown() { return blackSunCooldown; }
+    public static int blackSunCharge() { return blackSunCharge; }
+    public static int blackSunChi() { return blackSunChi; }
+    public static int blackSunDamage() { return blackSunDamage; }
+
     /**
      * Whether this ability may be used at all.
      *
@@ -499,6 +649,26 @@ public final class AtlaConfig {
         chiPerLevel = 100;
         chiRegenDelay = 60;
         xpPerLevel = 200;
+
+        bloodMoonEnabled = true;
+        bloodMoonCooldown = 50;
+        bloodMoonCharge = 50;
+        bloodMoonChi = 60;
+        bloodMoonDamage = 150;
+
+        cometEnabled = true;
+        cometCooldown = 40;
+        cometCharge = 40;
+        cometChi = 25;
+        cometDamage = 200;
+
+        blackSunEnabled = true;
+        blackSunDisablesFire = true;
+        blackSunCooldown = 200;
+        blackSunCharge = 200;
+        blackSunChi = 200;
+        blackSunDamage = 50;
+
         disabled = Set.of();
 
         generation++;
@@ -557,6 +727,25 @@ public final class AtlaConfig {
         chiPerLevel = CHI_PER_LEVEL.get();
         chiRegenDelay = CHI_REGEN_DELAY.get();
         xpPerLevel = XP_PER_LEVEL.get();
+
+        bloodMoonEnabled = BLOOD_MOON_ENABLED.get();
+        bloodMoonCooldown = BLOOD_MOON_COOLDOWN.get();
+        bloodMoonCharge = BLOOD_MOON_CHARGE.get();
+        bloodMoonChi = BLOOD_MOON_CHI.get();
+        bloodMoonDamage = BLOOD_MOON_DAMAGE.get();
+
+        cometEnabled = COMET_ENABLED.get();
+        cometCooldown = COMET_COOLDOWN.get();
+        cometCharge = COMET_CHARGE.get();
+        cometChi = COMET_CHI.get();
+        cometDamage = COMET_DAMAGE.get();
+
+        blackSunEnabled = BLACK_SUN_ENABLED.get();
+        blackSunDisablesFire = BLACK_SUN_DISABLES_FIRE.get();
+        blackSunCooldown = BLACK_SUN_COOLDOWN.get();
+        blackSunCharge = BLACK_SUN_CHARGE.get();
+        blackSunChi = BLACK_SUN_CHI.get();
+        blackSunDamage = BLACK_SUN_DAMAGE.get();
 
         Set<String> off = new HashSet<>();
         for (String name : DISABLED_ABILITIES.get()) {

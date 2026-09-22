@@ -50,8 +50,8 @@ public class AtlaSettingsScreen extends Screen {
     /** Where to go back to. The mods list, the pause screen, or the bending menu. */
     private final Screen parent;
 
-    private static final String[] TAB_NAMES = { "World", "Items & Chi", "Abilities" };
-    private static final int TAB_W = 100;
+    private static final String[] TAB_NAMES = { "World", "Items & Chi", "Events", "Abilities" };
+    private static final int TAB_W = 82;
     private static final int TAB_H = 20;
     private static final int TAB_Y = 28;
 
@@ -219,10 +219,69 @@ public class AtlaSettingsScreen extends Screen {
         switch (activeTab) {
             case 0 -> buildWorldRows();
             case 1 -> buildItemRows();
+            case 2 -> buildEventRows();
             default -> buildAbilityRows();
         }
 
         clampScroll();
+    }
+
+    /**
+     * The three world events.
+     *
+     * EVERY MULTIPLIER IS A PERCENTAGE OF NORMAL, which the note at the top says once
+     * rather than every row repeating it. 100 leaves a figure untouched, which is also
+     * how an event is turned into pure scenery without switching it off.
+     */
+    private void buildEventRows() {
+        rows.add(new NoteRow("Percentages of normal: 100 changes nothing, 50 halves, 200 doubles."));
+        rows.add(new NoteRow("Worked out from the world clock, so no new world is needed."));
+
+        rows.add(new HeaderRow("Blood Moon — every 3rd night, waterbending"));
+        rows.add(new ToggleValueRow("Event happens", AtlaConfig.BLOOD_MOON_ENABLED));
+        rows.add(eventSlider("Cooldowns", AtlaConfig.BLOOD_MOON_COOLDOWN,
+                "Waterbending cooldowns while the blood moon is up."));
+        rows.add(eventSlider("Charge times", AtlaConfig.BLOOD_MOON_CHARGE,
+                "Waterbending charge and wind-up times while the blood moon is up."));
+        rows.add(eventSlider("Chi costs", AtlaConfig.BLOOD_MOON_CHI,
+                "Waterbending chi costs while the blood moon is up."));
+        rows.add(eventSlider("Damage", AtlaConfig.BLOOD_MOON_DAMAGE,
+                "Waterbending damage while the blood moon is up."));
+
+        rows.add(new HeaderRow("Sozin's Comet — every 6th day, firebending"));
+        rows.add(new ToggleValueRow("Event happens", AtlaConfig.COMET_ENABLED));
+        rows.add(eventSlider("Cooldowns", AtlaConfig.COMET_COOLDOWN,
+                "Firebending cooldowns while the comet is overhead."));
+        rows.add(eventSlider("Charge times", AtlaConfig.COMET_CHARGE,
+                "Firebending charge and wind-up times while the comet is overhead."));
+        rows.add(eventSlider("Chi costs", AtlaConfig.COMET_CHI,
+                "Firebending chi costs while the comet is overhead. 25% is the shipped"
+                        + " figure — the comet is meant to feel like fire costing nothing."));
+        rows.add(eventSlider("Damage", AtlaConfig.COMET_DAMAGE,
+                "Firebending damage while the comet is overhead."));
+
+        rows.add(new HeaderRow("Day of Black Sun — every 12th day, 6 minutes at noon"));
+        rows.add(new ToggleValueRow("Event happens", AtlaConfig.BLACK_SUN_ENABLED));
+        rows.add(new ToggleValueRow("Firebending goes out", AtlaConfig.BLACK_SUN_DISABLES_FIRE));
+        rows.add(new NoteRow("Turn that off to soften it: the four below apply instead."));
+        rows.add(eventSlider("Cooldowns", AtlaConfig.BLACK_SUN_COOLDOWN,
+                "Firebending cooldowns during the eclipse. Only used when firebending is"
+                        + " not switched off outright."));
+        rows.add(eventSlider("Charge times", AtlaConfig.BLACK_SUN_CHARGE,
+                "Firebending charge and wind-up times during the eclipse. Only used when"
+                        + " firebending is not switched off outright."));
+        rows.add(eventSlider("Chi costs", AtlaConfig.BLACK_SUN_CHI,
+                "Firebending chi costs during the eclipse. Only used when firebending is"
+                        + " not switched off outright."));
+        rows.add(eventSlider("Damage", AtlaConfig.BLACK_SUN_DAMAGE,
+                "Firebending damage during the eclipse. Only used when firebending is not"
+                        + " switched off outright."));
+    }
+
+    /** One event multiplier, all of which share a range and a readout. */
+    private SliderRow eventSlider(String label, ModConfigSpec.IntValue value, String tooltip) {
+        return new SliderRow(label, value, 1, 400,
+                percent -> percent == 100 ? "unchanged" : percent + "%", tooltip);
     }
 
     private void buildItemRows() {
@@ -682,6 +741,9 @@ public class AtlaSettingsScreen extends Screen {
             if (row instanceof SliderRow slider) {
                 slider.reset();
                 sliders = true;
+            } else if (row instanceof ToggleValueRow toggle) {
+                toggle.reset();
+                sliders = true;
             }
         }
 
@@ -815,6 +877,59 @@ public class AtlaSettingsScreen extends Screen {
             }
 
             writeDisabled();
+            return true;
+        }
+    }
+
+    /**
+     * A plain yes/no setting.
+     *
+     * Separate from {@link ToggleRow}, which looks almost identical and is a different
+     * thing underneath: that one edits a NAME's presence in a list and is what the
+     * abilities tab is made of, where this edits one boolean in the config. Merging them
+     * would mean a row that had to ask which kind it was on every click.
+     */
+    private class ToggleValueRow extends Row {
+        private final String label;
+        private final ModConfigSpec.BooleanValue value;
+
+        ToggleValueRow(String label, ModConfigSpec.BooleanValue value) {
+            super(18);
+            this.label = label;
+            this.value = value;
+        }
+
+        /** Falls back to the default when nothing is loaded — see SliderRow.current. */
+        private boolean current() {
+            return AtlaConfig.SPEC.isLoaded() ? value.get() : value.getDefault();
+        }
+
+        void reset() {
+            if (AtlaConfig.SPEC.isLoaded()) value.set(value.getDefault());
+        }
+
+        @Override
+        void render(GuiGraphics graphics, int left, int right, int y, int mouseX, int mouseY) {
+            boolean on = current();
+            boolean editable = editable();
+
+            graphics.drawString(AtlaSettingsScreen.this.font, label, left + 4, y + 5,
+                    editable ? COLOUR_LABEL : COLOUR_OFF_TEXT);
+
+            int bx = right - TOGGLE_W;
+
+            graphics.fill(bx, y + 2, bx + TOGGLE_W, y + 16, on ? 0xFF1E3A1E : 0xFF3A1E1E);
+            graphics.renderOutline(bx, y + 2, TOGGLE_W, 14, on ? 0xFF55FF55 : 0xFFFF5555);
+            graphics.drawCenteredString(AtlaSettingsScreen.this.font, on ? "Yes" : "No",
+                    bx + TOGGLE_W / 2, y + 5, on ? 0xFF99FF99 : 0xFFFF9999);
+        }
+
+        @Override
+        boolean click(int left, int right, int y, double mouseX, double mouseY) {
+            if (mouseX < left || mouseX > right) return false;
+
+            value.set(!current());
+            save();
             return true;
         }
     }

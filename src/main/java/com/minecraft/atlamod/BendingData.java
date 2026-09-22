@@ -595,6 +595,7 @@ public class BendingData {
     public boolean hasPassiveEquipped(String passiveKey) {
         if (passiveKey == null || passiveKey.isEmpty()) return false;
         if (!AtlaConfig.abilityEnabled(passiveKey)) return false;
+        if (passivesSuppressed) return false;
 
         for (String equipped : getEquippedPassives()) {
             if (passiveKey.equalsIgnoreCase(equipped)) return true;
@@ -661,6 +662,48 @@ public class BendingData {
 
     public boolean hasBassBounceLeftGround() { return bassBounceLeftGround; }
     public void setBassBounceLeftGround(boolean left) { this.bassBounceLeftGround = left; }
+
+    // --- PASSIVES SWITCHED OFF BY WHERE YOU ARE ---
+    // True while this player is somewhere passives do not work, which at present means
+    // the Spirit World.
+    //
+    // A FLAG RATHER THAN A LEVEL CHECK INSIDE hasPassiveEquipped, because that method has
+    // no player and no level — it is asked of the DATA, by thirteen different passives, and
+    // giving it a level would mean threading one through every one of those call sites.
+    // The flag is set once a tick from whichever side is ticking, which keeps the single
+    // choke point that makes "switch every passive off at once" a one-line change.
+    //
+    // SET ON BOTH SIDES. The server decides what a passive DOES; the client draws the menu
+    // and the blood level readout, and a client that thought a passive was still running
+    // would disagree with the server about both.
+    private transient boolean passivesSuppressed = false;
+
+    public boolean arePassivesSuppressed() { return passivesSuppressed; }
+    public void setPassivesSuppressed(boolean suppressed) { this.passivesSuppressed = suppressed; }
+
+    // --- WHAT IS BEING CAST RIGHT NOW ---
+    // The element of the ability the dispatcher is currently running, set immediately
+    // before its effect and cleared immediately after.
+    //
+    // EXISTS FOR THE DAMAGE HANDLER, which is where a world event's damage multiplier has
+    // to be applied and is the one place that cannot work out which element caused a blow.
+    // Damage arrives as a source and an attacker, and almost every element in this mod
+    // hits through indirectMagic — so "who did this" is answerable and "what kind of
+    // bending was it" is not. The dispatcher knows, for exactly as long as the effect is
+    // running, so it says.
+    //
+    // A STRING RATHER THAN A FLAG PER EVENT, so an element added later needs nothing here.
+    // Transient, and cleared in a finally: an ability that threw would otherwise leave
+    // every later blow this player landed wearing the element of the cast that failed.
+    private transient String castingElement = "";
+
+    public String getCastingElement() {
+        return castingElement == null ? "" : castingElement;
+    }
+
+    public void setCastingElement(String element) {
+        this.castingElement = element == null ? "" : element;
+    }
 
     // --- FIRE ROCKET ---
     // Whether the rocket is lit. Transient for the same reason every other toggle billed
