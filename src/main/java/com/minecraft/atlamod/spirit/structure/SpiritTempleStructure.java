@@ -38,6 +38,46 @@ public class SpiritTempleStructure extends Structure {
     /** How far the ground under a temple may rise or fall across its footprint. */
     private static final int MAX_SLOPE = 3;
 
+    /** Kept clear of the salts the islands, the shrines and the ore draw on. */
+    private static final long RARITY_SEED = 0x7E3D19A5L;
+
+    /**
+     * Whether the settings want a temple at this candidate site at all.
+     *
+     * IT CAN ONLY EVER MAKE TEMPLES RARER, never more common, and that is worth being
+     * plain about. Which chunks are offered as candidates at all is decided by the
+     * structure SET — {@code spacing: 40, separation: 15} in the data pack — and nothing a
+     * config value can do will offer a site the grid did not. So this is a second refusal
+     * on top of that grid: at 100 every offered site is taken, which is exactly the
+     * behaviour before the setting existed, and at 50 about half of them are.
+     *
+     * DERIVED FROM THE CHUNK, not from a Random, so two things hold that a roll would
+     * break: the same chunk reaches the same answer however many times it is asked, and
+     * {@code /locate} agrees with what actually generated. Vanilla calls this both while
+     * generating and while searching, and a site that said yes to the locator and no to
+     * the generator would send a player to an empty field.
+     *
+     * A hash of the chunk rather than of the world seed, matching every other placement
+     * decision in this mod — see {@link com.minecraft.atlamod.spirit.island.SpiritIslands}'
+     * note on why its seed is a constant.
+     */
+    private static boolean wantedIn(ChunkPos chunkPos) {
+        int chance = com.minecraft.atlamod.AtlaConfig.templeChance();
+
+        if (chance >= 100) return true;
+        if (chance <= 0) return false;
+
+        long h = RARITY_SEED ^ (chunkPos.x * 0x9E3779B97F4A7C15L) ^ (chunkPos.z * 0xC2B2AE3D27D4EB4FL);
+
+        h ^= (h >>> 30);
+        h *= 0xBF58476D1CE4E5B9L;
+        h ^= (h >>> 27);
+        h *= 0x94D049BB133111EBL;
+        h ^= (h >>> 31);
+
+        return Math.floorMod(h, 100L) < chance;
+    }
+
     /**
      * Where, if anywhere, a temple goes in this chunk.
      *
@@ -55,10 +95,17 @@ public class SpiritTempleStructure extends Structure {
      * Sea level rejects the rest: WORLD_SURFACE_WG counts water as surface, so without it
      * temples would sit on top of oceans. The Spirit World's sea level is the bottom of
      * the world, so the test never bites there.
+     *
+     * THE RARITY SETTING IS CHECKED FIRST, above everything else, for the reason every
+     * ordered guard in this codebase is cheapest-first: it is one hash, where the tests
+     * under it sample nine columns of terrain and load a structure template. See
+     * {@link #wantedIn} for what it can and cannot do.
      */
     @Override
     public Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
         ChunkPos chunkPos = context.chunkPos();
+
+        if (!wantedIn(chunkPos)) return Optional.empty();
 
         int centreX = chunkPos.getMiddleBlockX();
         int centreZ = chunkPos.getMiddleBlockZ();

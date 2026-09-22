@@ -32,6 +32,13 @@ public record UnlockAbilityPacket(String abilityName, int cost) implements Custo
             if (context.player() instanceof ServerPlayer player) {
                 BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
+                // Nothing the settings have switched off can be bought. Checked before the
+                // levels are, so a refused purchase costs nothing — and re-checked here
+                // rather than trusted from the menu, which greys the node out but is only
+                // ever asking. Paying levels for something that then refuses to cast would
+                // be the worst outcome of the three.
+                if (!com.minecraft.atlamod.AtlaConfig.abilityEnabled(payload.abilityName())) return;
+
                 // Check if player has enough level/XP and doesn't already have it
                 if (data.getLevel() >= payload.cost() && !data.getUnlockedAbilities().contains(payload.abilityName())) {
 

@@ -1,5 +1,6 @@
 package com.minecraft.atlamod.spirit.island;
 
+import com.minecraft.atlamod.AtlaConfig;
 
 /**
  * Where the Spirit World's islands are, how big they are and what they are made of.
@@ -27,14 +28,21 @@ package com.minecraft.atlamod.spirit.island;
 public final class SpiritIslands {
 
     /**
-     * How far apart islands sit: one per {@value} block cell.
+     * How far apart islands sit: one per cell of this many blocks.
      *
-     * Down from the original 320, so there are about half again as many islands in the
-     * same space. It could not go as low as the islands grew: they are now up to 250
-     * across, and packing those into a 230 cell would have every one of them merged into
-     * its neighbours and no void left between them.
+     * CONFIGURABLE, and the default of 260 is what this used to be hard-coded to — down
+     * from the original 320, so there are about half again as many islands in the same
+     * space. It could not go as low as the islands grew: they are now up to 250 across,
+     * and packing those into a 230 cell would have every one of them merged into its
+     * neighbours and no void left between them.
+     *
+     * ASKED FRESH EVERY TIME rather than read into a field here, because the answer can
+     * change while the game is running. {@link AtlaConfig} holds the value in a plain
+     * volatile int, so this is a field read and nothing more.
      */
-    public static final int CELL = 260;
+    public static int cell() {
+        return AtlaConfig.islandSpacing();
+    }
 
     /** The narrowest and widest an island may be, measured across. */
     public static final int MIN_DIAMETER = 130;
@@ -58,6 +66,22 @@ public final class SpiritIslands {
      * than interleaving.
      */
     private static final int MARGIN = 85;
+
+    /**
+     * The margin actually used, which cannot eat the whole cell.
+     *
+     * NECESSARY ONCE THE CELL BECAME CONFIGURABLE. The jitter a centre is given is drawn
+     * from {@code cell - 2 * margin}, and at the smallest cell the config allows (140) a
+     * flat margin of 85 makes that NEGATIVE — which is not a tight island but an outright
+     * crash, since {@link #pick} floor-mods by it. Capping the margin at a third of the
+     * cell leaves at least a third of it to jitter within at every size.
+     *
+     * At the default 260 this is {@code min(85, 86)} and so exactly the old 85, which is
+     * what keeps existing worlds' islands in the places they are already in.
+     */
+    private static int marginFor(int cell) {
+        return Math.min(MARGIN, cell / 3);
+    }
 
     /** See the class note: deliberately fixed rather than the world seed. */
     private static final long GRID_SEED = 0x5B1217A7L;
@@ -132,8 +156,12 @@ public final class SpiritIslands {
      * They exist to break up the void: a lone island with a couple of hundred blocks of
      * nothing on every side is a long way to fall and a long way to look at. Stepping
      * stones around it make the dimension feel like somewhere you can cross.
+     *
+     * Configurable, and 3 is what this was fixed at before.
      */
-    public static final int SATELLITES = 3;
+    public static int satellites() {
+        return AtlaConfig.satellites();
+    }
 
     /** How far out a satellite sits, as a multiple of its parent's radius. */
     private static final double ORBIT_MIN = 1.25;
@@ -164,8 +192,11 @@ public final class SpiritIslands {
     public static Island island(int cellX, int cellZ, int index) {
         long seed = mix(GRID_SEED, cellX, cellZ);
 
-        int centreX = cellX * CELL + MARGIN + pick(seed, 1, CELL - MARGIN * 2);
-        int centreZ = cellZ * CELL + MARGIN + pick(seed, 2, CELL - MARGIN * 2);
+        int cell = cell();
+        int margin = marginFor(cell);
+
+        int centreX = cellX * cell + margin + pick(seed, 1, cell - margin * 2);
+        int centreZ = cellZ * cell + margin + pick(seed, 2, cell - margin * 2);
 
         int diameter = MIN_DIAMETER + pick(seed, 3, MAX_DIAMETER - MIN_DIAMETER + 1);
         int centreY = MIN_Y + pick(seed, 4, MAX_Y - MIN_Y + 1);
@@ -201,12 +232,43 @@ public final class SpiritIslands {
      *
      * Salt 5 was the old single draw and is kept for the family, so islands that were
      * already nether islands stay nether islands. Their variant is a new draw on salt 10.
+     *
+     * THE FAMILY DRAW IS WEIGHTED, so a player can make a kind of island commoner, rarer
+     * or absent. The weights reach the same answer as the old flat draw whenever they are
+     * all equal, which is not luck and is worth keeping: with six families each at 1 the
+     * total is 6, the draw is {@code pick(seed, 5, 6)} exactly as before, and walking the
+     * running total hands back the index that equals the number drawn. So the shipped
+     * configuration generates the identical dimension it always did, and a world only
+     * changes if somebody deliberately changes it.
      */
     private static IslandStyle styleFor(long seed) {
-        IslandFamily family = IslandFamily.values()[pick(seed, 5, IslandFamily.values().length)];
-        IslandStyle[] variants = family.variants();
+        IslandStyle[] variants = familyFor(seed).variants();
 
         return variants[pick(seed, 10, variants.length)];
+    }
+
+    /**
+     * Which family an island belongs to, drawn against the configured weights.
+     *
+     * The walk always finds somebody: the draw is bounded by the total, and the running
+     * total reaches the total by the last family — so the last family carrying any weight
+     * at all catches everything that got past the ones before it. The total is never zero,
+     * which {@link AtlaConfig} guarantees rather than this method checking for.
+     */
+    private static IslandFamily familyFor(long seed) {
+        int drawn = pick(seed, 5, AtlaConfig.familyWeightTotal());
+        int running = 0;
+
+        IslandFamily[] families = IslandFamily.values();
+        for (IslandFamily candidate : families) {
+            running += AtlaConfig.familyWeight(candidate.ordinal());
+
+            if (drawn < running) return candidate;
+        }
+
+        // Unreachable while the total is the sum of the weights, and a sane answer rather
+        // than a throw if that ever stops being true.
+        return families[0];
     }
 
     /**
@@ -238,8 +300,9 @@ public final class SpiritIslands {
     public static Island coveringOrNull(int x, int z) {
         if (nearTemple(x, z)) return null;
 
-        int cellX = Math.floorDiv(x, CELL);
-        int cellZ = Math.floorDiv(z, CELL);
+        int cell = cell();
+        int cellX = Math.floorDiv(x, cell);
+        int cellZ = Math.floorDiv(z, cell);
 
         Cache cache = CACHE.get();
 
@@ -274,10 +337,20 @@ public final class SpiritIslands {
      * each costing a dozen hashes, a little trigonometry and an allocation. The answers
      * are now worked out nine times per chunk instead.
      *
-     * NOTHING EVER NEEDS INVALIDATING, which is what makes this safe rather than clever.
-     * An island is a pure function of its cell and a constant seed — see the class note on
-     * why the seed is fixed — so a cached entry cannot go stale, cannot disagree with a
-     * fresh computation, and does not care what world it was filled in.
+     * IT NEEDS INVALIDATING IN EXACTLY ONE CASE, and only since the island rules became
+     * configurable. An island is still a pure function of its cell, a constant seed and
+     * the settings — see the class note on why the seed is fixed — so an entry can only
+     * ever go stale by the SETTINGS changing underneath it, which happens when a world
+     * loads or when somebody saves the settings screen. {@link AtlaConfig#generation()}
+     * counts those, and a thread whose cache was filled under an older count throws the
+     * lot away rather than trying to work out which cells moved. That is a handful of
+     * cells refilled after a settings change and nothing at all in the ordinary case,
+     * where the count is compared and matches.
+     *
+     * Without it a cache filled before the change would keep handing back islands of the
+     * old size, in the old places, with the old number of satellites — so chunks generated
+     * either side of the change would disagree about where the ground is, on the SAME
+     * settings, which is a far worse fault than the seam a settings change inherently makes.
      *
      * THREAD LOCAL rather than shared, because chunk generation runs on several worker
      * threads at once. A shared map would need locking or a concurrent structure on a path
@@ -290,7 +363,16 @@ public final class SpiritIslands {
         private final long[] keys = new long[CACHE_SLOTS];
         private final Island[][] values = new Island[CACHE_SLOTS][];
 
+        /** The settings these entries were worked out under. See the class note. */
+        private long generation = AtlaConfig.generation();
+
         Island[] islandsIn(int cellX, int cellZ) {
+            long now = AtlaConfig.generation();
+            if (now != generation) {
+                java.util.Arrays.fill(values, null);
+                generation = now;
+            }
+
             long key = ((long) cellX << 32) | (cellZ & 0xFFFFFFFFL);
 
             // Avalanched before masking. The raw mix is an XOR of two products, whose LOW
@@ -308,8 +390,10 @@ public final class SpiritIslands {
             // the key of cell (0, 0) — the one the temple sits in.
             if (values[slot] != null && keys[slot] == key) return values[slot];
 
-            Island[] built = new Island[SATELLITES + 1];
-            for (int index = 0; index <= SATELLITES; index++) {
+            int satellites = satellites();
+
+            Island[] built = new Island[satellites + 1];
+            for (int index = 0; index <= satellites; index++) {
                 built[index] = island(cellX, cellZ, index);
             }
 

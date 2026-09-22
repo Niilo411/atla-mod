@@ -242,6 +242,14 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.lava.LavaResistance());
         register(new com.minecraft.atlamod.abilities.lava.LavaThrow());
         register(new com.minecraft.atlamod.abilities.lava.LavaRain());
+
+        // --- NO BENDING : one ability on each of its two arms ---
+        //
+        // Its CENTRE node, "Chi blocking", is deliberately absent: it is a step rather
+        // than an ability, with nothing to cast and nothing to equip. Buying it only puts
+        // its name in the unlocked list, which is all the tree needs to open the arms.
+        register(new com.minecraft.atlamod.abilities.nobending.ChiBlock());
+        register(new com.minecraft.atlamod.abilities.nobending.Kick());
     }
 
     public static void register(Ability ability) {

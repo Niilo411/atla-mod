@@ -27,7 +27,12 @@ public final class ElementIcons {
             "fire", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/fire_icon.png"),
             "water", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/water_icon.png"),
             "air", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/air_icon.png"),
-            "earth", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/earth_icon.png")
+            "earth", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/earth_icon.png"),
+
+            // Not a bending art, but it is chosen from the same screen and worn in the
+            // same HUD badge, so it needs an emblem for exactly the same reasons. Ours
+            // rather than anyone's — see tools/GenChiIcon.java.
+            "nobending", ResourceLocation.fromNamespaceAndPath("atlamod", "textures/gui/elements/nobending_icon.png")
     );
 
     private ElementIcons() {

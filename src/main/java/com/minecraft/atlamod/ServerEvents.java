@@ -55,6 +55,9 @@ public class ServerEvents {
         com.minecraft.atlamod.abilities.blood.BloodHolds.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.blood.FleshShields.tickAll(event.getServer());
 
+        // The ten-second window a chi blocker has to land their five hits.
+        com.minecraft.atlamod.abilities.nobending.ChiBlocks.tickAll(event.getServer());
+
         com.minecraft.atlamod.abilities.lava.LavaRivers.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.lava.LavaGeysers.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.lava.LavaTsunamis.tickAll(event.getServer());
@@ -100,6 +103,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetLevel(level);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetLevel(level);
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetLevel(level);
+            com.minecraft.atlamod.abilities.nobending.ChiBlocks.forgetLevel(level);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetLevel(level);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetLevel(level);
             com.minecraft.atlamod.abilities.metal.MetalWorks.forgetLevel(level);
@@ -352,6 +356,21 @@ public class ServerEvents {
 
                                         data.getUnlockedElements().add(element);
                                         if (data.getActiveElement().isEmpty()) data.setActiveElement(element);
+
+                                        // No bending is not a thing you can have ALONGSIDE
+                                        // something, which every other element here is —
+                                        // it is a statement about what you are, and the
+                                        // whole path reads it off the MAIN element. So
+                                        // gifting it takes them over rather than adding to
+                                        // them: this command is the only route to it apart
+                                        // from picking it on a first join, and a gift that
+                                        // left the recipient still bending would not have
+                                        // given them anything the tree could see.
+                                        if (com.minecraft.atlamod.abilities.ElementPaths.isNoBending(element)) {
+                                            data.setMainElement(element);
+                                            data.setActiveElement(element);
+                                        }
+
                                         player.setData(ModAttachments.BENDING_DATA, data);
                                         syncElements(player, data);
                                         changed++;
@@ -609,8 +628,17 @@ public class ServerEvents {
                                     ServerPlayer target = net.minecraft.commands.arguments.EntityArgument
                                             .getPlayer(context, "player");
 
-                                    com.minecraft.atlamod.avatar.Avatar.grant(
-                                            context.getSource().getServer(), target);
+                                    // Refused for a non-bender, and SAID so rather than
+                                    // reporting a success that did not happen. Becoming
+                                    // the Avatar hands over all four elements, which is
+                                    // the exact opposite of what they chose.
+                                    if (!com.minecraft.atlamod.avatar.Avatar.grant(
+                                            context.getSource().getServer(), target)) {
+                                        context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                                                target.getGameProfile().getName()
+                                                        + " has no bending. The Avatar is always a bender."));
+                                        return 0;
+                                    }
 
                                     context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
                                             target.getGameProfile().getName() + " is now the Avatar."), true);
@@ -724,9 +752,37 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.nobending.ChiBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
+        }
+    }
+
+    /**
+     * A hit that actually landed, for Chi block's punch counter.
+     *
+     * ON Post RATHER THAN ON THE BIG ORDERED HANDLER ABOVE, and that is the whole reason
+     * this is a handler of its own. {@code LivingIncomingDamageEvent} fires for damage
+     * that is about to be TRIED, and half the rules in this file cancel it — a shield, an
+     * aura, an ice shell. Counting there would let a chi blocker beat on somebody's raised
+     * Water Shield five times and have it work. Post only fires for damage that got
+     * through.
+     *
+     * DIRECT HITS ONLY. A punch is something you have to close the distance for, which is
+     * the entire character of this path; letting an arrow or a thrown ability count would
+     * hand the marked target's five hits to someone standing well back, and the mark would
+     * become a ranged opener rather than a reason to get in close.
+     */
+    @SubscribeEvent
+    public static void onDamageLanded(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post event) {
+        // isDirect() is "the thing that dealt this IS the thing that caused it" — true for
+        // a fist or a sword, false for an arrow or any of this mod's projectiles, where
+        // the direct entity is the shot and the causing entity is whoever loosed it.
+        if (!event.getSource().isDirect()) return;
+
+        if (event.getSource().getEntity() instanceof net.minecraft.world.entity.LivingEntity attacker) {
+            com.minecraft.atlamod.abilities.nobending.ChiBlocks.countHit(attacker, event.getEntity());
         }
     }
 
@@ -736,6 +792,24 @@ public class ServerEvents {
         // by something that bypasses invulnerability, and its shell has to come down
         // with it rather than standing there empty until its timer runs out.
         com.minecraft.atlamod.abilities.ice.Frozens.forgetEntity(event.getEntity());
+
+        // A non-bender earns XP by killing, since they cannot meditate and their two
+        // abilities pay nothing. Granted to whoever landed the killing blow, scaled by
+        // what they killed — see NoBending.xpForKill.
+        //
+        // Ordered cheapest first, like every handler here that fires for the whole world:
+        // this runs for every death of every mob on the server, so the attacker is tested
+        // before anything is read off them.
+        if (event.getSource().getEntity() instanceof ServerPlayer killer
+                && killer != event.getEntity()) {
+            BendingData killerData = killer.getData(ModAttachments.BENDING_DATA);
+
+            if (com.minecraft.atlamod.abilities.nobending.NoBending.is(killerData)) {
+                com.minecraft.atlamod.abilities.AbilitySupport.grantXp(killerData,
+                        com.minecraft.atlamod.abilities.nobending.NoBending.xpForKill(event.getEntity()));
+                com.minecraft.atlamod.abilities.AbilitySupport.syncData(killer, killerData);
+            }
+        }
 
         if (event.getEntity() instanceof ServerPlayer player) {
             BendingData data = player.getData(ModAttachments.BENDING_DATA);
@@ -767,6 +841,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.nobending.ChiBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
@@ -846,13 +921,13 @@ public class ServerEvents {
         BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
         com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data,
-                com.minecraft.atlamod.spirit.island.SpiritOre.XP_PER_BLOCK);
+                com.minecraft.atlamod.spirit.island.SpiritOre.xpPerBlock());
         com.minecraft.atlamod.abilities.AbilitySupport.syncData(player, data);
 
         // On the action bar rather than in chat: a vein is several blocks and a line each
         // would bury whatever else the player was being told.
         player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                "§b+" + com.minecraft.atlamod.spirit.island.SpiritOre.XP_PER_BLOCK
+                "§b+" + com.minecraft.atlamod.spirit.island.SpiritOre.xpPerBlock()
                         + " bending XP §7(" + data.getXp() + "/"
                         + com.minecraft.atlamod.abilities.AbilitySupport.XP_PER_LEVEL + ")"), true);
     }
@@ -960,6 +1035,7 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.metal.MetalShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.combustion.CombustionBeams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodHolds.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.nobending.ChiBlocks.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.BloodPuppets.forgetPlayer(player);
             com.minecraft.atlamod.abilities.blood.FleshShields.forgetPlayer(player);
             com.minecraft.atlamod.abilities.lava.LavaRains.forgetPlayer(player);
@@ -1284,11 +1360,28 @@ public class ServerEvents {
             }
             player.setData(ModAttachments.BENDING_DATA, data);
 
+            // --- CHI BLOCKED ---
+            // Counted down here rather than in the tracker, because the tracker only
+            // knows about marks: a block outlives the mark that caused it, and could
+            // in principle be applied by something that never marked anybody at all.
+            com.minecraft.atlamod.abilities.nobending.ChiBlocks.tickBlocked(player, data);
+
             // --- CHI REGEN ---
             // Regen is held off for a few seconds after any chi is spent, so a cheap
             // ability can't be sustained indefinitely by regen alone. The countdown
             // runs every tick; the refill itself stays on the 1-second cadence.
-            if (data.getChiRegenDelay() > 0) {
+            //
+            // TWO THINGS SKIP IT ENTIRELY. A non-bender has no chi to refill — that is
+            // what choosing no bending means, and the HUD draws them no bar either. And
+            // a bender whose chi points have been struck is frozen where they stand,
+            // which is the half of chi blocking that actually decides a fight: being
+            // unable to cast for fifteen seconds is an inconvenience, coming out of it
+            // with an empty pool is the punishment.
+            if (com.minecraft.atlamod.abilities.nobending.NoBending.is(data) || data.isChiBlocked()) {
+                // Nothing at all, deliberately — not even the delay countdown, which
+                // exists only to pace a refill that is not going to happen.
+                player.setData(ModAttachments.BENDING_DATA, data);
+            } else if (data.getChiRegenDelay() > 0) {
                 data.setChiRegenDelay(data.getChiRegenDelay() - 1);
             } else if (player.tickCount % 20 == 0) {
                 if (data.getCurrentChi() < data.getMaxChi()) {
@@ -1350,6 +1443,16 @@ public class ServerEvents {
             }
 
             // --- MEDITATING LOGIC ---
+            // A non-bender cannot meditate. Meditation exists to fill a chi pool and to
+            // earn XP from stillness, and they have neither — their XP comes from
+            // killing instead (see NoBending). Stopped HERE rather than at the keybind
+            // so it holds however the flag was set.
+            if (data.isMeditating() && com.minecraft.atlamod.abilities.nobending.NoBending.is(data)) {
+                data.setMeditating(false);
+                data.setMeditateTickTimer(0);
+                player.setData(ModAttachments.BENDING_DATA, data);
+            }
+
             if (data.isMeditating()) {
                 data.setMeditateTickTimer(data.getMeditateTickTimer() + 1);
                 player.setData(ModAttachments.BENDING_DATA, data);

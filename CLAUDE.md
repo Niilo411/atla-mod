@@ -1761,6 +1761,413 @@ piece armor set made of shards that feeds a bender's chi.
 - **`SpiritArmor.isSpiritPiece` asks the MATERIAL**, not a list of the four items, so a fifth
   piece added later is counted without that method being touched.
 
+## No bending (the path for people who have none)
+
+Not an element, not a sub-element, and the only choice on the selection screen that is an
+opt OUT of the other four. Chosen from the middle of the 2x2 of emblems, drawn smaller
+than them on purpose — size is meaning here, and drawing it the same would present it as a
+fifth element, which is the one thing it is not.
+
+- **Only two ways to have it**: picking it on a FIRST join, or `/bend add <player>
+  nobending`. `ElementChoicePacket` now refuses anything but a first choice, which refuses
+  nothing anybody can legitimately do — the screen only opens for somebody who has not
+  chosen — but stops a hand-sent packet rewriting a main element that is already set.
+- **THE AVATAR CAN NEVER HOLD IT.** The cycle only ever looks for the four bending arts, so
+  it is skipped there for free; being NAMED Avatar by command is the route that had to be
+  closed by hand, and `Avatar.grant` now returns a boolean so `/bend avatar` can say why it
+  refused rather than reporting a success that did not happen. Granting it would destroy
+  the choice outright anyway, since becoming the Avatar hands over all four elements.
+- **`/bend add nobending` TAKES THEM OVER rather than adding to them**, which no other
+  element in that command does. Every other element is a thing you can have alongside
+  something; this is a statement about what you are, and the whole path reads it off the
+  MAIN element — so a gift that left the recipient still bending would not have given them
+  anything the tree could see.
+- **A non-bender is defined by their MAIN element, not by having no abilities.** The main
+  element is the one they picked first and is never overwritten, where the ACTIVE element
+  changes every time somebody presses [Y] — so it is the only field that still answers
+  "what did this person choose to be" after they have been granted something else.
+
+### It has a centre that is not an ability
+
+Three unlockables: a centre and one ability on each arm, which is airbending's centre and a
+sub-element's two paths combined.
+
+- **`Chi blocking` (centre, 15 levels) is NOT an ability and NOT a passive.** Nothing casts
+  it and nothing equips it — it is a step, and the only thing it does is open the two arms.
+  That makes it the first node in the mod with no class behind it at all, which the menu
+  copes with because a node is only ever a NAME in the unlocked list; the registry is
+  consulted for casting, not for buying.
+- **What it DID break is the equip list**, which offered anything unlocked that was not a
+  passive — and a name with no registered ability reads as "not a passive, therefore
+  bindable". `equippableAbilities` now drops anything the registry does not know, checked
+  BEFORE the passive test since both ask the same registry.
+- **`ElementPaths.centreGatesPaths` is why the arms wait for it.** Air's centre gates
+  nothing — it is an ordinary extra its bender may buy whenever — so this is a question
+  about the element rather than a blanket rule for every centre. No bending's centre is
+  learning to touch chi at all, and both arms are applications of that, so neither means
+  anything before it.
+- **`ElementPaths.centreCost` moved the figure out of `UpgradeMenuScreen`** when it stopped
+  being one number. 20 is the standing figure; no bending's is 15, cheaper on purpose since
+  a non-bender has nothing at all until they pay it where an airbender buying theirs
+  already has twelve abilities. It is a rule about the tree rather than about the screen,
+  so it belongs where the server could ask it too.
+
+### No chi, and therefore no meditating
+
+All the same fact said three ways. A non-bender has no chi, so it does not regenerate
+(`ServerEvents`' regen block skips them outright, not even counting the delay down),
+meditating is refused, and the HUD draws no chi bar — a bar sitting permanently full at a
+number that means nothing is worse than no bar.
+
+- **Their two abilities cost 0**, which is what lets them go through the ordinary dispatcher
+  rather than needing a special case in it: `performCast` checks the pool against a cost of
+  zero and is satisfied. The real price is the cooldowns.
+- **So XP has to come from somewhere else.** Every other path earns by casting and by
+  meditating; two abilities on long cooldowns is not an income. They earn it by KILLING,
+  scaled by the victim's MAXIMUM health — not by damage dealt, or a victim already hurt by
+  somebody else would pay less than one killed outright. A zombie's 20 is the anchor at 15
+  XP, so the rate is three quarters of maximum health: chicken 3, player 15, iron golem 75,
+  wither 225. Fourteen zombies to a level. Never zero, since something with a sliver of
+  maximum health is still a kill.
+- **Meditating is stopped in the player tick rather than at the keybind**, so it holds
+  however the flag came to be set.
+
+### Chi block: the cast is not the blow
+
+- **Casting it does nothing but MARK somebody** for 10 seconds. The block only lands once
+  five hits have gone in inside that window. Miss it and the cast is spent for nothing.
+  That is the whole character of the path: a non-bender's answer to bending is not a better
+  projectile, it is getting close enough.
+- **Glowing is the mark**, and it is the only vanilla effect that renders through walls — so
+  the caster can follow a target that has broken line of sight, and the target can see they
+  have been marked, which makes running a real option rather than something that happens to
+  them off screen.
+- **Punches are counted on `LivingDamageEvent.Post`, not on the incoming handler**, and that
+  is the whole reason it is a handler of its own. Incoming fires for damage about to be
+  TRIED, and half the rules in `ServerEvents` cancel it — a shield, an aura, an ice shell.
+  Counting there would let a chi blocker beat on somebody's raised Water Shield five times
+  and have it work.
+- **Direct hits only** (`DamageSource#isDirect`, which is "the thing that dealt this IS the
+  thing that caused it"). Letting an arrow or a thrown ability count would hand the five
+  hits to someone standing well back, and the mark would become a ranged opener rather than
+  a reason to close.
+- **THE COOLDOWN IS STAMPED TWICE.** The dispatcher stamps it on the cast as it does for
+  everything, and `ChiBlocks` stamps it AGAIN when the attempt resolves. Without the second
+  stamp a WASTED attempt would only cost thirty seconds, since a quarter of the forty ran
+  down while the mark was still live and failing. Re-stamping is also what stops a
+  successful block being chained: fifteen seconds of shut-off chi behind a forty second
+  wait is a window, where back-to-back blocks would be a lock. **This is an interpretation**
+  — the design ties the cooldown to the waste and says nothing about the success.
+- `ChiBlocks.countHit` early-outs on an empty list FIRST, because it is called for every
+  melee hit landed anywhere in the world and the snapshot below it allocates.
+
+### Being chi blocked
+
+- **`BendingData.chiBlockedTicks` is a SECOND counter rather than Deafen's lockout**,
+  although both stop a bender casting. Deafen's does exactly that and nothing else; this
+  also freezes chi REGENERATION, which is the half that decides a fight — being unable to
+  cast for fifteen seconds is an inconvenience, coming out of it with an empty pool is the
+  punishment. They also run for different lengths from different elements, so one number
+  could only ever be wrong for one of them.
+- Refused at both dispatcher entry points beside the lockout, and on a PRESS only: a channel
+  already running when the block landed has to be able to be let go of.
+- **It stops the no-bending abilities too**, deliberately — a chi blocker whose own points
+  have been struck is as stopped as anyone else.
+- **Slowness II, not I.** The chi half does nothing at all to somebody who was never a
+  bender, and mobs have no chi to shut off either, so without a real movement penalty the
+  ability would land on half the things in the game and visibly do nothing. The slow is the
+  part that is always true.
+
+### Kick
+
+The plainest ability in the mod and deliberately so — this path has no projectiles, no
+channels and no charges, and this is what it has instead of all three. 4 hearts to
+everything within 2 blocks in front, five blocks of knockback, 20 second cooldown.
+
+- **Not gated on having a target**, unlike almost everything else, which refuses a cast with
+  nothing in view so aiming at the sky is free. A kick is a thing you DO rather than a thing
+  you aim, it costs no chi, and connecting with nothing is an ordinary outcome the game
+  should not step in and undo. What it costs is the twenty seconds.
+- **`indirectMagic` so the stated 8 is the 8 that lands.** A plain `playerAttack` would be
+  reduced by armour to a couple of points against anyone geared, which for the only damaging
+  ability a non-bender has would make the path useless in exactly the fight it exists for.
+  Same call, and the same reasoning, as Tsunami's.
+- **A cone of 0.3** (~72 degrees), WIDER than the pushes use at 0.5. Those reach eight and
+  twelve blocks, where a two-block cone at 0.5 is barely wider than the player themselves —
+  an ability you have to be touching something to use should not also demand you be square
+  on to it.
+- **The knockback constant is CALIBRATED against Fire push, not derived.** Fire push uses
+  0.84 at the same lift for a throw its note records as about six blocks, and distance
+  scales linearly, so five sixths of that is 0.70 and 0.71 is five blocks IF that six is
+  right. Simulating vanilla's own step gives noticeably shorter throws than either figure
+  claims, so one of the two models is wrong and it has not been settled in game. The RATIO
+  is what is certain: this throws five sixths as far as a Fire push.
+- Knockback is applied AFTER the damage, never before: `hurt()` applies a knockback of its
+  own, so a velocity set first is quietly overwritten by a much smaller vanilla one.
+
+### No bending is not silent in the Spirit World
+
+`AbilityHandler.refusedInSpiritWorld` now asks which element the ability belongs to and
+lets the no-bending pair through. A kick is not bending and neither is striking somebody's
+chi points — the rule is that bending is silent there, not that nobody may move — and a
+non-bender refused both of their abilities would have nothing whatsoever to do in the one
+place the mod most wants people to go.
+
+### The emblem
+
+`tools/GenChiIcon.java` draws a black and white taijitu, 256x256, this project's own pixels
+like the armor sheets and for the same reason.
+
+- **Why a taijitu**: "the chi symbol" has no single agreed drawing, and the brief asked for
+  black and white. It is the one symbol that is READ as chi by almost everyone and is black
+  and white by definition rather than by choice, and it survives being shrunk to a 28 pixel
+  button where a more literal calligraphic mark would not.
+- **The white ring is load-bearing, not decoration.** The emblem is drawn over the selection
+  screen's dark `0xFF222222` box, so the black half of a bare taijitu would vanish into the
+  background and the symbol would read as a white crescent.
+- Anti-aliased by SUPERSAMPLING rather than by `Graphics2D`: every shape is a distance test
+  against a circle centre, so sampling several points per pixel is shorter than setting up
+  rendering hints and exactly reproducible across JDKs, which the hint-driven path is not.
+  Averaged in PREMULTIPLIED alpha, or the rim would come out grey where white meets nothing.
+
+## Settings
+
+What a player may change about the mod, and the screen that changes it. `AtlaConfig.java`
+holds the values; `client/AtlaSettingsScreen.java` is the UI.
+
+- **Reachable from two places, and they are the same screen**: `Settings` at the bottom left
+  of the bending menu, and `Mods -> Atla mod -> Config`. The second used to open NeoForge's
+  generic `ConfigurationScreen`, which is now replaced — `IConfigScreenFactory` points at
+  ours instead, so there is one settings UI rather than two that could disagree.
+- **A `SERVER` config, not a `COMMON` one**, and that is the decision everything else falls
+  out of. Every value is either a world generation rule or a rule about what a bender may
+  do, and both belong to a WORLD rather than to an installation. A common config lives
+  beside the game and is shared by every save, so turning the ore down for one world would
+  quietly retune every other; and on a server each client would have its own copy, so two
+  people could disagree about which abilities exist. `SERVER` answers both — the file sits
+  in the save's own `serverconfig/`, and FML syncs it to every client on connection.
+- **`config/atlamod-server.toml` is the template for FUTURE worlds.** FML copies it into each
+  new save. That is the answer to "the settings are per world, so how do I set them once".
+- **The screen is not always editable, and says which.** A server config is not loaded at the
+  title screen, is the remote server's business when connected to one, and is shared with the
+  guests once a world is open to LAN. `AtlaSettingsScreen.editable()` draws exactly the line
+  NeoForge's own screen draws — deliberately copied rather than invented, so the two can
+  never disagree about the same file.
+- **Still an ordinary `ModConfigSpec` underneath**, which matters more than the screen does.
+  The TOML is plain, commented and hand-editable, and a server owner with no client at all
+  can set every one of these. Nothing in the screen is a second way of storing anything.
+
+### `super.render` BLURS EVERYTHING ALREADY DRAWN — applies to any custom screen
+
+`Screen#render` is two steps: `renderBackground`, then the renderables. And
+`renderBackground` ends in `renderBlurredBackground`, which is a **post-process over the
+whole framebuffer** — it does not blur "the world behind the screen", it blurs every pixel
+drawn up to that point, the GUI included.
+
+- So the obvious shape for a custom screen — paint your own content, then call
+  `super.render` to put the buttons on top — **smears the entire screen**. The first
+  version of `AtlaSettingsScreen` was completely illegible this way, and the giveaway was
+  that the two vanilla `Button`s were the only sharp things on it: they are renderables, so
+  they were drawn AFTER the blur while everything else was drawn before it.
+- The fix is to stop calling `super.render` at all and do its two steps separately, with
+  the screen's own content in between: `renderBackground(...)`, then the backdrop and the
+  content, then loop `this.renderables`, then the tooltip. That is the only order in which
+  the backdrop sits over the blur and the buttons sit over the backdrop.
+- `UpgradeMenuScreen` had a mild case of the same thing and it is fixed the same way: the
+  element name under the tabs was drawn before `super.render` and came out blurred, so the
+  call moved above it. Its skill tree nodes were always drawn after and were never affected.
+- **Only the skill tree tab calls `super.render`**, because the two equip tabs draw
+  themselves entirely and every widget in that screen is a tree node. The settings button
+  is the exception — it belongs to the screen rather than the tree and is wanted on all
+  three tabs — so `drawSettingsButton` renders it by hand on the tabs that skip the
+  renderables. Miss that and it is an invisible control that still answers clicks, since
+  `super.mouseClicked` reaches it whatever tab is open.
+
+### Why a screen of our own rather than NeoForge's
+
+NeoForge's generic config screen renders a config exactly as the FILE is shaped, which is
+right for a handful of values and wrong for the two things this mod actually has:
+
+- **106 ability switches**, which it would show as one string list to be typed into by hand.
+  Here they are grouped under the element they belong to, toggled by clicking anywhere on
+  the row, and carry the same description the skill tree shows — so an owner deciding what
+  to switch off reads exactly what a player reads about it. Each element header also has an
+  `Enable all` / `Disable all`, because "no firebending on this server" is a far likelier
+  thing to want than any single ability, and thirteen clicks is a poor way to say it.
+- **Generation rates whose numbers mean nothing bare.** Every slider says what it works out
+  as — `6% of islands`, `11 in 1000 cells`, `every site` — and a biome weight says its SHARE
+  (`3 (25%)`) rather than the weight, because the weight alone tells you nothing and moving
+  any one family's slider changes every other family's answer.
+
+### Reading the values
+
+- **NEVER through the `ModConfigSpec` values; always through `AtlaConfig`'s cached getters.**
+  Two separate reasons, both real: some of these are asked per BLOCK on worldgen worker
+  threads, where a map lookup and a `Preconditions` check apiece is genuine cost — and a
+  `ConfigValue` THROWS outright when its config is not loaded, which is the normal state at
+  the title screen.
+- The cache is plain `volatile` fields refreshed from `ModConfigEvent.Loading` and
+  `.Reloading`, and put back to the shipped defaults on `.Unloading`. Resetting on unload is
+  not tidiness: unloading is a world closing, and keeping the last world's numbers would mean
+  a fresh save generating with whatever the previous one was set to until its own config loads.
+- **`AtlaConfig.generation()` is a counter for anything that MEMOISES an answer derived from
+  the settings.** At present that is only `SpiritIslands.Cache`, which remembers where the
+  islands in a cell are — and a cached island worked out under the old spacing does not merely
+  go stale, it actively disagrees with a freshly computed one. The cache compares the counter
+  and empties itself when it differs. Without that, chunks generated either side of a change
+  would disagree about where the ground is on the SAME settings, which is far worse than the
+  seam a settings change inherently makes. It is raised LAST in `refresh()`, after every field
+  is in place, or a reader could refill from a half-updated set and believe itself current.
+
+### World generation applies to chunks not yet made
+
+- Islands, ore and shrines are pure functions of position, worked out once when a chunk is
+  first visited and then saved like any other block. Changing a rate mid-world leaves
+  everything already explored exactly as it was and steers only what is found from here on,
+  which shows as a SEAM at the boundary.
+- **Deliberately NOT marked `worldRestart()`**, which would make the game demand a reload. A
+  restart would not heal the seam either, so the prompt would cost a reload and buy nothing.
+  The screen says "applies to chunks you have not visited yet" instead.
+
+### The defaults reproduce the old hard-coded behaviour exactly
+
+This was a requirement, not a hope: every world that already exists had to keep the same
+islands in the same places. Two places took real care, and both were measured over 1.96
+million cells with **zero mismatches** against the old arithmetic.
+
+- **The island family draw became WEIGHTED**, and lands on the old flat draw whenever the
+  weights are all equal. With six families at 1 the total is 6, the draw is `pick(seed, 5, 6)`
+  exactly as before, and walking the running total hands back the index that equals the number
+  drawn. Weights rather than percentages so the numbers never have to add up to anything; a
+  family at 0 simply never appears. Every weight at 0 is refused and falls back to equal,
+  since a dimension with no islands is never what was meant.
+- **`MARGIN` became `marginFor(cell)`**, capped at a third of the cell. NECESSARY once the
+  cell became configurable: the jitter a centre is given is drawn from `cell - 2 * margin`,
+  and at the smallest cell the settings allow (140) a flat margin of 85 makes that NEGATIVE
+  — not a tight island but an outright crash, since `pick` floor-mods by it. At the default
+  260 it is `min(85, 86)` and so exactly the old 85. Measured smallest bound across every
+  allowed cell size: 47.
+
+### Temples can only be made RARER, and that is inherent
+
+Which chunks are even OFFERED as a temple site is decided by the structure SET —
+`spacing: 40, separation: 15` in `data/atlamod/worldgen/structure_set/spirit_temples.json` —
+and no config value can offer a site the grid did not. So `templeChanceInHundred` is a second
+refusal on top of that grid, checked FIRST in `findGenerationPoint` because it is one hash
+where everything under it samples nine columns of terrain and loads a template.
+
+- **Derived from the chunk, not from a `Random`**, so the same chunk reaches the same answer
+  however often it is asked. Vanilla calls `findGenerationPoint` both while generating and
+  while searching, and a site that said yes to `/locate` and no to the generator would send
+  a player to an empty field.
+- **0 is safe.** Portals fall back to the fixed temple at the world origin, which
+  `SpiritWorld.ensureTemple` builds on demand.
+
+### A disabled ability
+
+- **Four doors refuse it**, because four different things can reach an ability: the
+  dispatcher (`AbilityHandler.refusedDisabled`), `UnlockAbilityPacket`, `EquipAbilityPacket`
+  and `EquipPassivePacket`. The menu greys it out as well, but the menu is only ever asking —
+  the client's copy of the settings arrives over the wire and a client is not the authority.
+- **A TOGGLE ALREADY RUNNING IS LET THROUGH, and that exemption is load-bearing.** Tornado,
+  Air scooter, Combustion Beam, Metal shield and the rest are switched OFF by pressing their
+  own key, which reaches the dispatcher through the same door — so refusing it outright would
+  leave anybody who had one up when it was disabled riding, shielded or draining chi with no
+  way to stop. Only STARTING one is refused. Same reasoning on the hold path: only a PRESS is
+  refused, never a RELEASE, or a channel already running would drain chi until it ran dry.
+- **Passives are stopped in `BendingData.hasPassiveEquipped`**, not at the dispatcher, and it
+  has to be there: a passive is never cast, so it never goes through `AbilityHandler` at all
+  and there is no moment of use to refuse. What every passive DOES have in common is that
+  whatever it affects asks that method, so one check switches them all off including passives
+  written later.
+- **Nothing a player has spent levels on is lost.** A disabled ability stays unlocked and
+  stays in whatever slot it was in; it simply does nothing, and works again the moment it is
+  enabled. Clearing a slot is always allowed, or a slot holding a disabled ability could
+  never be emptied.
+- **Stored as a list of what is OFF**, named by display name and matched without case. That
+  matters when the mod is updated: an ability added in a later version is simply absent from
+  the list and therefore on, where a table of booleans would need an entry written for it.
+  The screen keeps entries that match no ability in THIS build rather than dropping them —
+  an older save or a rolled-back server may name something real, and rewriting the list
+  without it would delete a setting the owner meant.
+
+## The Avatar's torn portal
+
+Meditate as the Avatar and bend anyway — five casts inside ten seconds, without moving —
+and a way into the Spirit World tears open in front of you. It stands fifteen seconds.
+
+- **It reuses the activation sequence that already existed.** `SpiritPortals.recordUse`
+  has counted five casts in ten seconds since portals were built; all that is new is a
+  second thing to do when the count lands. Nothing about the counting changed.
+- **A FRAME IS TRIED FIRST, ALWAYS** (`tryLight(player) || tryTear(player)`). The two
+  triggers overlap — an Avatar can perfectly well meditate inside a temple — and this
+  ordering means the behaviour that already existed is never taken away by the new one.
+  It is also plainly the better outcome: a lit frame lasts a minute and has a temple with
+  a permanent way home at the far end, where a tear lasts fifteen seconds and lands you on
+  bare ground.
+- **Meditating is what makes the trigger deliberate.** Meditation roots the player, and
+  casting is the one thing the rooting does not stop — so five casts without moving is an
+  act, not something an ordinary fight produces by accident. That is the whole reason the
+  condition is "while meditating" rather than just "as the Avatar".
+- **Three by three, opened two blocks in front, standing across the look** so you walk into
+  its face rather than along its edge. Three is tried if two will not fit.
+- **All of the footprint must be AIR, or none of it is filled.** The same rule every
+  block-placing ability in this mod follows, and the reason the whole opening is checked
+  before a single block is written: a portal with a corner missing because of a fence post
+  is not one you can walk through, and carving the fence post out to make room would be
+  exactly the griefing the air-only rule exists to prevent. A refusal is TOLD — five casts
+  is a real effort to spend on nothing, and "there is a wall in the way" is something the
+  player can act on by turning round.
+
+### Where it comes out, and how the portal knows
+
+- **`SpiritPortalBlock.ISLAND` is a BLOCKSTATE, not a map of positions**, for exactly the
+  reason the one minute timer is a scheduled tick — see that class's note, which argues the
+  case against static maps for portal state. A map would be lost to a restart, to the chunk
+  unloading and to a save; a blockstate is saved with the chunk and cannot go out of step
+  with the block it describes. Both values map to the same two models, so the blockstate
+  file gained variants but no art, and portals already in old saves read back as `false`.
+- **`SpiritWorld.islandArrivalNear` is the dimension's SECOND arrival.** A temple portal
+  leads to the nearest temple, which is the whole navigation of the place. This one leads
+  to open ground on the island nearest wherever it was torn, with nothing on it.
+- **The island is found by ARITHMETIC, not by looking**, which is what lets it answer for
+  ground that has never been generated — islands are a pure function of position, so the
+  surface height is knowable before the chunk exists and is exactly the height it will have
+  when it does. The same property `arrivalNear` already relies on.
+- **It lands at the island's CENTRE, not at the matching column.** The centre is the one
+  place on an island guaranteed to have ground under it — `covers()` returns true at
+  distance 0 before it computes anything — where the column straight below the portal may
+  be a few blocks past the rim and over the void. The island is the destination; which part
+  of it is not worth a fall. Near the world origin there is no island at all, since
+  generation keeps that clear so the fixed temple is not buried, and it falls back to the
+  temple arrival rather than setting somebody down in open void.
+
+### The far end is built too
+
+**WITHOUT IT THERE IS NO WAY BACK.** Every other portal in the mod leads to a temple, and a
+temple's own portal never closes, so the return trip takes care of itself. An island has
+nothing on it — so unless the far end is built, the Avatar's portal is one way and whoever
+used it is walking until they find a temple.
+
+- Built BEFORE the traveller is sent, so they arrive standing IN it rather than beside a
+  portal that appears a tick later. Temple arrivals work the same way, and the portal
+  cooldown on the arriving entity is what stops the two ends bouncing somebody back and
+  forth.
+- **It is the one Spirit World portal that is given a scheduled tick.** `activate`'s single
+  `if` — overworld portals get a clock, spirit ones do not — is what makes a temple portal
+  a permanent way home. This one is scheduled deliberately: it is a tear rather than a
+  temple, and a permanent hole on a random island is exactly what it must not leave behind.
+- Anything already standing where a block would go is left alone and simply not filled. An
+  island's surface carries trees, and a portal missing a corner is still one you can step
+  into, where clearing the tree to square it off is the thing the air-only rule forbids.
+- **ITS FIFTEEN SECONDS START WHEN IT IS BUILT, and that is an INTERPRETATION.** Both ends
+  closing on one clock would be more literally "the portal lasts fifteen seconds" — and
+  would strand anyone who stepped through on the fourteenth. Giving this end its own
+  fifteen makes the trip a round one: cross, look, and come back, or stay and walk. Coming
+  home does not actually need the near end to still exist, since `SpiritTravel` remembers
+  the position rather than the portal, so the only thing at risk is the way OUT of the
+  Spirit World.
+
 ## The Avatar
 
 Four commands, covered by the permission gate on the `/bend` root:

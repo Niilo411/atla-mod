@@ -57,11 +57,65 @@ public class AbilityHandler {
      * "nothing happened" is indistinguishable from a broken keybind, and the reason here
      * is something the player can act on by leaving.
      */
-    private static boolean refusedInSpiritWorld(ServerPlayer player) {
+    private static boolean refusedInSpiritWorld(ServerPlayer player, Ability ability) {
         if (!com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(player.level())) return false;
+
+        // A KICK IS NOT BENDING, and neither is striking somebody's chi points. The rule
+        // is that bending is silent here, not that nobody may move — and a non-bender
+        // refused both of their abilities would have nothing whatsoever to do in the
+        // Spirit World, which is the one place the mod most wants people to go.
+        if (com.minecraft.atlamod.abilities.ElementPaths.isNoBending(
+                com.minecraft.atlamod.abilities.ElementPaths.elementOf(ability.getName()))) {
+            return false;
+        }
 
         player.displayClientMessage(Component.literal(
                 "§bBending is silent in the Spirit World."), true);
+        return true;
+    }
+
+    /**
+     * Refuses an ability the settings have switched off, and says so.
+     *
+     * TOLD RATHER THAN SILENT, like every other refusal here: a key that does nothing at
+     * all is indistinguishable from a broken keybind, and "this one is switched off" is
+     * something the player can act on by asking whoever runs the server.
+     *
+     * A TOGGLE ALREADY RUNNING IS LET THROUGH, and that exemption is load-bearing rather
+     * than polite. Tornado, Air scooter, Combustion Beam, Metal shield and the rest are
+     * switched off by pressing their own key, which reaches the dispatcher through this
+     * same door — so refusing it outright would leave anybody who had one up when it was
+     * disabled riding, shielded or draining chi with no way to stop. Disabling an ability
+     * must never be able to trap somebody inside it. Only STARTING one is refused.
+     *
+     * The equip and unlock packets refuse it too, so this is the last of four doors rather
+     * than the only one; it is here because it is the one a keybind actually opens, and
+     * because a slot bound before the ability was disabled still points at it.
+     */
+    private static boolean refusedDisabled(ServerPlayer player, BendingData data, Ability ability) {
+        if (com.minecraft.atlamod.AtlaConfig.abilityEnabled(ability.getName())) return false;
+        if (ability.isActive(player, data)) return false;
+
+        player.displayClientMessage(Component.literal(
+                "§c" + ability.getName() + " is disabled in this world's settings."), true);
+        return true;
+    }
+
+    /**
+     * Refuses a cast because the player's chi points have been struck.
+     *
+     * A SEPARATE REFUSAL FROM DEAFEN'S LOCKOUT although the sentence is nearly the same,
+     * because the two are different things that happen to share one symptom: Deafen is a
+     * sound ability shouting somebody's ears out, and this is their chi physically shut
+     * off. They run for different lengths, arrive from different elements, and only this
+     * one also freezes regeneration — so a player reading "you cannot bend right now"
+     * would have no idea which of the two had happened to them or how long it lasts.
+     */
+    private static boolean refusedChiBlocked(ServerPlayer player, BendingData data) {
+        if (!data.isChiBlocked()) return false;
+
+        player.displayClientMessage(Component.literal(
+                "§cYour chi is blocked! (" + ((data.getChiBlockedTicks() + 19) / 20) + "s)"), true);
         return true;
     }
 
@@ -75,10 +129,16 @@ public class AbilityHandler {
         Ability ability = AbilityRegistry.get(abilityName);
         if (ability == null) return;
 
+        // Switched off in this world's settings. Above everything else because it is the
+        // most fundamental refusal of the lot — the others say this cast cannot happen
+        // NOW, where this says the ability is not part of this world at all — and because
+        // it is one set lookup, cheaper than anything under it.
+        if (refusedDisabled(player, data, ability)) return;
+
         // Nothing bends in the Spirit World. Checked above everything else, because it
         // is a fact about WHERE the player is rather than about the ability or what
         // they can afford — there is no cast here that could succeed.
-        if (refusedInSpiritWorld(player)) return;
+        if (refusedInSpiritWorld(player, ability)) return;
 
         // Deafen locks its victims out of bending entirely for a few seconds. Checked
         // at the very top, before anything is spent or stamped.
@@ -87,6 +147,12 @@ public class AbilityHandler {
                     "§cYou cannot bend right now! (" + ((data.getBendingLockedTicks() + 19) / 20) + "s)"), true);
             return;
         }
+
+        // Chi blocked — beside the lockout above because it is the same shape of refusal:
+        // a fact about the player rather than about the ability, checked before anything
+        // is spent or stamped. It stops the no-bending abilities too, deliberately: a
+        // chi blocker whose own points have been struck is as stopped as anyone else.
+        if (refusedChiBlocked(player, data)) return;
 
         // Held shapes do NOT start here — they come in through executeAbilityHold().
         // The client can't tell the shapes apart, so it fires UseAbilityPacket AND
@@ -286,7 +352,11 @@ public class AbilityHandler {
         // Nothing bends in the Spirit World — but only a PRESS is refused, for exactly
         // the reason the bending lockout below gives. A channel still running as its
         // caster is carried into the Spirit World has to be able to be let go of.
-        if (isHeld && refusedInSpiritWorld(player)) return;
+        // Looked up ONCE, at the top, because three of the guards below need it now that
+        // the Spirit World refusal asks which element the ability belongs to.
+        Ability ability = AbilityRegistry.get(abilityName);
+
+        if (isHeld && ability != null && refusedInSpiritWorld(player, ability)) return;
 
         // Only a PRESS is refused while locked out. A key RELEASE has to get through,
         // or a channel that was already running when the lockout landed could never be
@@ -297,7 +367,15 @@ public class AbilityHandler {
             return;
         }
 
-        Ability ability = AbilityRegistry.get(abilityName);
+        // Only a PRESS again, for the reason above it: a channel already running when the
+        // chi block landed has to be able to be let go of.
+        if (isHeld && refusedChiBlocked(player, data)) return;
+
+        // Switched off in this world's settings — and, like the two guards above, only a
+        // PRESS is refused. A channel or a charge that was already running when the
+        // ability was disabled has to be able to be let go of, or it would drain chi
+        // until it ran dry with the key doing nothing.
+        if (isHeld && ability != null && refusedDisabled(player, data, ability)) return;
 
         // Only when a held ability is STARTING. A key release must never dismount —
         // it arrives for every ability the player lets go of, including the scooter's

@@ -1,6 +1,8 @@
 {
   "variants": {
-    "axis=x": { "model": "atlamod:block/spirit_portal_ns" },
-    "axis=z": { "model": "atlamod:block/spirit_portal_ew" }
+    "axis=x,island=false": { "model": "atlamod:block/spirit_portal_ns" },
+    "axis=z,island=false": { "model": "atlamod:block/spirit_portal_ew" },
+    "axis=x,island=true": { "model": "atlamod:block/spirit_portal_ns" },
+    "axis=z,island=true": { "model": "atlamod:block/spirit_portal_ew" }
   }
 }

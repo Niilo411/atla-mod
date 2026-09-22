@@ -107,6 +107,77 @@ public final class SpiritWorld {
     }
 
     /**
+     * Where an ISLAND portal comes out: on the island nearest the coordinates it was
+     * opened at, rather than inside the nearest temple.
+     *
+     * The other of the dimension's two arrivals, and the difference is the whole point of
+     * the portal that uses it. A temple portal is navigation — it puts you at the fixed
+     * landmark nearest where you left, with a way back standing in the same room. This
+     * one puts you on open ground wherever you happened to be, with nothing there at all.
+     * Only the Avatar can open one, and it lasts fifteen seconds.
+     *
+     * THE ISLAND IS FOUND BY ARITHMETIC, NOT BY LOOKING, which is what lets this answer
+     * for ground that has never been generated: islands are a pure function of position
+     * (see {@link com.minecraft.atlamod.spirit.island.SpiritIslands}), so the surface
+     * height is knowable before the chunk exists and is exactly the height the chunk will
+     * have when it does. The same property {@link #arrivalNear} relies on.
+     *
+     * Lands at the island's CENTRE rather than at the matching column, and that is
+     * deliberate: the centre is the one place on an island guaranteed to have ground under
+     * it, where the column straight below the portal may be a few blocks past the rim and
+     * over the void. The island is the destination; which part of it is not worth a fall.
+     */
+    public static BlockPos islandArrivalNear(ServerLevel spirit, BlockPos from) {
+        com.minecraft.atlamod.spirit.island.SpiritIslands.Island island =
+                nearestIsland(from.getX(), from.getZ());
+
+        // No island within reach at all is possible near the world origin, which island
+        // generation deliberately keeps clear so the fixed temple is not buried. Falling
+        // back to the temple arrival beats setting somebody down in open void.
+        if (island == null) return arrivalNear(spirit, from);
+
+        int surface = com.minecraft.atlamod.spirit.island.SpiritIslands
+                .surfaceAt(island.centreX(), island.centreZ());
+        if (surface == com.minecraft.atlamod.spirit.island.SpiritIslands.NO_GROUND) {
+            return arrivalNear(spirit, from);
+        }
+
+        return new BlockPos(island.centreX(), surface + 1, island.centreZ());
+    }
+
+    /**
+     * The island whose centre is nearest this column, or null if none is close.
+     *
+     * NINE CELLS, which is the same neighbourhood {@code coveringOrNull} walks and is
+     * enough for the same reason: an island's centre is kept well inside its own cell, so
+     * the nearest one to any column is always in that column's cell or one beside it.
+     * Satellites are included, since they are real ground and often the closest thing.
+     */
+    private static com.minecraft.atlamod.spirit.island.SpiritIslands.Island nearestIsland(int x, int z) {
+        int cell = com.minecraft.atlamod.spirit.island.SpiritIslands.cell();
+        int cellX = Math.floorDiv(x, cell);
+        int cellZ = Math.floorDiv(z, cell);
+
+        com.minecraft.atlamod.spirit.island.SpiritIslands.Island best = null;
+        double bestDistance = Double.MAX_VALUE;
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                for (com.minecraft.atlamod.spirit.island.SpiritIslands.Island island
+                        : com.minecraft.atlamod.spirit.island.SpiritIslands.allIn(cellX + dx, cellZ + dz)) {
+
+                    double distance = island.distanceTo(x, z);
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = island;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
      * The nearest naturally generated temple, or null if there is none to be had.
      *
      * The position the locator gives back is a chunk's MIN corner, not the temple — the

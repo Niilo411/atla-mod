@@ -111,8 +111,13 @@ public final class SpiritShrines {
      *
      * Rare enough to be a find rather than scenery, which it can afford to be now that
      * {@code /locate structure atlamod:spirit_shrine} will point at the nearest one.
+     *
+     * A SETTING, defaulting to the 6 this was fixed at. Everything above describes that
+     * default; raising it scales the figures with it.
      */
-    private static final int CHANCE_IN_HUNDRED = 6;
+    private static int chanceInHundred() {
+        return com.minecraft.atlamod.AtlaConfig.shrineChance();
+    }
 
     /** Salts for the shrine's draws, kept clear of every salt {@link SpiritIslands} uses. */
     private static final int SALT_CHANCE = 30;
@@ -244,8 +249,8 @@ public final class SpiritShrines {
      * crow flies, so it can never reject a shrine that genuinely overlaps.
      */
     private static List<BlockPos> originsNear(int centreX, int centreZ, int slack, Vec3i size) {
-        int cellX = Math.floorDiv(centreX, SpiritIslands.CELL);
-        int cellZ = Math.floorDiv(centreZ, SpiritIslands.CELL);
+        int cellX = Math.floorDiv(centreX, SpiritIslands.cell());
+        int cellZ = Math.floorDiv(centreZ, SpiritIslands.cell());
 
         // TWICE the structure, not once. A shrine's centre column sits within MAX_OUT of
         // the island's radius, but the block being asked about may be half a structure
@@ -290,7 +295,7 @@ public final class SpiritShrines {
      * the island's centre.
      */
     private static BlockPos siteFor(SpiritIslands.Island island, Vec3i size) {
-        if (SpiritIslands.pick(island.seed(), SALT_CHANCE, 100) >= CHANCE_IN_HUNDRED) return null;
+        if (SpiritIslands.pick(island.seed(), SALT_CHANCE, 100) >= chanceInHundred()) return null;
 
         for (int attempt = 0; attempt < ATTEMPTS; attempt++) {
             long seed = island.seed() ^ (attempt * 0x9E3779B97F4A7C15L);

@@ -15,22 +15,40 @@ package com.minecraft.atlamod.spirit.island;
 public enum IslandFamily {
 
     /** Ordinary land: plains, desert, snowy, forest. */
-    OVERWORLD,
+    OVERWORLD("Ordinary land", "Plains, desert, snowy and forest islands."),
 
     /** Nether-mimic: wastes, crimson forest, warped forest, soul sand valley. */
-    NETHER,
+    NETHER("Nether", "Nether wastes, crimson forest, warped forest and soul sand valley."),
 
     /** End-mimic. One variant. */
-    END,
+    END("End", "End stone islands with chorus flowers."),
 
     /** Grassy mountains with crimson creeping over them. One variant. */
-    CRIMSON,
+    CRIMSON("Crimson mountains", "Grassy mountains with a crimson infection spreading over them."),
 
     /** Mangrove swamp with warped creeping over it. One variant. */
-    WARPED,
+    WARPED("Warped swamp", "Mangrove swamp with a warped infection spreading over it."),
 
     /** Dead black flats. One variant. */
-    WASTELAND;
+    WASTELAND("Wasteland", "Dead black flats where nothing grows.");
+
+    private final String displayName;
+    private final String description;
+
+    IslandFamily(String displayName, String description) {
+        this.displayName = displayName;
+        this.description = description;
+    }
+
+    /** What the settings screen calls this family. */
+    public String displayName() {
+        return displayName;
+    }
+
+    /** One line on what this family looks like, for the config file and the screen's tooltip. */
+    public String description() {
+        return description;
+    }
 
     /**
      * Every style belonging to this family, in a fixed order.

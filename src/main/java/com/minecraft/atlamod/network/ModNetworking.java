@@ -28,6 +28,20 @@ public class ModNetworking {
                             // asking afterwards would always say they had already chosen.
                             boolean firstChoice = !data.hasChosenElement();
 
+                            // ONLY a first choice is honoured. The screen is shown only to
+                            // somebody who has not chosen, so this refuses nothing anybody
+                            // can legitimately do — what it stops is a hand-sent packet
+                            // rewriting a main element that is already set, which now
+                            // matters in a way it did not before: no bending is reachable
+                            // from this screen and is meant to be a first-join decision or
+                            // a gift from an operator, not something to switch into later.
+                            if (!firstChoice) return;
+
+                            // And only a path that actually exists, for the reason
+                            // /bend add is gated: an invented one leaves a player holding
+                            // something with no tree, no abilities and no emblem.
+                            if (!com.minecraft.atlamod.abilities.ElementPaths.exists(payload.element())) return;
+
                             data.setMainElement(payload.element());
                             data.setActiveElement(payload.element());
                             if (!data.getUnlockedElements().contains(payload.element())) {

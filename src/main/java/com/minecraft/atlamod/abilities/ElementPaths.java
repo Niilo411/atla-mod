@@ -1,6 +1,7 @@
 package com.minecraft.atlamod.abilities;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Which abilities make up each path of each element's skill tree.
@@ -50,6 +51,7 @@ public final class ElementPaths {
                     "Blood freeze", "Blood Slow", "Blood suck", "Blood manipulation"};
             case "lava" -> new String[]{
                     "Lava river", "Lava geyser", "Lava sinkhole", "Lava tsunami"};
+            case NO_BENDING -> new String[]{"Chi block"};
             default -> NONE;
         };
     }
@@ -77,6 +79,7 @@ public final class ElementPaths {
             case "blood" -> new String[]{"Blood strength", "Flesh shield"};
             case "lava" -> new String[]{
                     "Lava wall", "Lava resistance", "Lava throw", "lava rain"};
+            case NO_BENDING -> new String[]{"Kick"};
             default -> NONE;
         };
     }
@@ -119,8 +122,85 @@ public final class ElementPaths {
         if (element == null) return NONE;
         return switch (element.toLowerCase()) {
             case "air" -> new String[]{"Advanced meditating"};
+            case NO_BENDING -> new String[]{CHI_BLOCKING};
             default -> NONE;
         };
+    }
+
+    // ==========================================================================
+    //  No bending
+    // ==========================================================================
+
+    /**
+     * The path taken by someone who chose no bending at all.
+     *
+     * A REAL ENTRY IN THIS CLASS even though it is not a bending art, because everything
+     * that reads a tree reads it from here — the menu, the unlock packet, the equip list.
+     * Keeping it out would mean a second set of tables for a single tree, which is the
+     * exact duplication this class was extracted to end.
+     *
+     * The Avatar can never hold it — see {@code Avatar.grant}. The cycle only ever looks
+     * for the four bending arts, so it is skipped there for free; being NAMED Avatar is
+     * the route that had to be closed by hand.
+     */
+    public static final String NO_BENDING = "nobending";
+
+    /**
+     * The centre node, which is NOT an ability.
+     *
+     * Nothing casts it and nothing equips it — it is a step, and the only thing it does is
+     * open the two arms. That makes it the first node in the mod with no class behind it
+     * at all, which the menu copes with because a node is only ever a NAME in the unlocked
+     * list; the registry is consulted for casting, not for buying. What it did break is
+     * the equip list, which offered anything unlocked and not a passive — including this.
+     * See {@code UpgradeMenuScreen.equippableAbilities}.
+     */
+    public static final String CHI_BLOCKING = "Chi blocking";
+
+    /** Whether this is the no-bending path, whatever case it was written in. */
+    public static boolean isNoBending(String element) {
+        return element != null && NO_BENDING.equalsIgnoreCase(element);
+    }
+
+    /**
+     * What a path is called on screen.
+     *
+     * In COMMON code although only the client draws it, because two screens and the HUD
+     * all need the same answer and they used to each capitalise the key themselves. That
+     * worked for exactly as long as every name was its key with a capital letter, and
+     * "No bending" is the first one that is not — three copies of the rule would have
+     * meant three places to remember the exception.
+     */
+    public static String displayName(String element) {
+        if (element == null || element.isEmpty()) return "";
+        if (isNoBending(element)) return "No bending";
+
+        return element.substring(0, 1).toUpperCase(Locale.ROOT) + element.substring(1);
+    }
+
+    /**
+     * Whether an element's centre node has to be bought before either arm opens.
+     *
+     * TRUE ONLY FOR NO BENDING, and the difference from air is real rather than a special
+     * case for its own sake. Air's centre is an ordinary extra its bender may buy at any
+     * point, so gating the arms behind it would be an arbitrary tax. No bending's centre
+     * is the thing that makes the whole path possible — learning to touch chi at all —
+     * and both its arms are applications of it, so neither means anything before it.
+     */
+    public static boolean centreGatesPaths(String element) {
+        return isNoBending(element);
+    }
+
+    /**
+     * What an element's centre node costs in levels.
+     *
+     * Here rather than in the menu because the menu is client-only and this is a rule
+     * about the tree. 20 is the standing figure; no bending's is 15, which buys the whole
+     * path rather than one extra — cheaper on purpose, since a non-bender has nothing at
+     * all until they pay it, where an airbender buying theirs already has twelve abilities.
+     */
+    public static int centreCost(String element) {
+        return isNoBending(element) ? 15 : 20;
     }
 
     /** All four arms of an element's tree, in the order the menu draws them. */
@@ -175,7 +255,12 @@ public final class ElementPaths {
      */
     private static final String[] ELEMENTS = {
             "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion",
-            "blood", "lava", "energy"
+            "blood", "lava", "energy",
+
+            // Not a bending art, but it IS a tree with abilities in it, which is the only
+            // test this list applies — and /bend add is the one way to hand it to somebody
+            // who did not pick it on their first join, so it has to be nameable there.
+            NO_BENDING
     };
 
     /** Every element with a tree, for command suggestions and for validating input. */

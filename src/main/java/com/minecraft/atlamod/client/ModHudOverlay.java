@@ -23,7 +23,7 @@ public class ModHudOverlay {
 
 // 1. Draw Element Icon, Name, Y Key & Stats Text in the bottom left
         if (activeElement != null && !activeElement.isEmpty()) {
-            String displayText = activeElement.substring(0, 1).toUpperCase() + activeElement.substring(1);
+            String displayText = com.minecraft.atlamod.abilities.ElementPaths.displayName(activeElement);
             int screenHeight = mc.getWindow().getGuiScaledHeight();
 
             int iconSize = 24;
@@ -48,15 +48,29 @@ public class ModHudOverlay {
             // Element Name
             guiGraphics.drawString(mc.font, displayText, textStartX, y + 4, 0xFFFFFF);
 
-            // Level and XP nested right next to the element name
+            // Level and XP nested right next to the element name.
+            //
+            // MEASURED rather than a fixed offset. This sat at a flat +50, which is
+            // comfortable for "Fire" and too narrow for "No bending" — the stats ran
+            // straight through the tail of the name. Taking the greater of the two keeps
+            // every short name exactly where it has always been and only pushes the
+            // stats right when the name actually needs the room, so it also covers
+            // whatever gets added next without anyone having to remember this line.
             String statsText = "Lvl: " + data.getLevel() + " | XP: " + data.getXp() + "/200";
-            guiGraphics.drawString(mc.font, statsText, textStartX + 50, y + 4, 0x55FF55);
+            int statsX = textStartX + Math.max(50, mc.font.width(displayText) + 8);
+
+            guiGraphics.drawString(mc.font, statsText, statsX, y + 4, 0x55FF55);
 
             // Draw "Y" Hotkey hint neatly right below the icon box
             guiGraphics.drawString(mc.font, "[Y] Switch", x, y + iconSize + 4, 0xAAAAAA);
         }
-        // 2. Draw the Chi Bar above health hearts
-        if (data.hasChosenElement()) {
+        // 2. Draw the Chi Bar above health hearts.
+        //
+        // NOT FOR A NON-BENDER. They have no chi — it does not regenerate and nothing
+        // they can do spends any — so a bar would sit permanently full at a number that
+        // means nothing, which is worse than no bar at all.
+        if (data.hasChosenElement()
+                && !com.minecraft.atlamod.abilities.ElementPaths.isNoBending(data.getMainElement())) {
             int screenHeight = mc.getWindow().getGuiScaledHeight();
             int screenWidth = mc.getWindow().getGuiScaledWidth();
 

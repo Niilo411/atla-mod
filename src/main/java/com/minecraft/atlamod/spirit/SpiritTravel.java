@@ -73,7 +73,28 @@ public final class SpiritTravel {
 
         ENTRY.put(entity.getUUID(), GlobalPos.of(entity.level().dimension(), portalPos));
 
-        send(entity, spirit, SpiritWorld.arrivalNear(spirit, portalPos));
+        // WHICH PORTAL THIS IS decides where it comes out, and the portal itself is asked
+        // rather than anything remembered about it — see SpiritPortalBlock.ISLAND. An
+        // ordinary portal leads to the nearest temple, which is the dimension's whole
+        // navigation; the Avatar's meditation portal leads to open ground on the nearest
+        // island instead, with nothing there and no way back but the way you came.
+        boolean toIsland = entity.level().getBlockState(portalPos)
+                .getOptionalValue(SpiritPortalBlock.ISLAND).orElse(false);
+
+        if (!toIsland) {
+            send(entity, spirit, SpiritWorld.arrivalNear(spirit, portalPos));
+            return;
+        }
+
+        BlockPos arrival = SpiritWorld.islandArrivalNear(spirit, portalPos);
+
+        // The far end is built BEFORE the traveller is sent, so they arrive standing in it
+        // rather than beside a portal that appears a tick later. Temple arrivals work the
+        // same way and the portal cooldown is what stops the two ends bouncing somebody
+        // back and forth.
+        SpiritPortals.tearFarSide(spirit, arrival);
+
+        send(entity, spirit, arrival);
     }
 
     /**

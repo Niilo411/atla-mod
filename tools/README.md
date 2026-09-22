@@ -59,3 +59,22 @@ here: diamond's armor is ALREADY teal, measured at 167-177 degrees, so recolouri
 180 would have produced a suit indistinguishable from a diamond one.
 
 Deterministic — re-running it over the same jar reproduces the shipped files byte for byte.
+
+## GenChiIcon.java
+
+Draws the **No bending** emblem — a black and white taijitu — to
+`src/main/resources/assets/atlamod/textures/gui/elements/nobending_icon.png`.
+
+```
+java tools/GenChiIcon.java src/main/resources/assets/atlamod/textures/gui/elements
+```
+
+256x256 to match every other element emblem, and this project's own pixels like the armor
+sheets. The **white outer ring is load-bearing**: the emblem is drawn over the selection
+screen's dark box, so the black half of a bare taijitu would vanish into the background
+and the symbol would read as a white crescent.
+
+Anti-aliased by supersampling rather than by `Graphics2D` — every shape is a distance test
+against a circle centre, so sampling several points per pixel is shorter than setting up
+rendering hints and exactly reproducible across JDKs. Averaged in premultiplied alpha, or
+the rim comes out grey where white meets transparency.

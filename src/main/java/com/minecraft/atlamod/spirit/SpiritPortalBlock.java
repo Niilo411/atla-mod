@@ -48,6 +48,25 @@ public class SpiritPortalBlock extends Block {
 
     public static final EnumProperty<Direction.Axis> AXIS = BlockStateProperties.HORIZONTAL_AXIS;
 
+    /**
+     * Whether the far side of this portal comes out on an ISLAND rather than in a temple.
+     *
+     * False for every portal in a frame, which is all of them but one: a temple portal
+     * leads to the nearest temple, and that is the whole navigation of the dimension. True
+     * only for the free-standing portal an Avatar tears open while meditating, which has
+     * no temple at either end and lands on the island nearest wherever it was opened.
+     *
+     * A BLOCKSTATE RATHER THAN A STATIC MAP OF POSITIONS, for exactly the reason the one
+     * minute timer is a scheduled tick — see the class note. A map would be lost to a
+     * restart, to the chunk unloading, and to a save; a blockstate is saved with the chunk
+     * like any other block property and cannot go out of step with the block it describes.
+     *
+     * It changes nothing about how the portal LOOKS. Both values map to the same two
+     * models, so the blockstate file gained variants but no art.
+     */
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty ISLAND =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("island");
+
     /** How long an overworld-side portal stays open: exactly one minute. */
     public static final int OPEN_TICKS = 20 * 60;
 
@@ -56,7 +75,9 @@ public class SpiritPortalBlock extends Block {
 
     public SpiritPortalBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        this.registerDefaultState(this.stateDefinition.any().setValue(AXIS, Direction.Axis.X));
+        this.registerDefaultState(this.stateDefinition.any()
+                .setValue(AXIS, Direction.Axis.X)
+                .setValue(ISLAND, false));
     }
 
     @Override
@@ -66,7 +87,7 @@ public class SpiritPortalBlock extends Block {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(AXIS);
+        builder.add(AXIS, ISLAND);
     }
 
     @Override

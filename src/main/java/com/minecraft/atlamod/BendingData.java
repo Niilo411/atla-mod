@@ -564,9 +564,25 @@ public class BendingData {
         return "EMPTY".equals(passive) ? "" : passive;
     }
 
-    /** Whether a named passive is sitting in any slot, i.e. whether it's doing its job. */
+    /**
+     * Whether a named passive is sitting in any slot, i.e. whether it's doing its job.
+     *
+     * THE ONE PLACE A DISABLED PASSIVE IS STOPPED, and it has to be here rather than at the
+     * dispatcher. A passive is never cast — being in a slot IS its activation — so it never
+     * goes through {@code AbilityHandler} at all, and there is no moment of use to refuse.
+     * What every passive in the mod DOES have in common is that whatever it affects asks
+     * this method, so switching one off here switches it off everywhere at once, including
+     * in passives written later.
+     *
+     * It stays in its SLOT while disabled rather than being cleared out of it. Turning an
+     * ability off is a rule about what may be used, not a reason to throw away an
+     * arrangement the player chose — so enabling it again simply makes it work, with
+     * nothing to set up a second time.
+     */
     public boolean hasPassiveEquipped(String passiveKey) {
         if (passiveKey == null || passiveKey.isEmpty()) return false;
+        if (!AtlaConfig.abilityEnabled(passiveKey)) return false;
+
         for (String equipped : getEquippedPassives()) {
             if (passiveKey.equalsIgnoreCase(equipped)) return true;
         }
@@ -697,6 +713,26 @@ public class BendingData {
     public int getBendingLockedTicks() { return bendingLockedTicks; }
     public void setBendingLockedTicks(int ticks) { this.bendingLockedTicks = Math.max(0, ticks); }
     public boolean isBendingLocked() { return bendingLockedTicks > 0; }
+
+    // --- CHI BLOCKED ---
+    // How long this player's chi is shut off for.
+    //
+    // A SECOND COUNTER RATHER THAN REUSING THE LOCKOUT ABOVE, although both stop a bender
+    // casting. Deafen's lockout does exactly that and nothing else; being chi blocked ALSO
+    // stops chi regenerating, which is the half that actually matters — a bender who
+    // cannot cast for ten seconds is inconvenienced, one whose pool is frozen while they
+    // cannot cast comes out of it no better off than they went in. Folding the two into
+    // one counter would mean either Deafen silently froze regen too, or chi blocking
+    // silently stopped freezing it; they also run for different lengths from different
+    // elements, so one number could only ever be wrong for one of them.
+    //
+    // Transient, like the lockout: it is a few seconds of state, and a player who logs out
+    // mid-block is not worth persisting a countdown for.
+    private transient int chiBlockedTicks = 0;
+
+    public int getChiBlockedTicks() { return chiBlockedTicks; }
+    public void setChiBlockedTicks(int ticks) { this.chiBlockedTicks = Math.max(0, ticks); }
+    public boolean isChiBlocked() { return chiBlockedTicks > 0; }
 
     // --- LIGHTNING REDIRECTION ---
     // How hard the bolt this player CAUGHT will hit when they throw it back.

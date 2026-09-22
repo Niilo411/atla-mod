@@ -172,6 +172,13 @@ public final class AbilityDescriptions {
         // ENERGY — the Avatar's own
         // ------------------------------------------------------------------
         put("Give and take", "The Avatar's own bending: give a bender their power, or take it away");
+
+        // ------------------------------------------------------------------
+        // NO BENDING — the path for people who have none
+        // ------------------------------------------------------------------
+        put("Chi blocking", "Not an ability. Learning to find the chi points at all, which is what opens both paths");
+        put("Chi block", "Mark a target for 10s, then land 5 hits on them. Shuts their chi off for 15s: no bending, no regen, and slowed");
+        put("Kick", "A hard kick. 4 hearts to everything within 2 blocks in front, and it sends them 5 blocks back");
     }
 
     private AbilityDescriptions() {

@@ -13,6 +13,15 @@ public class UpgradeMenuScreen extends Screen {
     private String activeElement = "";
     private final java.util.Map<Button, AbilityNode> nodeMap = new java.util.HashMap<>();
 
+    /**
+     * The one widget here that is not a skill tree node.
+     *
+     * Kept as a field purely so the render pass can tell it apart: that loop hides every
+     * widget on the tabs the tree is not drawn on, and without a way to name this one it
+     * would vanish along with the nodes.
+     */
+    private Button settingsButton;
+
     // --- RESTORED VARIABLES & RECORD ---
     // 0 = Skill Tree, 1 = Equip Abilities, 2 = Passives
     private int activeTab = 0;
@@ -139,17 +148,40 @@ public class UpgradeMenuScreen extends Screen {
             this.addRenderableWidget(btn);
         }
 
+        // The way into the mod's settings from inside the game, so they are reachable
+        // without backing all the way out to the Mods list. Bottom left, clear of the
+        // tree's bottom arm, which grows down the middle.
+        settingsButton = Button.builder(Component.literal("Settings"),
+                        b -> this.minecraft.setScreen(new AtlaSettingsScreen(this)))
+                .bounds(8, this.height - 28, 70, 20).build();
+        this.addRenderableWidget(settingsButton);
+
         // Build the CENTRE, if this element has one. It belongs to no arm, so it is
         // bought outright whichever way the bender has gone — see checkTreeLogic.
         String[] mid = getCentre(activeElement);
         for (int i = 0; i < mid.length; i++) {
             int x = cx - (iconSize / 2);
             int y = cy - (iconSize / 2);
-            AbilityNode node = new AbilityNode(mid[i], "centre", i, CENTRE_COST);
+            AbilityNode node = new AbilityNode(mid[i], "centre", i,
+                    com.minecraft.atlamod.abilities.ElementPaths.centreCost(activeElement));
             Button btn = Button.builder(Component.literal(""), b -> attemptBuy(node)).bounds(x, y, iconSize, iconSize).build();
             nodeMap.put(btn, node);
             this.addRenderableWidget(btn);
         }
+    }
+
+    /**
+     * Draws the settings button on a tab that does not render its widgets.
+     *
+     * Only the skill tree calls super.render, because the two equip tabs draw themselves
+     * entirely and have no widgets of their own to show — every button in this screen is a
+     * tree node. The settings button is the exception: it belongs to the screen rather
+     * than to the tree, is wanted on all three tabs, and would otherwise be an invisible
+     * control that still answered clicks, since mouseClicked reaches it through
+     * super.mouseClicked whatever tab is open.
+     */
+    private void drawSettingsButton(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (settingsButton != null) settingsButton.render(graphics, mouseX, mouseY, partialTick);
     }
 
     private void attemptBuy(AbilityNode node) {
@@ -158,6 +190,11 @@ public class UpgradeMenuScreen extends Screen {
 
         int playerLevel = data.getLevel();
         java.util.List<String> unlocked = data.getUnlockedAbilities();
+
+        // Nothing the settings have switched off can be bought. The server refuses this
+        // too — see UnlockAbilityPacket — but refusing it here as well is what stops the
+        // client deducting the levels locally for a purchase that will not land.
+        if (!com.minecraft.atlamod.AtlaConfig.abilityEnabled(node.name())) return;
 
         if (unlocked.contains(node.name()) || playerLevel < node.cost()) return;
         if (!checkTreeLogic(node, unlocked)) return;
@@ -176,24 +213,38 @@ public class UpgradeMenuScreen extends Screen {
         if (this.minecraft != null && this.minecraft.player != null) {
             var data = this.minecraft.player.getData(ModAttachments.BENDING_DATA);
 
+            // Every widget in this screen is a skill tree node, so all of them are hidden
+            // on the two equip tabs — except the settings button, which belongs to the
+            // screen rather than to the tree and is wanted on all three.
             for (var renderable : this.renderables) {
                 if (renderable instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
-                    widget.visible = (activeTab == 0);
+                    widget.visible = (activeTab == 0) || widget == settingsButton;
                 }
             }
 
             if (activeTab == 1) {
                 renderEquipMenu(guiGraphics, mouseX, mouseY, data);
+
+                // The equip tabs never call super.render — see the note in the else
+                // branch — so the settings button has to be drawn by hand here, or it
+                // would be invisible on these two tabs while still taking clicks.
+                drawSettingsButton(guiGraphics, mouseX, mouseY, partialTick);
             } else if (activeTab == 2) {
                 renderPassiveMenu(guiGraphics, mouseX, mouseY, data);
+                drawSettingsButton(guiGraphics, mouseX, mouseY, partialTick);
             } else {
+                // BEFORE the element name rather than after it, because super.render
+                // ends up in Screen#renderBlurredBackground, which is a post-process
+                // over the whole framebuffer — it blurs whatever has already been
+                // drawn. The name used to be drawn first and came out smeared.
+                super.render(guiGraphics, mouseX, mouseY, partialTick);
+
                 String centerText = activeElement.isEmpty() ? "None" : activeElement.substring(0, 1).toUpperCase() + activeElement.substring(1);
                 // Under the tabs rather than in the middle of the tree: an element
                 // with a CENTRE ability has a node sitting exactly where this used to
                 // be drawn, and the two would overlap.
                 guiGraphics.drawCenteredString(this.font, centerText,
                         this.width / 2, TAB_Y + TAB_H + 6, 0xFFFFFF);
-                super.render(guiGraphics, mouseX, mouseY, partialTick);
 
                 int playerLevel = data.getLevel();
                 java.util.List<String> unlocked = data.getUnlockedAbilities();
@@ -211,11 +262,23 @@ public class UpgradeMenuScreen extends Screen {
                         boolean isUnlocked = unlocked.contains(node.name());
                         boolean meetsTreeReq = checkTreeLogic(node, unlocked);
                         boolean canAfford = playerLevel >= node.cost();
+                        boolean switchedOff =
+                                !com.minecraft.atlamod.AtlaConfig.abilityEnabled(node.name());
 
                         int borderColor;
                         String statusText;
 
-                        if (isUnlocked) {
+                        // Switched off in this world's settings, which is read FIRST
+                        // because it outranks every other state a node can be in: an
+                        // ability that cannot be used is not worth buying however
+                        // affordable it is, and one already owned is not worth showing as
+                        // unlocked when pressing its key does nothing. Both are drawn the
+                        // same way for that reason — what matters is that it does not
+                        // work, not how it came to be owned.
+                        if (switchedOff) {
+                            borderColor = 0xFF884444;
+                            statusText = "§c[Disabled in this world's settings]";
+                        } else if (isUnlocked) {
                             borderColor = 0xFF55FF55;
                             statusText = "§a[Unlocked]";
                         } else if (!meetsTreeReq) {
@@ -497,6 +560,17 @@ public class UpgradeMenuScreen extends Screen {
         // rather than on an arm.
         if (node.path().equals("centre")) return true;
 
+        // ...but for SOME trees it is the thing the arms hang off. No bending's centre is
+        // learning to touch chi at all, and both its arms are applications of that, so
+        // neither means anything before it is bought. Air's centre is an ordinary extra
+        // and gates nothing — hence a question about the element rather than a blanket
+        // rule for every centre. See ElementPaths.centreGatesPaths.
+        if (com.minecraft.atlamod.abilities.ElementPaths.centreGatesPaths(activeElement)) {
+            for (String gate : getCentre(activeElement)) {
+                if (!unlocked.contains(gate)) return false;
+            }
+        }
+
         String[] off = getOffensive(activeElement);
         String[] def = getDefensive(activeElement);
         String[] bal = getBalanced(activeElement);
@@ -573,12 +647,14 @@ public class UpgradeMenuScreen extends Screen {
     }
 
     /**
-     * What a centre ability costs.
+     * What a centre node costs — {@code ElementPaths.centreCost}.
      *
-     * Its own figure rather than getCost(index), which ramps 1/5/10/15 by position
-     * along an arm — a centre node has no position to ramp from.
+     * Its own figure rather than getCost(index), which ramps 1/5/10/15 by position along
+     * an arm; a centre node has no position to ramp from. It moved OUT of this class when
+     * it stopped being one number: air's is 20 and no bending's is 15, and the difference
+     * is a rule about the tree rather than about the screen, so it belongs in the common
+     * tables where the server could ask it too.
      */
-    private static final int CENTRE_COST = 20;
 
     private String[] getPathArray(String path, String[] off, String[] def, String[] bal, String[] mas) {
         return switch (path) {
@@ -808,8 +884,23 @@ public class UpgradeMenuScreen extends Screen {
         for (String ability : data.getUnlockedAbilities()) {
             if (ability == null) continue;
 
-            if (com.minecraft.atlamod.abilities.AbilityRegistry.get(ability)
-                    instanceof com.minecraft.atlamod.abilities.PassiveAbility) {
+            // Switched off in this world's settings, so a keybind for it would do nothing
+            // — the same argument that keeps passives out of this list. The ability is NOT
+            // forgotten, only unlistable: it is still unlocked, and it comes back into
+            // this list the moment it is enabled again.
+            if (!com.minecraft.atlamod.AtlaConfig.abilityEnabled(ability)) continue;
+
+            // Nothing that is not a registered ability at all. Tree nodes are only NAMES
+            // in the unlocked list, and not every one of them has a class behind it —
+            // "Chi blocking" is a step that opens the no-bending arms and casts nothing,
+            // so offering a keybind for it would offer a key that does nothing. Checked
+            // BEFORE the passive test below, which asks the same registry and would read
+            // a missing ability as "not a passive, therefore bindable".
+            com.minecraft.atlamod.abilities.Ability registered =
+                    com.minecraft.atlamod.abilities.AbilityRegistry.get(ability);
+            if (registered == null) continue;
+
+            if (registered instanceof com.minecraft.atlamod.abilities.PassiveAbility) {
                 continue;
             }
 
@@ -824,11 +915,20 @@ public class UpgradeMenuScreen extends Screen {
         return found;
     }
 
-    /** Unlocked abilities that are actually passives, i.e. what can go in a slot. */
+    /**
+     * Unlocked abilities that are actually passives, i.e. what can go in a slot.
+     *
+     * Anything the settings have switched off is left out, exactly as
+     * {@link #equippableAbilities} leaves it out of the keybind list — a passive that has
+     * been disabled does nothing while it sits in a slot, so offering the slot would be
+     * offering an empty gesture. It stays unlocked and reappears here when re-enabled.
+     */
     private java.util.List<String> unlockedPassives(BendingData data) {
         java.util.List<String> found = new java.util.ArrayList<>();
         for (String name : data.getUnlockedAbilities()) {
             if (name == null) continue;
+            if (!com.minecraft.atlamod.AtlaConfig.abilityEnabled(name)) continue;
+
             if (com.minecraft.atlamod.abilities.AbilityRegistry.get(name)
                     instanceof com.minecraft.atlamod.abilities.PassiveAbility) {
                 found.add(name);

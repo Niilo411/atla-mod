@@ -74,7 +74,18 @@ public class Avatar {
      * Makes a player the Avatar: all four elements, three lives, and the title
      * taken off whoever held it before. There is only ever ONE Avatar.
      */
-    public static void grant(MinecraftServer server, ServerPlayer player) {
+    public static boolean grant(MinecraftServer server, ServerPlayer player) {
+        // A NON-BENDER IS NEVER THE AVATAR, and that has to be refused here rather than
+        // left to the cycle. The cycle only ever looks for the four bending arts, so it
+        // skips them for free; being NAMED Avatar by command is the route that reaches
+        // this method directly, and it is the one that had to be closed. Granting it
+        // would also destroy the choice outright, since becoming the Avatar hands over
+        // all four elements — the exact opposite of what they picked.
+        BendingData chosen = player.getData(ModAttachments.BENDING_DATA);
+        if (com.minecraft.atlamod.abilities.ElementPaths.isNoBending(chosen.getMainElement())) {
+            return false;
+        }
+
         AvatarState state = state(server);
 
         // The old Avatar loses it first, and by UUID rather than by searching the
@@ -109,6 +120,8 @@ public class Avatar {
         server.getPlayerList().broadcastSystemMessage(
                 Component.literal(player.getGameProfile().getName() + " is the Avatar.")
                         .withStyle(ChatFormatting.GOLD), false);
+
+        return true;
     }
 
     /**

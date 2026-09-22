@@ -28,6 +28,16 @@ public record EquipAbilityPacket(int slot, String abilityName) implements Custom
             if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
                 var data = player.getData(com.minecraft.atlamod.ModAttachments.BENDING_DATA);
 
+                // An ability the settings have switched off cannot be bound to a key.
+                // Re-checked here rather than trusted from the menu, which greys the row
+                // out but is only ever asking — the client's copy of the settings arrives
+                // over the wire and a client is not the authority on them.
+                //
+                // An EMPTY name is always allowed through: that is the player CLEARING a
+                // slot, and refusing it would leave a slot holding a disabled ability with
+                // no way to empty it.
+                if (!com.minecraft.atlamod.AtlaConfig.abilityEnabled(payload.abilityName())) return;
+
                 // Update the slot with the new ability (or clear it if empty string)
                 data.setEquippedAbility(payload.slot(), payload.abilityName());
 
