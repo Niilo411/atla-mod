@@ -322,6 +322,104 @@ public class ServerEvents {
      * an element name read as a missing player instead of a bad element. @s is two
      * characters and says exactly what it means.
      */
+    /**
+     * /bend event &lt;name&gt; — moves the clock to the moment that event begins.
+     *
+     * IT SETS THE TIME RATHER THAN SETTING A FLAG, and that is the only honest way to do
+     * it. Every world event is derived from the clock — see {@link com.minecraft.atlamod.events.WorldEvents} —
+     * so there is nothing to switch on: no field says an event is running, and inventing
+     * one would be a second source of truth that could disagree with the sky. Moving the
+     * clock to where the event already happens makes it happen for exactly the same
+     * reason it ever does, run its natural length, and end by itself.
+     *
+     * FORWARDS ONLY. A start that has already gone by today is not the next one, and
+     * winding the clock back would take a day off everything else in the world that
+     * counts them — sleep, crops, villager restocks, and this mod's own other events.
+     * The cost is that "start it now" can jump several days, which is said plainly in the
+     * reply rather than happening silently.
+     *
+     * EVERY DIMENSION IS SET, which is what vanilla's own /time set does. Skipping the
+     * others would leave the Nether and the End on a different day from the Overworld,
+     * and this mod asks whichever level is to hand when it wants the time.
+     */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> startEvent() {
+        return Commands.literal("event")
+                .then(Commands.argument("name", word())
+                        .suggests((context, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                java.util.Arrays.stream(com.minecraft.atlamod.events.WorldEvents.Event.values())
+                                        .map(value -> value.name().toLowerCase(java.util.Locale.ROOT))
+                                        .toList(),
+                                builder))
+                        .executes(context -> {
+                            String name = getString(context, "name");
+
+                            com.minecraft.atlamod.events.WorldEvents.Event chosen = null;
+                            for (com.minecraft.atlamod.events.WorldEvents.Event value
+                                    : com.minecraft.atlamod.events.WorldEvents.Event.values()) {
+                                if (value.name().equalsIgnoreCase(name)) chosen = value;
+                            }
+
+                            if (chosen == null) {
+                                context.getSource().sendFailure(net.minecraft.network.chat.Component.literal(
+                                        "There is no event called \"" + name + "\". Try one of: "
+                                                + java.util.Arrays.stream(
+                                                        com.minecraft.atlamod.events.WorldEvents.Event.values())
+                                                .map(value -> value.name().toLowerCase(java.util.Locale.ROOT))
+                                                .reduce((a, b) -> a + ", " + b).orElse("")));
+                                return 0;
+                            }
+
+                            var server = context.getSource().getServer();
+                            var overworld = server.overworld();
+
+                            long now = overworld.getDayTime();
+
+                            // ALREADY RUNNING is answered rather than obeyed. nextStart
+                            // only ever looks forward, so asking for an event you are
+                            // standing in would skip a whole period — eleven days for the
+                            // eclipse — to reach the next one. Nobody typing "start it"
+                            // during it means that, and restarting would mean winding the
+                            // clock back, which takes a day off everything else that
+                            // counts them.
+                            final com.minecraft.atlamod.events.WorldEvents.Event running = chosen;
+                            if (com.minecraft.atlamod.events.WorldEvents.isActive(overworld, chosen)) {
+                                context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                        running.title() + " is already happening."), false);
+                                return 1;
+                            }
+
+                            long start = com.minecraft.atlamod.events.WorldEvents.nextStart(now, chosen);
+
+                            // Every dimension, the way /time set does it.
+                            for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
+                                level.setDayTime(start);
+                            }
+
+                            final com.minecraft.atlamod.events.WorldEvents.Event started = chosen;
+                            long skippedDays = (start - now) / 24000L;
+                            int minutes = com.minecraft.atlamod.events.WorldEvents.length(chosen) / 1200;
+
+                            // Said rather than assumed: a settings file with the event
+                            // switched off would otherwise leave the clock moved and
+                            // nothing whatsoever happening, which reads as the command
+                            // being broken rather than as the setting doing its job.
+                            if (!com.minecraft.atlamod.events.WorldEvents.isEnabled(chosen)) {
+                                context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                        "Time moved to " + started.title() + ", but that event is switched"
+                                                + " off in this world's settings, so nothing will happen."), true);
+                                return 1;
+                            }
+
+                            context.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                                    started.title() + " begins now"
+                                            + (skippedDays > 0 ? " (skipped " + skippedDays + " day"
+                                                    + (skippedDays == 1 ? "" : "s") + ")" : "")
+                                            + ". It runs about " + minutes + " minutes."), true);
+                            return 1;
+                        })
+                );
+    }
+
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> addElement() {
         return Commands.literal("add")
                 .then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
@@ -479,6 +577,9 @@ public class ServerEvents {
                         .then(addElement())
                         .then(removeElement())
                 )
+
+                // WORLD EVENT COMMAND — /bend event <name>
+                .then(startEvent())
 
                 // TEMPLE COMMAND — /bend temple
                 //

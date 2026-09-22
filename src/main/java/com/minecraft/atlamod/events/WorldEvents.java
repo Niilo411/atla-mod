@@ -146,6 +146,85 @@ public final class WorldEvents {
     //  What it does
     // ==========================================================================
 
+    // ==========================================================================
+    //  Jumping to one
+    // ==========================================================================
+
+    /** How many days apart an event's occurrences are. */
+    private static int period(Event event) {
+        return switch (event) {
+            case BLOOD_MOON -> 3;
+            case SOZINS_COMET -> 6;
+            case BLACK_SUN -> 12;
+        };
+    }
+
+    /** Which day of that period it falls on, as {@code day % period}. */
+    private static int dayOfPeriod(Event event) {
+        return period(event) - 1;
+    }
+
+    /** The tick within the day that the event begins at. */
+    private static int startHour(Event event) {
+        return switch (event) {
+            case BLOOD_MOON -> NIGHT_FROM;
+            case SOZINS_COMET -> 0;
+            case BLACK_SUN -> NOON - ECLIPSE_LENGTH / 2;
+        };
+    }
+
+    /** How long it runs for, in ticks. */
+    public static int length(Event event) {
+        return switch (event) {
+            case BLOOD_MOON -> DAY - NIGHT_FROM;
+            case SOZINS_COMET -> DAY;
+            case BLACK_SUN -> ECLIPSE_LENGTH;
+        };
+    }
+
+    /**
+     * The next moment this event begins, at or after {@code now}.
+     *
+     * FOR THE COMMAND THAT STARTS ONE. Everything about an event is derived from the
+     * clock, so there is nothing to switch on — the only honest way to make one happen is
+     * to move the clock to where it already happens, which is what this works out and
+     * {@code /bend event} then sets. That also means the event runs its natural length and
+     * ends by itself, exactly as it would have; nothing is special-cased for having been
+     * asked for.
+     *
+     * NEVER BACKWARDS. A start already passed today is not the next one — winding the
+     * clock back would un-do a day for everything else in the world that counts them, and
+     * "start it now" means the next time it starts rather than the last.
+     *
+     * The walk is bounded by twice the period, which is more than enough: within any run
+     * of {@code period} days exactly one matches, so the worst case is that today is that
+     * day and its start hour has already gone by.
+     */
+    public static long nextStart(long now, Event event) {
+        int period = period(event);
+        int offset = dayOfPeriod(event);
+        int hour = startHour(event);
+
+        long day = Math.floorDiv(now, (long) DAY);
+
+        for (int ahead = 0; ahead <= period * 2; ahead++) {
+            long candidate = day + ahead;
+            if (Math.floorMod(candidate, (long) period) != offset) continue;
+
+            long start = candidate * DAY + hour;
+            if (start >= now) return start;
+        }
+
+        // Unreachable while the loop runs longer than the period. A sane answer rather
+        // than a throw if that ever stops being true.
+        return now;
+    }
+
+    /** Whether this event is switched on at all. The command warns rather than lying. */
+    public static boolean isEnabled(Event event) {
+        return enabled(event);
+    }
+
     private static boolean enabled(Event event) {
         return switch (event) {
             case BLOOD_MOON -> AtlaConfig.bloodMoonEnabled();

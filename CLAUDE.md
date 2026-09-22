@@ -430,7 +430,8 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - `AbilityHandler` now uses the registry pattern above (was a switch statement).
   The old "channeled tracking is a single boolean" gap is closed —
   `BendingData.getActiveChanneledAbility()` is a general string.
-- Commands: `/bend add|remove <targets> <element>` and `/bend level <targets> <amount>`.
+- Commands: `/bend add|remove <targets> <element>`, `/bend level <targets> <amount>` and
+  `/bend event <name>`.
   Note `/bend level` bumps level without touching xp, so the two can drift.
 - **Every `/bend` command names WHO it acts on, and the target is not optional.** They
   used to act on whoever typed them, which made them useless for setting anyone up on
@@ -2069,6 +2070,30 @@ keying on `IS_FIRE` because fire is the exception.
   unmistakable — the sky burns orange from dawn to dawn — but there is no streak overhead
   to look up at. Doing it properly means a textured quad on the sky dome through
   `RenderLevelStageEvent`, which cannot be checked without running the game.
+
+### `/bend event <name>` starts one
+
+**IT SETS THE TIME RATHER THAN SETTING A FLAG**, and that is the only honest way to do it.
+Every event is derived from the clock, so there is nothing to switch on — no field says an
+event is running, and inventing one would be a second source of truth that could disagree
+with the sky. Moving the clock to where the event already happens makes it happen for
+exactly the same reason it ever does, run its natural length, and end by itself. Nothing
+is special-cased for having been asked for.
+
+- **Forwards only.** A start that has gone by today is not the next one, and winding the
+  clock back would take a day off everything else that counts them — sleep, crops,
+  villager restocks, and this mod's own other events. The cost is that it can jump several
+  days, which the reply says plainly rather than doing silently.
+- **Already running is answered, not obeyed.** `nextStart` only looks forward, so asking
+  for an event you are standing in would skip a whole period — eleven days for the eclipse
+  — to reach the next one. Nobody typing "start it" during it means that.
+- **Every dimension is set**, which is what vanilla's `/time set` does. Skipping the others
+  would leave the Nether and the End on a different day from the Overworld, and this mod
+  asks whichever level is to hand when it wants the time.
+- **A disabled event still moves the clock and says so.** Leaving it silent would read as
+  the command being broken rather than as the setting doing its job.
+- `nextStart` verified over 2000 random times per event: it always lands on the event's
+  FIRST tick, never earlier, never later, and never backwards.
 
 ### Announcing them
 
