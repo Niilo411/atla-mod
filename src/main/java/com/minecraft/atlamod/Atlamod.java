@@ -44,11 +44,100 @@ public class Atlamod {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
     // Create a Deferred Register to hold CreativeModeTabs which will all be registered under the "atlamod" namespace
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
+    // Armor materials are a registry of their own in 1.21 — the material carries the
+    // defence, the toughness and which layer texture is drawn on the body.
+    public static final DeferredRegister<net.minecraft.world.item.ArmorMaterial> ARMOR_MATERIALS =
+            DeferredRegister.create(Registries.ARMOR_MATERIAL, MODID);
 
     // Creates a new Block with the id "atlamod:example_block", combining the namespace and path
     public static final DeferredBlock<Block> EXAMPLE_BLOCK = BLOCKS.registerSimpleBlock("example_block", BlockBehaviour.Properties.of().mapColor(MapColor.STONE));
     // Creates a new BlockItem with the id "atlamod:example_block", combining the namespace and path
     public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
+
+    // ------------------------------------------------------------------
+    // SPIRIT ORE, ITS SHARD, AND THE ARMOR MADE FROM IT
+    //
+    // These are the mod's FIRST REAL BLOCK AND ITEM TEXTURES, under
+    // assets/atlamod/textures. They were produced once, offline, by recolouring vanilla's
+    // emerald ore, amethyst shard and iron armor — a selective hue replacement that moves
+    // only the coloured pixels and leaves grey stone and black outlines byte-identical.
+    //
+    // NO TINTING AT RUNTIME. An earlier attempt used a block/item colour handler, the same
+    // trick that makes the spirit portal blue, and it was wrong here: a tint MULTIPLIES
+    // every pixel, so it dragged the ore's grey stone matrix toward teal along with the
+    // crystals and washed the whole block out. A tint is right for something uniformly
+    // coloured like the portal, and wrong for anything with neutral pixels worth keeping.
+    // ------------------------------------------------------------------
+
+    /**
+     * Spirit ore. Spirit World only, laid by the island feature rather than by an ore
+     * placement — see SpiritOre for why the veins are a pure function of position.
+     *
+     * Emerald's hardness and blast resistance, and it needs a real pickaxe: the tags in
+     * data/minecraft/tags/block put it in mineable/pickaxe and needs_iron_tool.
+     */
+    public static final DeferredBlock<Block> SPIRIT_ORE = BLOCKS.register("spirit_ore",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WARPED_NYLIUM)
+                    .strength(3.0F, 3.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(net.minecraft.world.level.block.SoundType.STONE)));
+
+    public static final DeferredItem<BlockItem> SPIRIT_ORE_ITEM =
+            ITEMS.registerSimpleBlockItem("spirit_ore", SPIRIT_ORE);
+
+    /** What a spirit ore block drops, and what the armor is made of. */
+    public static final DeferredItem<Item> SPIRIT_SHARD = ITEMS.registerSimpleItem("spirit_shard");
+
+    /**
+     * Iron's protection, diamond's durability — see SpiritArmor for why.
+     *
+     * The LAYER is our own sheet, recoloured from CHAINMAIL's — so the set reads as teal
+     * mail rather than teal plate. Not diamond's, because diamond's armor is ALREADY teal
+     * (measured at 167-177 degrees) and recolouring it would have produced something
+     * indistinguishable from a diamond suit.
+     *
+     * Note the LOOK and the PROTECTION come from different vanilla sets on purpose: the
+     * texture is chainmail's, the defence figures above are iron's. The repair ingredient
+     * is the shard, so an anvil takes the material the armor is actually made of.
+     */
+    public static final DeferredHolder<net.minecraft.world.item.ArmorMaterial,
+            net.minecraft.world.item.ArmorMaterial> SPIRIT_ARMOR_MATERIAL =
+            ARMOR_MATERIALS.register("spirit", () -> new net.minecraft.world.item.ArmorMaterial(
+                    java.util.Map.of(
+                            net.minecraft.world.item.ArmorItem.Type.HELMET, 2,
+                            net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, 6,
+                            net.minecraft.world.item.ArmorItem.Type.LEGGINGS, 5,
+                            net.minecraft.world.item.ArmorItem.Type.BOOTS, 2,
+                            net.minecraft.world.item.ArmorItem.Type.BODY, 5),
+                    9,
+                    net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_DIAMOND,
+                    () -> net.minecraft.world.item.crafting.Ingredient.of(SPIRIT_SHARD.get()),
+                    // Resolves to atlamod:textures/models/armor/spirit_armor_layer_1.png
+                    // and _layer_2.png — the sheets ArmorMaterial.Layer builds the paths for.
+                    java.util.List.of(new net.minecraft.world.item.ArmorMaterial.Layer(
+                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                                    MODID, "spirit_armor"))),
+                    0.0F,
+                    0.0F));
+
+    /** Diamond's own durability factor, so each piece lasts exactly as long as diamond's. */
+    private static final int SPIRIT_DURABILITY = 33;
+
+    private static DeferredItem<Item> spiritArmor(String name, net.minecraft.world.item.ArmorItem.Type type) {
+        return ITEMS.register(name, () -> new net.minecraft.world.item.ArmorItem(
+                SPIRIT_ARMOR_MATERIAL, type,
+                new Item.Properties().durability(type.getDurability(SPIRIT_DURABILITY))));
+    }
+
+    public static final DeferredItem<Item> SPIRIT_HELMET =
+            spiritArmor("spirit_helmet", net.minecraft.world.item.ArmorItem.Type.HELMET);
+    public static final DeferredItem<Item> SPIRIT_CHESTPLATE =
+            spiritArmor("spirit_chestplate", net.minecraft.world.item.ArmorItem.Type.CHESTPLATE);
+    public static final DeferredItem<Item> SPIRIT_LEGGINGS =
+            spiritArmor("spirit_leggings", net.minecraft.world.item.ArmorItem.Type.LEGGINGS);
+    public static final DeferredItem<Item> SPIRIT_BOOTS =
+            spiritArmor("spirit_boots", net.minecraft.world.item.ArmorItem.Type.BOOTS);
 
     // Waterbending's fuel away from open water. See WaterCanteenItem / WaterSupply.
     // Bloodbending's key. Bought from a village cleric, read once, spent.
@@ -171,6 +260,8 @@ public class Atlamod {
         ITEMS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so tabs get registered
         CREATIVE_MODE_TABS.register(modEventBus);
+        // Armor materials, which the four spirit pieces read their defence out of.
+        ARMOR_MATERIALS.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in.
         // Note that this is necessary if and only if we want *this* class (Atlamod) to respond directly to events.
@@ -206,6 +297,23 @@ public class Atlamod {
         // The mod's own items belong somewhere reachable in creative. Both are meant
         // to be earned in survival — the canteen crafted, the scroll bought — but
         // having to remember an item id to test either is needless friction.
+        // Spirit World spoils. The ore block goes with the other blocks, the shard and
+        // the armor where their kind lives, so all of it is reachable without an item id.
+        if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
+            event.accept(SPIRIT_ORE_ITEM);
+        }
+
+        if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
+            event.accept(SPIRIT_SHARD);
+        }
+
+        if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+            event.accept(SPIRIT_HELMET);
+            event.accept(SPIRIT_CHESTPLATE);
+            event.accept(SPIRIT_LEGGINGS);
+            event.accept(SPIRIT_BOOTS);
+        }
+
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(WATER_CANTEEN);
             event.accept(LIGHTNING_SCROLL);

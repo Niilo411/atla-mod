@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "HHH",
+    "H H",
+    "H H"
+  ],
+  "key": {
+    "H": { "item": "atlamod:spirit_shard" }
+  },
+  "result": {
+    "id": "atlamod:spirit_leggings",
+    "count": 1
+  }
+}

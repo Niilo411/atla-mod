@@ -54,6 +54,10 @@ public class SpiritIslandFeature extends Feature<NoneFeatureConfiguration> {
             }
         }
 
+        // Shrines are NOT laid here. They were, briefly, and moved out to a real structure
+        // so that /locate could find them — see SpiritShrines. The ordering this used to
+        // guarantee by hand still holds: this feature runs at RAW_GENERATION and the shrine
+        // structure at SURFACE_STRUCTURES, so the island is always under it.
         return any;
     }
 
@@ -90,6 +94,15 @@ public class SpiritIslandFeature extends Feature<NoneFeatureConfiguration> {
                 state = style.filler();
             } else {
                 state = style.deep();
+            }
+
+            // Ore LAST, so it overrides whatever the palette would have put here — a vein
+            // reaching the top layer replaces the grass, which is what makes a surface
+            // vein something you can actually spot. Asked per block rather than grown
+            // outwards, which is what keeps veins whole across chunk borders; see
+            // SpiritOre.
+            if (SpiritOre.at(x, y, z, surface)) {
+                state = com.minecraft.atlamod.Atlamod.SPIRIT_ORE.get().defaultBlockState();
             }
 
             level.setBlock(cursor, state, Block.UPDATE_CLIENTS);

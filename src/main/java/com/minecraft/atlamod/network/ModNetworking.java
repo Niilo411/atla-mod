@@ -50,7 +50,7 @@ public class ModNetworking {
                             // until something else happens to sync stats.
                             if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(serverPlayer,
-                                        new SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
+                                        SyncStatsPacket.of(data));
                             }
                         }
                     });
@@ -135,6 +135,11 @@ public class ModNetworking {
                             data.setXp(payload.xp());
                             data.setLevel(payload.level());
                             data.setCurrentChi(payload.currentChi());
+
+                            // The shrine bonus, which the HUD needs for two separate
+                            // things: the maximum the chi bar is drawn against, and the
+                            // colour it is drawn in.
+                            data.setBonusMaxChi(payload.bonusMaxChi());
                         }
                     });
                 }

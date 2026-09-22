@@ -38,6 +38,15 @@ public final class ModStructures {
             PIECE_TYPES.register("spirit_temple",
                     () -> (StructurePieceType.ContextlessType) SpiritTemplePiece::new);
 
+    /** Must match the "type" in worldgen/structure/spirit_shrine.json. */
+    public static final DeferredHolder<StructureType<?>, StructureType<SpiritShrineStructure>> SPIRIT_SHRINE =
+            STRUCTURE_TYPES.register("spirit_shrine",
+                    () -> (StructureType<SpiritShrineStructure>) () -> SpiritShrineStructure.CODEC);
+
+    public static final DeferredHolder<StructurePieceType, StructurePieceType> SPIRIT_SHRINE_PIECE =
+            PIECE_TYPES.register("spirit_shrine",
+                    () -> (StructurePieceType.ContextlessType) SpiritShrinePiece::new);
+
     /** The tag the portal system searches by when it looks for the nearest temple. */
     public static final net.minecraft.tags.TagKey<net.minecraft.world.level.levelgen.structure.Structure>
             SPIRIT_TEMPLE_TAG = net.minecraft.tags.TagKey.create(Registries.STRUCTURE,

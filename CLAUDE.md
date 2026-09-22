@@ -283,6 +283,20 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
   `isEquipTab` boolean, with one shared `drawTabs()` instead of two copies.
+- **A picked ability or passive is outlined in BLUE until it lands in a slot**
+  (`SELECTED_BORDER` / `SELECTED_FILL`, shared by both equip tabs so the two lists cannot
+  drift apart). Blue because of what the screen's other colours already mean: green is the
+  active TAB, orange is a slot that is FILLED, grey is everything at rest — so the orange
+  the passives list used to use said the same thing as an occupied slot. Blue is the only
+  signal here that means nothing else.
+- The ability list had **no selection feedback at all** before this: you clicked an
+  ability, nothing changed on screen, and the only way to know it had registered was to
+  click a slot and see what happened. Both tabs now also name what is waiting
+  ("Left click a slot to bind Fireball"), shown ONLY while something is selected, so the
+  line is part of the feedback rather than permanent furniture.
+- Note the two tabs still differ in one way that was left alone: a filled PASSIVE slot is
+  drawn orange, where a bound ABILITY slot is plain grey with yellow text. That is
+  pre-existing and not part of the selection work.
 - **Ability icons**: `client/AbilityIcons.java` maps an ability to a PNG under
   `assets/atlamod/textures/gui/abilities/`, drawn on its skill tree node in place of
   the old "?" box. Same shape and same rules as `ElementIcons` below — only abilities
@@ -1367,6 +1381,385 @@ ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one ou
 - **Lava sinkhole's reach** (20 blocks), **width** (5 across) and **depth** (4).
 - **Combustion bombardment's blast size** is the nearest precedent for all of these:
   named but unnumbered in the design, so flagged INVENTED in the source.
+
+
+
+## The Spirit World's low-gravity tide
+
+Three minutes in every ten, the Spirit World lightens: gravity drops to 40% of normal and
+falls stop hurting entirely.
+
+- **Vanilla's own `Attributes.GRAVITY`, not a per-tick velocity nudge.** The attribute is
+  applied by the physics itself, is synced so the player's own client agrees about how they
+  fall, and survives anything that would fight a nudge. Applied as `ADD_MULTIPLIED_BASE` at
+  -0.6 so it stays proportional if anything else ever modifies gravity.
+- **TRANSIENT, deliberately.** A permanent modifier is written into player NBT, so a crash
+  or a logout mid-tide would leave somebody drifting forever — and in the Overworld, where
+  nothing would ever take it off. A transient one is gone on reload and `tick` puts it back
+  a tick later if it is still owed.
+- **The cycle is derived from the level's game time, not counted down in a field**, which is
+  what makes it dimension-wide for free: every player asks the same clock, so there is no
+  state to persist and no drift between somebody who was already there and somebody who
+  just arrived.
+
+### Falls cost nothing while drifting
+
+- **Cancelled outright, not reduced.** It was briefly scaled to 40% — matching the gravity —
+  and is now a full cancel. Cancelling also takes the landing thud and the puff of dust with
+  it, which a reduced damage figure leaves behind; somebody who floats down should not land
+  like a sack. That is the same argument Air jump's cancel makes, and the two share a branch
+  in `ServerEvents`' fall handler.
+- **Vanilla charges for fall DISTANCE, not for impact speed**, which is why this is closer to
+  a correction than a buff: without it a player drifting gently down is billed exactly as if
+  they had plummeted.
+- It does mean the drop between islands is free for three minutes in every ten. That is the
+  intent — the tide is the window in which the Spirit World can be crossed without fear of
+  the gaps, and the other seven minutes are when it cannot.
+- **`SpiritGravity.isDrifting` asks for the MODIFIER**, not for the tide. That is the honest
+  test — it is true of exactly whoever the physics is treating as light, so it cannot drift
+  out of step with `tick`, and mobs (which the tide never touches) answer false.
+
+### There is deliberately no music
+
+A short motif was built for the tide and then removed at the user's request. Worth recording
+why it was shaped the way it was, in case it ever comes back: **Minecraft only accepts OGG
+Vorbis for sounds and this machine has no encoder** — no ffmpeg, oggenc, sox, or any Java
+vorbis library — so it was COMPOSED out of vanilla's note block instruments rather than
+shipped as an audio file. If a real track is ever wanted, it needs a `SoundEvent`
+registration plus a `sounds.json` and an `.ogg` supplied from outside.
+
+## Spirit Shrines
+
+A small hand-built structure scattered across the Spirit World's floating islands. Right
+click the beacon inside one and it grants **+100 permanent max Chi**, once per player per
+shrine.
+
+- **The .nbt lives at `data/atlamod/structure/spirit_shrine.nbt`** — `structure`, SINGULAR.
+  1.21 renamed every data pack folder to its singular form, so `structures/` would simply
+  never be loaded and the shrine would silently not exist.
+- **The marker is a REDSTONE BLOCK**, picked for the same reason the temple's stripped oak
+  was: it appears exactly once in the structure and nowhere else, so finding it cannot be
+  ambiguous. It is read out of the TEMPLATE and never survives placement — the beacon is
+  written straight over it, which clears the marker and places the block in one write.
+- **The structure's own bottom layer lands ON the surface block**, replacing the grass
+  rather than sitting above it, which is the temple's convention. The .nbt wants its floor
+  at y = 0 to come out flush.
+
+### Where they are is worked out, never remembered
+
+- **Nothing about a shrine is stored anywhere.** Where the shrines are is a pure function of
+  the island they stand on, exactly as an island is a pure function of its cell. That buys
+  three things at once: a chunk can place its share without asking anything, the right-click
+  handler can recognise a beacon from its position alone, and there is no save data for any
+  of it. The only thing ever written down is which shrines a PLAYER has drawn from.
+- **So the rule that PLACES a shrine and the rule that RECOGNISES one are the same rule**,
+  which is why both halves live in `spirit/island/SpiritShrines.java`. A beacon a player
+  carries in and places themselves is not a shrine, because it is not where a shrine's
+  beacon goes.
+- **Built once per chunk it touches, each pass clipped to that chunk** — the temple's trick,
+  and not optional: writing outside the chunk being generated forces the neighbour to
+  generate early in a cascade that can hang generation outright. Vanilla calls the piece's
+  `postProcess` for every chunk the bounding box overlaps and hands it that chunk's writable
+  area. Every pass computes the same positions from the same origin, so the shares meet
+  exactly.
+- **The cell search is TWO cells either way, not one**, and the arithmetic matters. A shrine
+  only exists where `coveringOrNull` claims its own column for the island, and that walks
+  3x3 cells — so the island may be registered a cell away from its shrine, and a chunk
+  touching the shrine one more again. Search less and a chunk would fail to draw its share
+  of a shrine its neighbour drew, leaving it sliced in half.
+
+### It is a real STRUCTURE, which is what makes /locate work
+
+`/locate structure atlamod:spirit_shrine`.
+
+- **This replaced placement from inside the island feature.** The shrines go exactly where
+  they went before — the island arithmetic is untouched — but a feature leaves no record of
+  what it placed, so nothing could ever be asked to find one. That is the same swap
+  `SpiritTempleStructure` made, and its class note says the same thing.
+- **`SpiritShrineStructure` + `SpiritShrinePiece`**, both registered in `ModStructures`.
+  TWO registries, as that class documents: a StructureType is how the structure is read out
+  of JSON, a StructurePieceType is how its piece is read back out of a SAVE. Register only
+  the first and the world loads once and then fails on reload.
+- **Its structure set is spaced at ONE CHUNK (`spacing: 1, separation: 0`)**, which is the
+  one genuinely unusual thing here. A structure set's grid normally IS the rarity; here the
+  rarity is the per-island roll, and the grid's only job is to offer every chunk as a
+  candidate so the chunk holding a shrine's corner is always asked. Anything coarser would
+  place only the fraction of shrines whose corner happened to land on the grid.
+- **Each shrine is claimed by the chunk holding its CORNER**, so exactly one candidate chunk
+  starts it and two cannot both. Vanilla's `createReferences` then writes a reference into
+  every chunk the bounding box reaches — it scans 8 chunks around, and a 9-block shrine
+  spans 2, so that is never close.
+- **`findGenerationPoint` therefore runs for EVERY chunk in the dimension**, and its cost is
+  the thing to watch. It is a few dozen hashes for almost all of them: the dimension is
+  checked first (via the biome source — a GenerationContext carries no dimension of its
+  own, and `findGenerationPoint` runs BEFORE vanilla's biome filter, so the tag does not
+  save this work), and `originsNear` then rejects distant islands on a couple of multiplies
+  before computing anything. This is not extra work overall — it replaces an identical
+  per-chunk call the feature used to make.
+- **`/locate`'s cost is the same as any vanilla structure's; only its REACH differs.** The
+  search walks rings outward and stops at the first hit, and the number of rings is fixed at
+  100 whatever the spacing — so the worst case is the same ~40,000 chunk checks vanilla
+  pays. What spacing 1 changes is that 100 rings is 100 chunks, so the search reaches 1600
+  blocks rather than a vanilla structure's 3200 chunks. At one shrine per ~540 blocks that
+  radius holds dozens, so it always finds one.
+- **The step is `surface_structures` and the island feature is at index 0
+  (`raw_generation`)**, which is what keeps the shrine on top of the ground rather than
+  under it. `ChunkGenerator.applyBiomeDecoration` walks the steps in order and, within each,
+  does structures before features — so step 4 is after step 0 for every chunk. The feature
+  used to guarantee this by hand, by placing shrines at the bottom of its own method.
+- **`terrain_adaptation` is `none`**, not the temple's `beard_thin`. Adaptation shapes NOISE
+  terrain, and the Spirit World has none — its ground is a feature.
+- Its biome tag `has_spirit_shrine` is the temple's list MINUS `#minecraft:is_overworld`.
+  Shrines belong to the Spirit World only.
+
+### The chance is 6% per island, about 5.5% after the ground test
+
+- Rolled per ISLAND, which includes the three satellites, so a cell offers four chances.
+  That works out at **~0.23 shrines per 260-block cell — roughly one every 540 blocks
+  travelled**, measured by simulating the real arithmetic across 9,604 islands. It was
+  briefly 12% (one per ~390); halved once `/locate` made them findable, because a landmark
+  you can ask for can afford to be rarer.
+- The gap between the rolled figure and the placed one is islands where **every one of the
+  six attempted sites was too steep or too near the rim**. All four footprint corners must
+  belong to THE SAME island and sit within 2 blocks of each other in height, which is what
+  keeps a shrine off the seam where two overlapping islands meet and off the edge of the
+  void. An island where nothing fits simply has no shrine, which is a far better answer than
+  one hanging over nothing.
+- **Sites are drawn by AREA, not by radius** — the square root, the same trick Ice barrage
+  and lava rain use — and capped at 0.6 of the radius so the footprint is never over the
+  rim.
+
+### The beacon is a prop
+
+- **Vanilla `Blocks.BEACON`, used purely as something to right click.** No pyramid, no beam,
+  no effect menu: the `PlayerInteractEvent.RightClickBlock` handler cancels the event
+  outright, so its screen never opens. A custom block would have wanted a blockstate, a
+  model and a block-entity renderer to arrive at a beacon that already exists.
+- **Cancelled rather than merely denied**, which does two jobs: the screen stays shut, and a
+  block held in hand is not placed against the shrine by someone who meant to use it.
+- **MAIN HAND ONLY.** Vanilla offers the main hand and then the off hand, so handling both
+  would grant — or refuse — twice for one click.
+- **The handler is ordered cheapest first**, because it fires for every right click on every
+  block in the game: side, hand, block, dimension, and only then the island arithmetic.
+- **The block entity has to be ASKED FOR during generation.** A chunk being generated is a
+  `ProtoChunk`, whose `setBlockState` does NOT create a block entity the way a live chunk's
+  does — so the beacon is read back with `level.getBlockEntity(at)` immediately after being
+  placed, which is what builds and registers one. Any future structure that puts a
+  block-entity block down during worldgen needs the same line.
+
+### What it grants, and where that is kept
+
+- `BendingData.bonusMaxChi` (persisted) is a flat addend on `getMaxChi()`, which is now
+  `500 + level*100 + bonusMaxChi`. **Flat rather than a multiplier deliberately** — it has
+  to be worth the same at level 20 as at level 1, or the reward for crossing the Spirit
+  World would be worth least to exactly the player who has just arrived there.
+- `BendingData.usedShrines` (persisted) is the list of beacon positions already drawn from,
+  packed as longs. **A POSITION IS THE IDENTIFIER**, which works because shrines never move
+  and their placement is pure. Nothing is written on the shrine itself, so a second player
+  finds it untouched.
+- **`getShrinesUsed()` is DERIVED from the bonus, not from the list**, and that is what lets
+  the client answer it at all: the list is server-side knowledge and never crosses the wire,
+  where the bonus has to anyway because the HUD draws the bar against the maximum. One
+  number on the wire, one truth on both sides, and the bar's colour provably changes on
+  exactly the ticks the maximum does.
+- **Both are copied by hand in `PlayerEvent.Clone`** as well as by `copyOnDeath`: that event
+  also fires on a dimension change, and the Spirit World is a dimension — so without it,
+  walking back out of the place the shrines are in is what would lose them.
+
+### The Codec had to be split, and that is a hard limit
+
+- **A `RecordCodecBuilder` group holds AT MOST SIXTEEN fields, and `BendingData` was at
+  exactly sixteen.** So `CORE` is now a `MapCodec` of those sixteen and `SHRINES` a second
+  of the two new ones, paired with `Codec.mapPair` (NOT `MapCodec.pair`, which does not
+  exist in DFU 8) and `xmap`ped back to a `BendingData`. Both halves write into the SAME
+  compound, so the save format stays flat and nothing already saved moved.
+- The next field added goes in the shrine group — or, once that fills, a third group. This
+  is the same ceiling `SyncBendingDataPacket` hit at six fields, and it is the reason the
+  passives, upgrades, avatar and blood tracks all have packets of their own.
+
+### The chi bar's colour is the record of how many
+
+- `client/ChiBarColors.java`. Blue (`0xFF00AAFF`) until the first shrine, then a rotation
+  of the HUE — saturation and brightness held fixed so every colour in the sequence still
+  reads as a bar on a busy screen.
+- **A CALCULATED ROTATION RATHER THAN A FIXED PALETTE, because there is no ceiling on the
+  count.** Shrines are scattered across a dimension that generates forever, so a hand-picked
+  list would either run out — leaving the bar stuck, which is exactly the feedback it exists
+  to give — or repeat, which reads as a bug.
+- **The step is the GOLDEN ANGLE** (1/phi, about 222.5 degrees), which is the whole trick. A
+  simple fraction repeats: rotate by a tenth and the tenth shrine is back on the first one's
+  colour. The golden ratio's conjugate never repeats, and better than that it leaves every
+  pair of CONSECUTIVE counts far apart on the wheel — so each shrine is plainly different
+  from the one before it as well as from every one before that.
+- `SyncStatsPacket` carries `bonusMaxChi` as a fourth field and is now built through
+  **`SyncStatsPacket.of(data)`** everywhere. There are ten places that send it, and a field
+  added to that record used to mean ten edits and ten chances to send a stale figure.
+
+
+## Spirit Ore, the Shard and Spirit Armor
+
+The Spirit World's own resource chain: ore in the islands, one shard per block, and a four
+piece armor set made of shards that feeds a bender's chi.
+
+### The textures are real files, recoloured from vanilla once, offline
+
+- **The mod's first real block and item textures**, under `assets/atlamod/textures`. Made by
+  `tools/SpiritTextures.java`, which reads vanilla's emerald ore, amethyst shard and
+  chainmail armor straight out of the client-resources jar and writes the recoloured
+  results. Run by
+  hand; deterministic, so re-running it reproduces the shipped files byte for byte.
+- **A RUNTIME TINT WAS THE FIRST ATTEMPT AND WAS WRONG**, and the reason generalises. A
+  `BlockColor`/`ItemColor` handler MULTIPLIES every pixel, so a teal tint on emerald ore
+  dragged the grey stone matrix toward teal along with the crystals and washed the whole
+  block out. A tint is right for something uniformly coloured — the spirit portal is one
+  flat purple sheet and `SpiritPortalColors` is still the right answer for it — and wrong
+  for anything with neutral pixels worth keeping.
+- **SELECTIVE HUE REPLACEMENT is what replaced it.** Only pixels whose hue already falls in
+  a measured band move to 180 degrees; their saturation and brightness are kept EXACTLY, so
+  shading, highlights and outlines survive. Every other pixel is copied byte for byte —
+  verified: the ore's 182 grey stone pixels are bit-identical to vanilla's and only the 74
+  crystal pixels moved.
+- **Which band, and which operation, was MEASURED per texture, not guessed.** The histogram
+  is the whole story:
+
+<pre>
+  emerald_ore      116-148 deg, and 71% of the block is grey stone   -> hue shift
+  amethyst_shard   260-279 deg with a pink tail at 320-329           -> hue shift
+  diamond armor    167-177 deg  (already teal)                       -> unusable
+  chainmail armor  no hue at all: 100% within 0.12 of grey           -> colourise
+</pre>
+
+- **Only emerald ore is actually green**, which is worth knowing before reaching for a
+  "green range" again. The shard is purple and needed a completely different band; catching
+  only its 260-279 body would have left the pink facets purple and the shard half
+  recoloured.
+- **The armor is CHAINMAIL colourised, not diamond hue-shifted, and that is a real
+  decision.** Diamond's armor is already teal — 167-177 degrees — so shifting it to 180
+  would have produced a suit nobody could tell from a diamond one. Chainmail has no hue to
+  replace at all, so it is colourised instead: hue and saturation imposed, brightness
+  preserved exactly, so the whole mail pattern and the black outlines survive.
+- **Its saturation is 0.55 where the ore and shard need none, and that is because CHAINMAIL
+  IS DARK** — mean brightness 0.65 against iron's 0.79, never above 0.80. The same
+  saturation reads far more muted over a dark texture, so the 0.45 that suited an earlier
+  iron-based attempt came out washed and grey over mail. The highlight ramp above 0.85 is
+  inert here for the same reason, and is kept only so a brighter source would keep its
+  white glints.
+- **The LOOK and the PROTECTION come from different vanilla sets on purpose**: the texture is
+  chainmail's, the defence figures are iron's.
+
+### The veins are a pure function of position, and had to be
+
+- **Nothing is ever grown OUTWARD from a seed block.** The obvious implementation — roll a
+  seed, then expand a cluster — crosses chunk borders, and the island feature may only write
+  into the chunk it is generating. A vein spilled into the neighbour is overwritten the
+  moment that neighbour lays its own columns, leaving veins sliced in half along chunk
+  lines. So every block asks `SpiritOre.at` whether IT is ore, and the answer depends only
+  on its own coordinates — the same rule the islands and the shrines follow.
+- **The vein lives in a CELL**: space is cut into 4x4x4 cubes, a cell either has one vein or
+  none, and the vein is grown inside that cell from the cell's own seed. That is what keeps
+  the cost to ONE hash for five blocks in six — a block only pays for the vein expansion if
+  its own cell turned out to have a vein at all.
+- The cost of the cell is that a vein cannot cross a cell boundary. At two to four blocks in
+  a sixty-four block cell that is invisible; it would start to show if veins got bigger.
+- **Ore is applied LAST in the column fill**, so it overrides whatever the island's palette
+  would have put there — including the top block, which is what makes a surface vein
+  something you can actually spot.
+
+### Two rarities out of one vein system
+
+- **A vein is rolled once at the underground rate, then asked a SECOND, much rarer question:
+  may it break the surface?** A vein that may not simply stops a block short and stays
+  buried, so nothing is lost — it just cannot be seen from above. That is cheaper and
+  simpler than running two vein systems.
+- **The surface gate is a CONDITIONAL, so the two rates are not independent.** It is only
+  asked of veins that already passed the underground roll, which means the surface rate is
+  the product of the two and falls automatically whenever the vein roll does. That is worth
+  knowing before reaching for it: cutting the vein roll retunes BOTH.
+- **The figures are MEASURED against the real class, not derived** — 7.2 million blocks for
+  the underground figure and 6.8 million columns for the surface one. Underground lands at
+  **0.0498% of island rock**, the surface at **0.0032% of island top blocks** — a ratio of
+  **15.7 : 1**.
+- **Both were cut hard from what they started at**, which is the current tuning rather than
+  the original: underground was 0.768% — iron's density — and the surface 0.0495%. The
+  underground rate was brought down to what the SURFACE used to be, and the surface fell by
+  the same factor of fifteen and a half along with it, because of the conditional above.
+  One constant, `VEIN_IN_THOUSAND`, moved from 170 to 11; `SURFACE_IN_THOUSAND` was left
+  alone deliberately, since a second cut would have put visible ore below one block per
+  island.
+- In blocks a player counts: **about 279 buried blocks and ONE visible surface block per
+  full-sized island**. Most islands show nothing at all from above, so spotting surface ore
+  is a genuine event — and 279 buried is still comfortably more than the 24 shards a full
+  armor set costs. Veins average exactly 3.00 blocks, split evenly between 2, 3 and 4.
+- **A first tuning pass was out by half because the sample was too small** — fifteen surface
+  ore blocks in forty thousand columns is noise, not a measurement. Worth remembering before
+  trusting any rarity number from this kind of test: the surface is a 2D sheet through a 3D
+  vein field and the hit rate is low, so the sample has to be big. It got smaller still with
+  this retune, so any future check needs millions of columns, not thousands.
+
+### 15 XP a block, and it does not come from vanilla
+
+- Mining one block pays **15 bending XP**, deliberately a mid-tier ability's reward (Wind,
+  Earth trap and breathless all pay 15), so a vein is worth about as much as landing three
+  good casts. At 200 XP to a level that is roughly thirteen blocks per level.
+- Granted in a `BlockEvent.BreakEvent` handler in `ServerEvents`, because there is nowhere
+  else for it to come from: vanilla's own experience drops go to the player's LEVELS, and
+  bending XP is a different pot entirely. The shard itself is an ordinary loot table and
+  needs no code.
+- Ordered cheapest first — the block is tested before anything is read off the player —
+  since this fires for every block broken in the game.
+- Granted without asking whether the player has chosen an element. XP banked before a choice
+  is simply theirs when they make one, and refusing it would mean the same ore was worth
+  less to whoever arrived earlier.
+- Shown on the ACTION BAR, not in chat: a vein is several blocks and a line each would bury
+  whatever else the player was being told.
+- **The loot table drops a shard for silk touch too**, rather than the block. The design said
+  "drops exactly 1 Spirit Shard" and that is what it does; the vanilla convention of silk
+  touch returning the ore block would be a one-line addition if it is ever wanted.
+
+### The armor borrows both its stat lines, from different places
+
+- **Defence and toughness are IRON's exactly** (2/6/5/2, no toughness). **Durability is
+  DIAMOND's exactly** (363/528/495/429). That split is the design: the set is not meant to
+  win fights, it is meant to be worn for a long time while it feeds chi. A set that also
+  protected like diamond would just be diamond with a bonus.
+- Durability comes from the item Properties rather than the material —
+  `ArmorItem.Type.getDurability(33)` is literally the call every vanilla diamond piece makes.
+- **`ArmorItem` dereferences its material LAZILY** (`Suppliers.memoize`), so registering our
+  own `ArmorMaterial` in a DeferredRegister alongside the items is safe and needs no
+  ordering care. That is worth knowing before anyone reaches for a vanilla material to dodge
+  an imagined registry-order problem.
+- The repair ingredient is the shard, so an anvil takes the material the armor is made of.
+
+### The chi bonus is tuned to a TIME, not to a rate
+
+- Each piece worn adds **46.5%** to the base regen rate; a full set is **+186%**, which takes
+  an empty pool from the base 100 seconds to fill down to **exactly 35 seconds**. Measured
+  identical at every level — 69 / 52 / 42 / 35 seconds for one, two, three and four pieces.
+- **The target is the TIME, and that is why the numbers are not round.** The set started at
+  +10% a piece and 71 seconds; it was retuned to hit 35 seconds, which needs 100/35 = 2.857x
+  and therefore 185.7% across four pieces. Anyone changing it should solve for the time
+  rather than pick a percentage: `bonus = 100/target - 1`.
+- **Time-to-full is the same at every level, which is not a coincidence.** Base regen is
+  `max(1, maxChi/100)` and max chi is always a multiple of 100 (`500 + level*100`), so the
+  pool is always exactly 100 times the per-second rate and the level cancels out.
+- **Applied in the regen block in `ServerEvents`**, the only place that knows how much chi is
+  being handed back — the same argument Lightning Strength's doubled regen makes.
+- **NOT a MobEffect and not an attribute.** Chi is the mod's own resource and vanilla has no
+  attribute to hang a modifier on, so the regen tick asks what is being worn instead. That
+  also means the bonus appears and disappears the instant a piece is taken off, with no
+  effect to expire and no state of ours to keep in step.
+- **The bonus is quoted in TENTHS of a percent, and it has to be.** Whole percent cannot
+  reach 35 seconds: 46% a piece gives 35.2 and 47% gives 34.7. 46.5% gives 34.97, which is
+  35 to the nearest tenth of a second. Hence `REGEN_BONUS_PER_PIECE_TENTHS = 465` against a
+  `BONUS_SCALE` of 1000.
+- **`BendingData.chiRegenCarry` is what makes a fractional percentage land exactly.** Regen
+  hands over a whole number of chi per second, so at a base of 6 one piece is 8.79 — and
+  truncating every second would lose most of a chi each time and the set would never reach
+  the 35 seconds it promises. The arithmetic runs in thousandths and keeps the remainder.
+- With nothing worn the bonus is 0, so the expression is bit-for-bit the old `regenAmount`
+  and the carry never leaves zero.
+- **`SpiritArmor.isSpiritPiece` asks the MATERIAL**, not a list of the four items, so a fifth
+  piece added later is counted without that method being touched.
 
 ## The Avatar
 

@@ -1,6 +1,8 @@
 package com.minecraft.atlamod;
 
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.List;
@@ -187,7 +189,16 @@ public class BendingData {
         this.isFireWhipping = isFireWhipping;
     }
 
-    public static final Codec<BendingData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+    /**
+     * Everything saved about a bender but the shrine fields.
+     *
+     * A MapCodec rather than a Codec, and split off from the shrine group below, because a
+     * RecordCodecBuilder group holds AT MOST SIXTEEN fields and this is exactly sixteen.
+     * The two halves are paired back together in {@link #CODEC}, which writes both into the
+     * same compound — so the save format is flat and adding a field here later means
+     * moving one across rather than finding somewhere new to put it.
+     */
+    private static final MapCodec<BendingData> CORE = RecordCodecBuilder.mapCodec(instance -> instance.group(
             Codec.STRING.optionalFieldOf("mainElement", "").forGetter(BendingData::getMainElement),
             Codec.STRING.optionalFieldOf("activeElement", "").forGetter(BendingData::getActiveElement),
             Codec.BOOL.optionalFieldOf("hasChosenElement", false).forGetter(BendingData::hasChosenElement),
@@ -230,6 +241,30 @@ public class BendingData {
 
         return data;
     }));
+
+    /**
+     * The spirit shrine fields, in a group of their own.
+     *
+     * Not a preference: see {@link #CORE}. They are the newest fields, so they are the ones
+     * that moved out.
+     */
+    private record ShrinePower(int bonusMaxChi, List<Long> used) {
+    }
+
+    private static final MapCodec<ShrinePower> SHRINES = RecordCodecBuilder.mapCodec(instance -> instance.group(
+            Codec.INT.optionalFieldOf("bonusMaxChi", 0).forGetter(ShrinePower::bonusMaxChi),
+            Codec.LONG.listOf().optionalFieldOf("usedShrines", new ArrayList<>()).forGetter(ShrinePower::used)
+    ).apply(instance, ShrinePower::new));
+
+    public static final Codec<BendingData> CODEC = Codec.mapPair(CORE, SHRINES)
+            .xmap(pair -> {
+                BendingData data = pair.getFirst();
+                data.setBonusMaxChi(pair.getSecond().bonusMaxChi());
+                data.setAllUsedShrines(pair.getSecond().used());
+                return data;
+            }, data -> Pair.of(data, new ShrinePower(
+                    data.getBonusMaxChi(), new ArrayList<>(data.getUsedShrines()))))
+            .codec();
 
     // --- ELEMENT GETTERS/SETTERS ---
     public String getMainElement() { return mainElement == null ? "" : mainElement; }
@@ -274,7 +309,82 @@ public class BendingData {
         this.chiRegenDelay = CHI_REGEN_DELAY_TICKS;
     }
 
-    public int getMaxChi() { return 500 + (this.level * 100); }
+    /**
+     * The ceiling on chi: the level's share plus whatever the spirit shrines have added.
+     *
+     * The shrine bonus is a flat addend rather than a multiplier deliberately — it has to
+     * be worth the same at level 1 as at level 20, or the reward for crossing the Spirit
+     * World would be worth least to exactly the player who has just arrived there.
+     */
+    public int getMaxChi() { return 500 + (this.level * 100) + this.bonusMaxChi; }
+
+    // --- SPIRIT SHRINES ---
+    // Permanent max chi, drawn one shrine at a time from the Spirit World's floating
+    // islands. Both fields are SAVED: a shrine is a place a player went once, and
+    // forgetting either of them would either take the reward away or hand it back.
+
+    /** What one shrine is worth, and the step the chi bar's colour moves by. */
+    public static final int SHRINE_CHI = 100;
+
+    private int bonusMaxChi = 0;
+
+    /**
+     * The shrines this player has already drawn from, as packed block positions.
+     *
+     * A POSITION IS THE IDENTIFIER, which works because shrines never move and their
+     * placement is a pure function of the island they stand on — see
+     * {@link com.minecraft.atlamod.spirit.island.SpiritShrines}. Nothing is written on the
+     * shrine itself, so a second player still finds it untouched.
+     *
+     * Not a Set, because the codec writes a list either way and the list is a handful of
+     * entries long; {@link #recordShrine} keeps it free of duplicates.
+     */
+    private List<Long> usedShrines = new ArrayList<>();
+
+    public int getBonusMaxChi() { return bonusMaxChi; }
+    public void setBonusMaxChi(int bonus) { this.bonusMaxChi = Math.max(0, bonus); }
+
+    public List<Long> getUsedShrines() {
+        if (usedShrines == null) usedShrines = new ArrayList<>();
+        return usedShrines;
+    }
+
+    public void setAllUsedShrines(List<Long> shrines) {
+        this.usedShrines = new ArrayList<>();
+        if (shrines == null) return;
+
+        for (Long shrine : shrines) {
+            if (shrine != null && !this.usedShrines.contains(shrine)) this.usedShrines.add(shrine);
+        }
+    }
+
+    public boolean hasUsedShrine(long shrine) { return getUsedShrines().contains(shrine); }
+
+    /**
+     * Remembers a shrine and banks what it is worth. False if it was already drawn from.
+     *
+     * The two happen together and only here, which is what keeps the bonus and the list in
+     * step — and that matters, because {@link #getShrinesUsed} reads the count back out of
+     * the bonus rather than out of the list.
+     */
+    public boolean recordShrine(long shrine) {
+        if (hasUsedShrine(shrine)) return false;
+
+        getUsedShrines().add(shrine);
+        this.bonusMaxChi += SHRINE_CHI;
+        return true;
+    }
+
+    /**
+     * How many shrines this player has drawn from.
+     *
+     * DERIVED FROM THE BONUS, not from the list, and that is what lets the client answer it
+     * at all: the list of positions is server-side knowledge and never crosses the wire,
+     * where the bonus has to anyway because the HUD draws the chi bar against the maximum.
+     * One number on the wire, one truth on both sides, and the chi bar's colour provably
+     * changes on exactly the ticks the maximum does.
+     */
+    public int getShrinesUsed() { return bonusMaxChi / SHRINE_CHI; }
 
     // --- CHI REGEN DELAY ---
     // Spending chi holds off passive regen briefly, so regen can't be used to pay
@@ -287,6 +397,26 @@ public class BendingData {
 
     public int getChiRegenDelay() { return chiRegenDelay; }
     public void setChiRegenDelay(int ticks) { this.chiRegenDelay = Math.max(0, ticks); }
+
+    /**
+     * The fraction of a chi point last second's regen could not hand over, in THOUSANDTHS.
+     *
+     * WHY A CARRY EXISTS AT ALL: regen is a whole number of chi per second, and Spirit
+     * armor's bonus is a fraction of it — 46.5% a piece. At a base of 6/sec, which is what
+     * a level 1 bender has, one piece is 8.79 and two are 11.58; truncating each second
+     * would lose most of a chi every time and the set would never reach the 35 second fill
+     * it promises. Keeping the remainder makes the long-run rate exact.
+     *
+     * THOUSANDTHS rather than hundredths because the bonus is quoted in tenths of a
+     * percent, which is what it takes to hit a whole number of seconds — see
+     * {@link com.minecraft.atlamod.SpiritArmor#REGEN_BONUS_PER_PIECE_TENTHS}.
+     *
+     * Transient: at most 999 thousandths of one chi point, which is not worth saving.
+     */
+    private transient int chiRegenCarry = 0;
+
+    public int getChiRegenCarry() { return chiRegenCarry; }
+    public void setChiRegenCarry(int thousandths) { this.chiRegenCarry = Math.max(0, thousandths); }
 
     // --- ABILITY FLAGS ---
     public boolean isMeditating() { return isMeditating; }
@@ -311,11 +441,36 @@ public class BendingData {
         cooldowns.put(ability.toLowerCase(), ticks);
     }
 
+    /**
+     * Counts every running cooldown down by one. Called once per player per tick.
+     *
+     * NO DEFENSIVE COPY, and none is needed. This used to build a fresh HashSet of every
+     * key on every tick for every player, which was a real cost: the map only ever grew,
+     * so a player who had used forty abilities was allocating a forty-element set twenty
+     * times a second forever. The copy was guarding against a concurrent modification
+     * that cannot happen — the loop only ever writes keys that are already present, and
+     * replacing an existing key's value does not structurally modify a HashMap.
+     *
+     * EXPIRED ENTRIES ARE DROPPED rather than left sitting at zero, which is what keeps
+     * the map from growing without bound. Safe because both readers go through
+     * {@code getOrDefault(key, 0)}, so an absent key and a key at zero are the same
+     * answer — and it means that once nothing is on cooldown this method is a single
+     * isEmpty check.
+     */
     public void tickCooldowns() {
-        for (String ability : new java.util.HashSet<>(cooldowns.keySet())) {
-            int current = cooldowns.get(ability);
-            if (current > 0) {
-                cooldowns.put(ability, current - 1);
+        if (cooldowns.isEmpty()) return;
+
+        java.util.Iterator<java.util.Map.Entry<String, Integer>> entries =
+                cooldowns.entrySet().iterator();
+
+        while (entries.hasNext()) {
+            java.util.Map.Entry<String, Integer> entry = entries.next();
+
+            int left = entry.getValue() - 1;
+            if (left <= 0) {
+                entries.remove();
+            } else {
+                entry.setValue(left);
             }
         }
     }

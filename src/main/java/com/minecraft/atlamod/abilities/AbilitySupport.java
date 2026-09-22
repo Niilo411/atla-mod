@@ -46,6 +46,6 @@ public final class AbilitySupport {
     public static void syncData(ServerPlayer player, BendingData data) {
         player.setData(ModAttachments.BENDING_DATA, data);
         PacketDistributor.sendToPlayer(player,
-                new SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
+                SyncStatsPacket.of(data));
     }
 }

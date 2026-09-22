@@ -1,0 +1,7 @@
+{
+  "type": "atlamod:spirit_shrine",
+  "biomes": "#atlamod:has_spirit_shrine",
+  "step": "surface_structures",
+  "terrain_adaptation": "none",
+  "spawn_overrides": {}
+}

@@ -51,11 +51,7 @@ public record UnlockAbilityPacket(String abilityName, int cost) implements Custo
                             data.getEquippedAbilities()
                     ));
 
-                    PacketDistributor.sendToPlayer(player, new SyncStatsPacket(
-                            data.getXp(),
-                            data.getLevel(),
-                            data.getCurrentChi()
-                    ));
+                    PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
                 }
             }
         });

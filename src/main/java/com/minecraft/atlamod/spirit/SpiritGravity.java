@@ -91,6 +91,33 @@ public final class SpiritGravity {
     }
 
     /**
+     * Whether this entity is actually under the low-gravity modifier right now.
+     *
+     * Asks for the MODIFIER rather than re-deriving the tide from the clock, which is the
+     * honest test: it is true of exactly whoever the physics is actually treating as light,
+     * and it cannot drift out of step with {@link #tick}. Anything outside the Spirit
+     * World, and every mob — which this never touches — answers false.
+     *
+     * WHAT IT IS FOR: a fall while drifting costs NOTHING. The cancel itself lives in
+     * {@code ServerEvents}' fall handler, beside Air jump's, and this is the question it
+     * asks.
+     *
+     * Worth saying why that is a cancel rather than a reduced figure. Vanilla charges for
+     * fall DISTANCE, not for impact speed, so a player who drifts gently down is otherwise
+     * billed exactly as if they had plummeted. Cancelling also takes the landing thud and
+     * the puff of dust with it, which a reduced number would leave behind — somebody who
+     * floats down should not land like a sack.
+     *
+     * It does mean the drop between two islands is free for three minutes in every ten.
+     * That is the intent: the tide is the window in which the Spirit World can be crossed
+     * without fear of the gaps, and the other seven minutes are when it cannot.
+     */
+    public static boolean isDrifting(net.minecraft.world.entity.LivingEntity entity) {
+        AttributeInstance gravity = entity.getAttribute(Attributes.GRAVITY);
+        return gravity != null && gravity.getModifier(MODIFIER_ID) != null;
+    }
+
+    /**
      * TRANSIENT, deliberately.
      *
      * A permanent modifier is written into the player's save, so a crash or a logout

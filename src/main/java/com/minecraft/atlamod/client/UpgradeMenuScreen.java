@@ -24,6 +24,28 @@ public class UpgradeMenuScreen extends Screen {
     private String selectedAbilityToEquip = null;
     private String selectedPassiveToEquip = null;
     private static final String[] SLOT_LABELS = { "Z", "X", "C", "V", "Shift + Z", "Shift + X", "Shift + C", "Shift + V" };
+
+    /**
+     * What "I have picked this one, now choose a slot" looks like, in both equip tabs.
+     *
+     * BLUE ON PURPOSE, and the choice is about what the other colours in this screen
+     * already mean. Green is the active tab, orange is a slot that is FILLED, and grey is
+     * everything at rest — so a selection highlight in orange said the same thing as a
+     * full slot, which is what the passives tab used to do. Blue is the only signal here
+     * that means nothing else.
+     *
+     * Shared by the ability list and the passive list rather than written twice, because
+     * the two lists are the same control doing the same job and should not be able to
+     * drift apart.
+     */
+    private static final int SELECTED_BORDER = 0xFF55AAFF;
+
+    /** The fill behind a selected row. Dark enough that white text stays readable on it. */
+    private static final int SELECTED_FILL = 0xFF14304C;
+
+    /** The same row at rest. */
+    private static final int ROW_BORDER = 0xFF777777;
+    private static final int ROW_FILL = 0xFF222222;
     private record AbilityNode(String name, String path, int index, int cost) {}
 
     /**
@@ -328,10 +350,25 @@ public class UpgradeMenuScreen extends Screen {
             int ax = startX + (col * 75);
             int ay = startY + (row * 25);
 
-            graphics.fill(ax, ay, ax + 70, ay + 20, 0xFF222222);
-            graphics.renderOutline(ax, ay, 70, 20, 0xFF777777);
+            // The one you have picked is drawn blue until it lands in a slot. Without it
+            // the list gave no feedback at all — you clicked an ability, nothing changed,
+            // and the only way to know it had registered was to click a slot and see.
+            boolean selected = ability.equals(selectedAbilityToEquip);
+
+            graphics.fill(ax, ay, ax + 70, ay + 20, selected ? SELECTED_FILL : ROW_FILL);
+            graphics.renderOutline(ax, ay, 70, 20, selected ? SELECTED_BORDER : ROW_BORDER);
             drawFitted(graphics, ability, ax + 35, ay + 6, 66, 0xFFFFFF);
         }
+
+        // Only worth saying once something is waiting to be placed, so the line doubles as
+        // part of the selection feedback rather than being permanent furniture.
+        if (selectedAbilityToEquip != null && !selectedAbilityToEquip.isEmpty()) {
+            graphics.drawCenteredString(this.font,
+                    "§bLeft click a slot to bind §f" + selectedAbilityToEquip
+                            + "§b, right click a slot to clear",
+                    centerX, 155, 0xFFFFFF);
+        }
+
         drawTabs(graphics);
     }
 
@@ -822,9 +859,18 @@ public class UpgradeMenuScreen extends Screen {
                     sx + 35, sy + 20, 66, filled ? 0xFFCC66 : 0x666666);
         }
 
-        graphics.drawCenteredString(this.font,
-                "Left click a slot to place the selected passive, right click to clear",
-                centerX, 108, 0x888888);
+        // Names what is actually waiting once something is picked, the same way the ability
+        // tab does — the two lists are the same control and should read the same.
+        if (selectedPassiveToEquip != null && !selectedPassiveToEquip.isEmpty()) {
+            graphics.drawCenteredString(this.font,
+                    "§bLeft click a slot to equip §f" + selectedPassiveToEquip
+                            + "§b, right click a slot to clear",
+                    centerX, 108, 0xFFFFFF);
+        } else {
+            graphics.drawCenteredString(this.font,
+                    "Left click a passive to select it, right click a slot to clear",
+                    centerX, 108, 0x888888);
+        }
 
         // The passives the player owns.
         java.util.List<String> available = unlockedPassives(data);
@@ -843,9 +889,12 @@ public class UpgradeMenuScreen extends Screen {
             int ax = startX + (col * 75);
             int ay = 140 + (row * 25);
 
+            // Blue, not the orange this used to be: orange is what a FILLED slot is drawn
+            // in a few lines above, so a selected row and an occupied slot were saying the
+            // same thing in the same colour. See SELECTED_BORDER.
             boolean selected = passive.equals(selectedPassiveToEquip);
-            graphics.fill(ax, ay, ax + 70, ay + 20, selected ? 0xFF554400 : 0xFF222222);
-            graphics.renderOutline(ax, ay, 70, 20, selected ? 0xFFFFAA33 : 0xFF777777);
+            graphics.fill(ax, ay, ax + 70, ay + 20, selected ? SELECTED_FILL : ROW_FILL);
+            graphics.renderOutline(ax, ay, 70, 20, selected ? SELECTED_BORDER : ROW_BORDER);
             drawFitted(graphics, passive, ax + 35, ay + 6, 66, 0xFFFFFF);
 
             // Hovering shows what the passive actually does.

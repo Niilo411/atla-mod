@@ -74,8 +74,11 @@ public class ModHudOverlay {
             // Draw Background (Gray)
             guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF444444);
 
-            // Draw Blue Fill
-            guiGraphics.fill(barX, barY, barX + filledWidth, barY + barHeight, 0xFF00AAFF);
+            // The fill, whose colour is a record of how many spirit shrines this bender has
+            // drawn from — blue until the first one, and a plainly different colour for
+            // every one after it. See ChiBarColors.
+            guiGraphics.fill(barX, barY, barX + filledWidth, barY + barHeight,
+                    ChiBarColors.forShrines(data.getShrinesUsed()));
 
             // Draw Chi Text (Centered above the bar)
             String chiText = currentChi + "/" + maxChi;

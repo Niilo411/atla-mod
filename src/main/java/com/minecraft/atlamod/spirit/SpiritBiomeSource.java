@@ -59,9 +59,29 @@ public class SpiritBiomeSource extends BiomeSource {
     private final Holder<Biome> empty;
     private final Map<String, Holder<Biome>> islands;
 
+    /**
+     * The same answer as {@link #islands}, resolved once and indexed by style ordinal.
+     *
+     * WORKED OUT IN THE CONSTRUCTOR because {@link #getNoiseBiome} is asked about every
+     * quart of every chunk — some fifteen hundred times per chunk — and the lookup it used
+     * to do was {@code islands.get(style.name().toLowerCase(Locale.ROOT))}. That is a
+     * fresh String built and hashed every single time, to arrive at an answer that cannot
+     * change: both fields are final and the map is never written to after construction.
+     *
+     * Kept BESIDE the map rather than replacing it, since the codec still has to hand the
+     * original back to be written out again.
+     */
+    private final List<Holder<Biome>> byStyle;
+
     public SpiritBiomeSource(Holder<Biome> empty, Map<String, Holder<Biome>> islands) {
         this.empty = empty;
         this.islands = islands;
+
+        List<Holder<Biome>> resolved = new ArrayList<>(IslandStyle.values().length);
+        for (IslandStyle style : IslandStyle.values()) {
+            resolved.add(islands.getOrDefault(style.name().toLowerCase(Locale.ROOT), empty));
+        }
+        this.byStyle = List.copyOf(resolved);
     }
 
     @Override
@@ -107,6 +127,6 @@ public class SpiritBiomeSource extends BiomeSource {
      * break world generation on a worker thread, which is much harder to read.
      */
     private Holder<Biome> forStyle(IslandStyle style) {
-        return islands.getOrDefault(style.name().toLowerCase(Locale.ROOT), empty);
+        return byStyle.get(style.ordinal());
     }
 }

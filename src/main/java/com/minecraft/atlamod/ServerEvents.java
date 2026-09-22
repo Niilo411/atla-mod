@@ -518,8 +518,7 @@ public class ServerEvents {
                                                 data.setLevel(data.getLevel() + amount);
                                                 player.setData(ModAttachments.BENDING_DATA, data);
 
-                                                PacketDistributor.sendToPlayer(player, new SyncStatsPacket(
-                                                        data.getXp(), data.getLevel(), data.getCurrentChi()));
+                                                PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
                                                 changed++;
                                             }
 
@@ -792,11 +791,7 @@ public class ServerEvents {
                     data.getEquippedAbilities() // <--- CRUCIAL: Sends your saved keybinds on join!
             ));
 
-            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncStatsPacket(
-                    data.getXp(),
-                    data.getLevel(),
-                    data.getCurrentChi()
-            ));
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
 
             // Clear any leftover charge meter. ClientChargeState is a static on the
             // client and survives a relog, so without this a player who logged out
@@ -828,6 +823,74 @@ public class ServerEvents {
             com.minecraft.atlamod.abilities.blood.Blood.sync(player, data);
         }
     }
+    /**
+     * Mining spirit ore pays a bender in XP as well as in shards.
+     *
+     * The SHARD is a loot table and needs nothing here; this is only the XP, which has
+     * nowhere else to come from — vanilla's own experience drops go to the player's levels,
+     * and bending XP is a different pot entirely.
+     *
+     * Granted whoever mines it, without asking whether they have chosen an element yet. XP
+     * banked before a choice is simply theirs when they make one, and refusing it would
+     * mean the same ore was worth less to a player who happened to arrive earlier.
+     *
+     * Ordered cheapest first, like the shrine handler below: this fires for every block
+     * broken in the game, so the block is tested before anything is read off the player.
+     */
+    @SubscribeEvent
+    public static void onBlockBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent event) {
+        if (event.isCanceled()) return;
+        if (!event.getState().is(Atlamod.SPIRIT_ORE.get())) return;
+        if (!(event.getPlayer() instanceof ServerPlayer player)) return;
+
+        BendingData data = player.getData(ModAttachments.BENDING_DATA);
+
+        com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data,
+                com.minecraft.atlamod.spirit.island.SpiritOre.XP_PER_BLOCK);
+        com.minecraft.atlamod.abilities.AbilitySupport.syncData(player, data);
+
+        // On the action bar rather than in chat: a vein is several blocks and a line each
+        // would bury whatever else the player was being told.
+        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                "§b+" + com.minecraft.atlamod.spirit.island.SpiritOre.XP_PER_BLOCK
+                        + " bending XP §7(" + data.getXp() + "/"
+                        + com.minecraft.atlamod.abilities.AbilitySupport.XP_PER_LEVEL + ")"), true);
+    }
+
+    /**
+     * Right clicking a spirit shrine's beacon.
+     *
+     * ORDERED CHEAPEST FIRST, and it has to be: this fires for every right click on every
+     * block in the game, on both sides. The side, the hand, the block and the dimension are
+     * all settled before {@link com.minecraft.atlamod.spirit.island.SpiritShrines#isShrine}
+     * is asked anything, so an ordinary click never reaches the island arithmetic.
+     *
+     * MAIN HAND ONLY. Vanilla offers the main hand first and then the off hand, so handling
+     * both would grant — or refuse — twice for one click.
+     *
+     * Cancelled outright rather than merely denying the block, which does two jobs at once:
+     * the beacon's own screen never opens, and a block held in hand is not placed against
+     * the shrine by someone who meant to use it.
+     */
+    @SubscribeEvent
+    public static void onRightClickBlock(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
+        if (event.getLevel().isClientSide()) return;
+        if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        net.minecraft.core.BlockPos pos = event.getPos();
+        if (!event.getLevel().getBlockState(pos)
+                .is(com.minecraft.atlamod.spirit.island.SpiritShrines.SHRINE_BLOCK)) return;
+
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (!com.minecraft.atlamod.spirit.island.SpiritShrines.isShrine(level, pos)) return;
+
+        event.setCanceled(true);
+        event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+
+        com.minecraft.atlamod.spirit.island.SpiritShrines.use(player, pos);
+    }
+
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
         // Copies your data to your new body when respawning OR traveling to the Nether
@@ -869,6 +932,13 @@ public class ServerEvents {
         newData.setBloodXp(oldData.getBloodXp());
         newData.setBloodLevel(oldData.getBloodLevel());
 
+        // The spirit shrines too, and this one is load-bearing on both routes: a death
+        // that reset the bonus would take back permanent max chi that was earned by
+        // crossing the Spirit World, and a dimension change that forgot the LIST would let
+        // every shrine be drawn from a second time.
+        newData.setBonusMaxChi(oldData.getBonusMaxChi());
+        newData.setAllUsedShrines(oldData.getUsedShrines());
+
         event.getEntity().setData(ModAttachments.BENDING_DATA, newData);
     }
 
@@ -905,11 +975,7 @@ public class ServerEvents {
                     data.getEquippedAbilities()
             ));
 
-            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncStatsPacket(
-                    data.getXp(),
-                    data.getLevel(),
-                    data.getCurrentChi()
-            ));
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
 
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncAvatarPacket(
@@ -938,7 +1004,16 @@ public class ServerEvents {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         BendingData data = player.getData(ModAttachments.BENDING_DATA);
-        if (data.getAirJumpTicks() > 0) {
+
+        // Two ways to land for free, and they cancel the same way for the same reason —
+        // it takes the landing thud and the puff of dust with it, where a reduced damage
+        // figure would leave both behind.
+        //
+        // The second is the Spirit World's low-gravity tide: vanilla charges for fall
+        // DISTANCE rather than for impact speed, so a player who drifted gently down would
+        // otherwise be billed exactly as if they had plummeted. See SpiritGravity.
+        if (data.getAirJumpTicks() > 0
+                || com.minecraft.atlamod.spirit.SpiritGravity.isDrifting(player)) {
             event.setCanceled(true);
         }
     }
@@ -1230,11 +1305,25 @@ public class ServerEvents {
                                 .LightningStrength.CHI_REGEN_MULTIPLIER;
                     }
 
+                    // Spirit armor adds a fraction of a percent per piece worn, so the
+                    // arithmetic runs in THOUSANDTHS and keeps whatever it could not hand
+                    // over. Without the carry a 46.5% piece on a base of 6 would round away
+                    // and the pieces would step unevenly — see BendingData's note.
+                    //
+                    // With nothing worn the bonus is 0, so this is exactly the old
+                    // `regenAmount` and the carry never leaves zero.
+                    int thousandths = regenAmount * (com.minecraft.atlamod.SpiritArmor.BONUS_SCALE
+                            + com.minecraft.atlamod.SpiritArmor.regenBonusTenths(player))
+                            + data.getChiRegenCarry();
+
+                    regenAmount = thousandths / com.minecraft.atlamod.SpiritArmor.BONUS_SCALE;
+                    data.setChiRegenCarry(thousandths % com.minecraft.atlamod.SpiritArmor.BONUS_SCALE);
+
                     data.setCurrentChi(Math.min(data.getMaxChi(), data.getCurrentChi() + regenAmount));
 
                     // Save the data and sync it to the UI
                     player.setData(ModAttachments.BENDING_DATA, data);
-                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
                 }
             }
 
@@ -1282,7 +1371,7 @@ public class ServerEvents {
                     com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data,
                             com.minecraft.atlamod.abilities.air.AdvancedMeditating.meditationRate(data));
 
-                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
                 }
             }
 
@@ -1473,11 +1562,7 @@ public class ServerEvents {
                         data.getEquippedAbilities()
                 ));
 
-                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new com.minecraft.atlamod.network.SyncStatsPacket(
-                        data.getXp(),
-                        data.getLevel(),
-                        data.getCurrentChi()
-                ));
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
 
                 // The passive slots need their own packet: SyncBendingDataPacket is
                 // already at six fields, which is as many as StreamCodec.composite

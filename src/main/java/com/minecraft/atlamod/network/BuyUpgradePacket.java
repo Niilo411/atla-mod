@@ -69,7 +69,7 @@ public record BuyUpgradePacket(String abilityName, String upgradeKey) implements
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new SyncUpgradesPacket(data.getUnlockedUpgrades()));
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
-                    new SyncStatsPacket(data.getXp(), data.getLevel(), data.getCurrentChi()));
+                    SyncStatsPacket.of(data));
         });
     }
 }

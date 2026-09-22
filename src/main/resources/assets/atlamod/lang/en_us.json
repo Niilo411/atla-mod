@@ -1,4 +1,10 @@
 {
+  "block.atlamod.spirit_ore": "Spirit Ore",
+  "item.atlamod.spirit_shard": "Spirit Shard",
+  "item.atlamod.spirit_helmet": "Spirit Helmet",
+  "item.atlamod.spirit_chestplate": "Spirit Chestplate",
+  "item.atlamod.spirit_leggings": "Spirit Leggings",
+  "item.atlamod.spirit_boots": "Spirit Boots",
   "itemGroup.atlamod": "Example Mod Tab",
   "block.atlamod.example_block": "Example Block",
   "item.atlamod.example_item": "Example Item",
