@@ -95,8 +95,11 @@ public class LightningScrollItem extends Item {
             com.minecraft.atlamod.abilities.lightning.Lightning.visualStrike(serverLevel, at);
         }
 
-        serverPlayer.sendSystemMessage(Component.literal(
-                "Lightning answers you. Press [Y] to switch to it.")
+        // Component.keybind, not a literal "[Y]" — resolves on each reader's own
+        // client to whatever they actually have switch-element bound to.
+        serverPlayer.sendSystemMessage(Component.literal("Lightning answers you. Press [")
+                .append(Component.keybind("key.atlamod.switch_element"))
+                .append(Component.literal("] to switch to it."))
                 .withStyle(ChatFormatting.AQUA));
 
         // shrink, NOT consume(): ItemStack#consume skips the shrink entirely for

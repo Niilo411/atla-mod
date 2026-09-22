@@ -93,8 +93,11 @@ public class BloodScrollItem extends Item {
             rain(serverLevel, serverPlayer.blockPosition());
         }
 
-        serverPlayer.sendSystemMessage(Component.literal(
-                "Blood answers you. Press [Y] to switch to it.")
+        // Component.keybind, not a literal "[Y]" — resolves on each reader's own
+        // client to whatever they actually have switch-element bound to.
+        serverPlayer.sendSystemMessage(Component.literal("Blood answers you. Press [")
+                .append(Component.keybind("key.atlamod.switch_element"))
+                .append(Component.literal("] to switch to it."))
                 .withStyle(ChatFormatting.DARK_RED));
 
         // shrink, NOT consume(): ItemStack#consume does nothing at all for anyone with

@@ -101,8 +101,12 @@ public class GravityScrollItem extends Item {
             confirm(serverLevel, serverPlayer);
         }
 
-        serverPlayer.sendSystemMessage(Component.literal(
-                "The ground lets go of you. Press [Y] to switch to gravitybending.")
+        // Component.keybind, not a literal "[Y]" — this resolves on each reader's
+        // OWN client to whatever they actually have switch-element bound to, rather
+        // than a letter the server has no way of knowing is even still correct.
+        serverPlayer.sendSystemMessage(Component.literal("The ground lets go of you. Press [")
+                .append(Component.keybind("key.atlamod.switch_element"))
+                .append(Component.literal("] to switch to gravitybending."))
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
 
         // shrink, NOT consume(): ItemStack#consume does nothing at all for anyone with

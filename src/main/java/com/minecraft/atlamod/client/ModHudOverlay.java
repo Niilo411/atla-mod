@@ -70,8 +70,12 @@ public class ModHudOverlay {
 
             guiGraphics.drawString(mc.font, statsText, statsX, y + 4, 0x55FF55);
 
-            // Draw "Y" Hotkey hint neatly right below the icon box
-            guiGraphics.drawString(mc.font, "[Y] Switch", x, y + iconSize + 4, 0xAAAAAA);
+            // The switch-element hotkey hint, read live off the KeyMapping rather than
+            // a hardcoded "Y" — a player who rebinds it in Controls sees their OWN key
+            // here, not the default one.
+            String switchHint = "[" + com.minecraft.atlamod.KeyBindings.SWITCH_ELEMENT
+                    .getTranslatedKeyMessage().getString() + "] Switch";
+            guiGraphics.drawString(mc.font, switchHint, x, y + iconSize + 4, 0xAAAAAA);
         }
         // 2. Draw the Chi Bar above health hearts.
         //

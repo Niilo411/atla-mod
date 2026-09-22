@@ -32,7 +32,26 @@ public class UpgradeMenuScreen extends Screen {
     private static final String[] TAB_NAMES = { "Skill Tree", "Equip Abilities", "Passives" };
     private String selectedAbilityToEquip = null;
     private String selectedPassiveToEquip = null;
-    private static final String[] SLOT_LABELS = { "Z", "X", "C", "V", "Shift + Z", "Shift + X", "Shift + C", "Shift + V" };
+
+    /**
+     * The eight equip slots' key hints, read live off the actual KeyMappings rather
+     * than the hardcoded "Z, X, C, V" this used to be — a player who has rebound
+     * their ability keys in Controls sees THEIR keys here, not the defaults. Slots
+     * 4-7 mirror the first four with a Shift prefix, since there is no separate
+     * KeyMapping for the shifted slots to read from.
+     */
+    private static String[] slotLabels() {
+        String[] base = {
+                com.minecraft.atlamod.KeyBindings.ABILITY_1.getTranslatedKeyMessage().getString(),
+                com.minecraft.atlamod.KeyBindings.ABILITY_2.getTranslatedKeyMessage().getString(),
+                com.minecraft.atlamod.KeyBindings.ABILITY_3.getTranslatedKeyMessage().getString(),
+                com.minecraft.atlamod.KeyBindings.ABILITY_4.getTranslatedKeyMessage().getString(),
+        };
+        return new String[] {
+                base[0], base[1], base[2], base[3],
+                "Shift + " + base[0], "Shift + " + base[1], "Shift + " + base[2], "Shift + " + base[3],
+        };
+    }
 
     /**
      * What "I have picked this one, now choose a slot" looks like, in both equip tabs.
@@ -380,7 +399,9 @@ public class UpgradeMenuScreen extends Screen {
     private void renderEquipMenu(GuiGraphics graphics, int mouseX, int mouseY, BendingData data) {
         int centerX = this.width / 2;
 
-        // 1. Draw the 8 Keybind slots (Z, X, C, V, Shift+Z, etc.)
+        // 1. Draw the 8 Keybind slots, labelled with whatever the player has these
+        // keys bound to right now.
+        String[] slotLabels = slotLabels();
         for (int i = 0; i < 8; i++) {
             int row = i / 4;
             int col = i % 4;
@@ -389,7 +410,7 @@ public class UpgradeMenuScreen extends Screen {
 
             graphics.fill(x, y, x + 70, y + 40, 0xFF333333);
             graphics.renderOutline(x, y, 70, 40, 0xFF555555);
-            graphics.drawCenteredString(this.font, SLOT_LABELS[i], x + 35, y + 4, 0xFFAAAAAA);
+            graphics.drawCenteredString(this.font, slotLabels[i], x + 35, y + 4, 0xFFAAAAAA);
 
             String equipped = data.getEquippedAbility(i);
             if (!equipped.isEmpty()) {

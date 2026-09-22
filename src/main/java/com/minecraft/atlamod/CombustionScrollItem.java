@@ -105,8 +105,11 @@ public class CombustionScrollItem extends Item {
             ring(serverLevel, serverPlayer);
         }
 
-        serverPlayer.sendSystemMessage(Component.literal(
-                "Combustion answers you — MOVE. Press [Y] to switch to it.")
+        // Component.keybind, not a literal "[Y]" — resolves on each reader's own
+        // client to whatever they actually have switch-element bound to.
+        serverPlayer.sendSystemMessage(Component.literal("Combustion answers you — MOVE. Press [")
+                .append(Component.keybind("key.atlamod.switch_element"))
+                .append(Component.literal("] to switch to it."))
                 .withStyle(ChatFormatting.RED));
 
         // shrink, NOT consume(): ItemStack#consume does nothing at all for anyone with
