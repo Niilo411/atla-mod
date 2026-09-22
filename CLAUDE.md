@@ -2098,12 +2098,45 @@ the fog nor the screen wash touches the comet's day.
   End or the Spirit World) and when the camera is in a fluid, where vanilla draws no sky
   at all and there would be nothing behind it.
 
-**WHY THE MOON IS STILL DONE WITH FOG**, when the comet is not. The comet is drawn by
-ADDING to the sky and needs no cooperation from anything vanilla already drew. The moon is
-the opposite problem: it already exists, drawn from a texture this mod does not own, by a
-`DimensionSpecialEffects` that is looked up once per dimension — so recolouring it means
-replacing the overworld's effects object wholesale and taking over vanilla sky rendering
-to alter one quad.
+### Recolouring vanilla's own sun and moon
+
+The red blood moon, the black eclipsed sun and the stars at noon are all drawn at the same
+`AFTER_SKY` stage, in vanilla's own celestial frame — the same `YP(-90)` then
+`XP(timeOfDay * 360)` `renderSky` uses — so they land exactly on top of what vanilla put
+there and turn with the day the same way. **No mixin and no replacement
+`DimensionSpecialEffects` was needed.** An earlier note here said recolouring the moon
+meant replacing the overworld's effects object wholesale; that was wrong, and this is how.
+
+**THE ONE FACT IT ALL TURNS ON: vanilla's sun and moon textures are 100% OPAQUE.**
+Measured, not assumed — `sun.png` and `moon_phases.png` are alpha 255 everywhere. Their
+shape lives entirely in their BRIGHTNESS, and it is the ADDITIVE blend vanilla draws them
+with that makes their dark parts invisible.
+
+So ordinary alpha blending cannot recolour them, and both first attempts proved it: a red
+moon alpha-blended over the white one painted a red **square**, and the first black sun
+was a hard black **rectangle** hanging in the sky. Anything that changes one of them has
+to work in brightness too.
+
+**RECOLOURING IS THEREFORE TWO PASSES**, and `subtractive()` is the other half of
+`additive()`:
+
+- `dst = dst * (1 - src)` — where the texture is bright the sky goes black, where it is
+  black the sky is untouched, and in between it feathers. That is exactly how to take
+  something back out that was put in additively.
+- **Blood moon**: subtract the white moon, then add it again multiplied by red. The red
+  channel is left at FULL so it is as bright in red as vanilla's is in white — an earlier
+  attempt scaled all three down and it came out a dark smudge. Craters and phase survive,
+  because the texture is still doing the work.
+- **Eclipse**: subtract the sun, scaled by how far the moon has crossed, and add nothing
+  back. What is left is the black of the darkened sky, which is what an eclipse is. The
+  partial subtraction leaves a faint halo where the sun's glow was, which reads as corona.
+
+**The stars are ours, not vanilla's.** Its star buffer is private to the level renderer
+and its brightness is driven by the time of day — which is the exact thing that has to be
+ignored, since the whole point is stars at noon. 120 of our own is a scattering rather
+than a night sky. Built ONCE and kept: each is a small quad on a sphere of radius 100 with
+a quaternion rotating its normal onto the star's own direction, so it faces the viewer —
+verified over all 120 that every quad faces dead on and the corners sit on the dome.
 
 ### `/bend event <name>` starts one
 
