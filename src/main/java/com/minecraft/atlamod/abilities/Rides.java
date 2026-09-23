@@ -306,6 +306,15 @@ public final class Rides {
         /** Run just before the seat moves, for a ride that has to clear its own path. */
         void beforeMove(Ride ride, ServerPlayer rider, Vec3 motion) {
         }
+
+        /** The key of the ability this ride belongs to, which its upkeep is tuned under. */
+        public String abilityKey() {
+            return switch (this) {
+                case AIR_SCOOTER -> "air scooter";
+                case WATER_SURF -> "water surf";
+                case EARTH_DIG -> "earth dig";
+            };
+        }
     }
 
     static final class Ride {
@@ -511,7 +520,12 @@ public final class Rides {
 
         BendingData data = rider.getData(ModAttachments.BENDING_DATA);
 
-        int chiThisTick = perTick(ride.kind.chiPerSecond, ride.ticks);
+        // Asked every tick rather than read off the Kind, so a rate changed in the
+        // settings reaches a ride that is already running.
+        int chiRate = AbilityTuning.upkeepChi(ride.kind.abilityKey(), ride.kind.chiPerSecond);
+        int xpRate = AbilityTuning.upkeepXp(ride.kind.abilityKey(), ride.kind.xpPerSecond);
+
+        int chiThisTick = perTick(chiRate, ride.ticks);
         if (data.getCurrentChi() < chiThisTick) {
             rider.displayClientMessage(Component.literal("§bYou are out of Chi."), true);
             return false;
@@ -529,7 +543,7 @@ public final class Rides {
         if (ride.kind.laying) rider.setSwimming(true);
 
         if (chiThisTick > 0) data.consumeChi(chiThisTick);
-        AbilitySupport.grantXp(data, perTick(ride.kind.xpPerSecond, ride.ticks));
+        AbilitySupport.grantXp(data, perTick(xpRate, ride.ticks));
 
         // Every 4 ticks, matching the channelled abilities: enough for a responsive
         // chi bar without a packet every tick.

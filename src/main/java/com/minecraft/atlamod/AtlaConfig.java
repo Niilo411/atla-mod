@@ -516,6 +516,27 @@ public final class AtlaConfig {
                     "Applies immediately; no restart and no new world needed.")
             .defineListAllowEmpty("disabledAbilities", List.of(), () -> "", obj -> obj instanceof String);
 
+    /**
+     * Per-ability overrides of chi, XP and cooldown, one line per ability. Written by the
+     * settings screen's Abilities tab; see {@link com.minecraft.atlamod.abilities.AbilityTuning}
+     * for the format and for what each figure means on each shape of ability.
+     *
+     * A list of CHANGES rather than a table of every ability, for the same reason the
+     * disabled list is: an ability added in a later build is simply absent and so plays at
+     * its own figures, and a figure retuned in a later build reaches every world that did
+     * not override it.
+     */
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> ABILITY_OVERRIDES = BUILDER
+            .comment("Per-ability overrides of chi cost, XP and cooldown. Anything not listed",
+                    "plays at the mod's own figures. One line per ability, for example:",
+                    "abilityOverrides = [\"Fireball: chi=150, xp=20, cooldown=60\"]",
+                    "cooldown is in TICKS (20 = 1 second). For a held (channeled) ability chi and",
+                    "xp are PER SECOND. Toggles billed by the second also take upkeepChi and",
+                    "upkeepXp, their per-second running cost. Every field is optional.",
+                    "World events and Sound boosting still apply on top.",
+                    "Applies immediately; no restart and no new world needed.")
+            .defineListAllowEmpty("abilityOverrides", List.of(), () -> "", obj -> obj instanceof String);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private AtlaConfig() {
@@ -587,6 +608,8 @@ public final class AtlaConfig {
     private static volatile int swordMasteryMasterDuelistBonusTenths = 20;
 
     private static volatile Set<String> disabled = Set.of();
+    private static volatile java.util.Map<String, com.minecraft.atlamod.abilities.AbilityTuning.Entry> abilityTuning
+            = java.util.Map.of();
 
     /**
      * How many times these settings have changed since the game started.
@@ -783,6 +806,14 @@ public final class AtlaConfig {
         return disabled;
     }
 
+    /**
+     * Every per-ability override, keyed by lowercased name. Empty — and so free to ask —
+     * on any world that has not tuned anything, which is what the dispatcher checks first.
+     */
+    public static java.util.Map<String, com.minecraft.atlamod.abilities.AbilityTuning.Entry> abilityTuning() {
+        return abilityTuning;
+    }
+
     // ==========================================================================
     //  Keeping the cache in step
     // ==========================================================================
@@ -872,6 +903,7 @@ public final class AtlaConfig {
         swordMasteryMasterDuelistBonusTenths = 20;
 
         disabled = Set.of();
+        abilityTuning = java.util.Map.of();
 
         generation++;
     }
@@ -977,6 +1009,9 @@ public final class AtlaConfig {
             if (name != null && !name.isBlank()) off.add(name.toLowerCase(Locale.ROOT));
         }
         disabled = Set.copyOf(off);
+
+        abilityTuning = java.util.Map.copyOf(
+                com.minecraft.atlamod.abilities.AbilityTuning.parseAll(ABILITY_OVERRIDES.get()));
 
         // LAST, after every field above it is in place. Anything watching this count
         // reacts by re-reading the values, so raising it first would invite a reader to

@@ -1,7 +1,13 @@
 package com.minecraft.atlamod.client;
 
 import com.minecraft.atlamod.AtlaConfig;
+import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.Ability;
+import com.minecraft.atlamod.abilities.AbilityRegistry;
+import com.minecraft.atlamod.abilities.AbilityTuning;
+import com.minecraft.atlamod.abilities.ChanneledAbility;
 import com.minecraft.atlamod.abilities.ElementPaths;
+import com.minecraft.atlamod.abilities.PassiveAbility;
 import com.minecraft.atlamod.spirit.island.IslandFamily;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,9 +17,12 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -37,8 +46,8 @@ import java.util.Set;
  * NOT EVERY SITUATION CAN EDIT, and the screen says which rather than silently ignoring
  * clicks. These are SERVER settings, so they belong to the world that is open: at the title
  * screen there is no world and so nothing to edit, and on somebody else's server they are
- * that server's to set. {@link #editable()} draws exactly the line NeoForge's own screen
- * draws, so the two never disagree about when a value may be changed.
+ * that server's to set. Within a world of your own, editing needs cheats or hosting — see
+ * {@link #editable()}.
  *
  * VALUES ARE WRITTEN THE MOMENT THEY CHANGE, and the FILE is written when the drag ends or
  * the screen closes. {@code ConfigValue#set} only touches the loaded config in memory, which
@@ -95,6 +104,21 @@ public class AtlaSettingsScreen extends Screen {
      */
     private final Set<String> disabled = new LinkedHashSet<>();
 
+    /**
+     * Every per-ability override, keyed by lowercased name — see {@link AbilityTuning}.
+     *
+     * Held here and written back whole for the same reason {@link #disabled} is, and it
+     * KEEPS lines that name no ability in this build for the same reason too.
+     */
+    private final Map<String, AbilityTuning.Entry> tuning = new LinkedHashMap<>();
+    private boolean tuningLoaded = false;
+
+    /** Which ability rows are open to show their figures. Remembered across tab changes. */
+    private final Set<String> expanded = new HashSet<>();
+
+    /** A blank bender, to ask an ability what it costs somebody who owns no upgrades. */
+    private static final BendingData BLANK = new BendingData();
+
     public AtlaSettingsScreen(Screen parent) {
         super(Component.literal("Atla Mod Settings"));
         this.parent = parent;
@@ -103,20 +127,27 @@ public class AtlaSettingsScreen extends Screen {
     /**
      * Whether the settings may be changed from here at all.
      *
-     * THE SAME THREE TESTS NEOFORGE'S OWN CONFIG SCREEN MAKES, deliberately copied rather
-     * than invented: a server config is not loaded when no world is open, is the remote
-     * server's business when connected to one, and is shared with the guests when a single
-     * player world has been opened to LAN. Drawing the line anywhere else would mean this
-     * screen and the Mods-list one disagreed about the same file.
+     * IN A WORLD YOU ARE RUNNING YOURSELF: with cheats on, or once other people can join.
+     * These settings change what abilities cost and what the world generates, which is
+     * exactly the kind of power cheats exist to gate — a survival world with cheats off
+     * should not be one menu away from free Fire Rain. Cheats are read as permission level
+     * 2, the same test every {@code /bend} command makes. The HOST of a shared world may
+     * always edit, cheats or not: it is their world and their file. "Shared" is asked two
+     * ways — opened to LAN, or simply somebody else being connected — because a world
+     * hosted through the Essential mod is not guaranteed to call itself published, and its
+     * host should not be locked out for how they chose to invite people.
+     *
+     * AS A GUEST IN SOMEBODY ELSE'S WORLD (LAN or Essential): never. "Allow Cheats" makes
+     * every guest an operator, and that is not the same as it being their world.
+     *
+     * ON A DEDICATED SERVER: operators only, and the change is sent to the server to be
+     * written there — see {@link com.minecraft.atlamod.SettingsAccess}. The server checks
+     * again when it arrives; this is only the menu agreeing with it in advance.
+     *
+     * With no world open there is nothing loaded to edit at all.
      */
     private static boolean editable() {
-        if (!AtlaConfig.SPEC.isLoaded()) return false;
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getCurrentServer() != null && !mc.isSingleplayer()) return false;
-        if (mc.hasSingleplayerServer() && mc.getSingleplayerServer().isPublished()) return false;
-
-        return true;
+        return blockedReason() == null;
     }
 
     /** Why it cannot be changed, in one line, or null when it can. */
@@ -126,13 +157,24 @@ public class AtlaSettingsScreen extends Screen {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.getCurrentServer() != null && !mc.isSingleplayer()) {
-            return "This server's settings. Only the server owner can change them.";
+        boolean operator = mc.player != null && mc.player.hasPermissions(2);
+
+        if (!mc.hasSingleplayerServer()) {
+            if (!ClientSettingsAccess.isDedicatedServer()) {
+                return "Only the host of this world can change these.";
+            }
+            return operator ? null : "Only server admins (operators) can change these.";
         }
-        if (mc.hasSingleplayerServer() && mc.getSingleplayerServer().isPublished()) {
-            return "Cannot be changed while the world is open to LAN.";
-        }
-        return null;
+
+        var server = mc.getSingleplayerServer();
+        if (server.isPublished() || server.getPlayerCount() > 1) return null;
+
+        return operator ? null : "Cheats must be enabled to change these.";
+    }
+
+    /** Whether the file is on another machine, so a change has to be sent rather than saved. */
+    private static boolean remote() {
+        return !Minecraft.getInstance().hasSingleplayerServer();
     }
 
     @Override
@@ -142,6 +184,13 @@ public class AtlaSettingsScreen extends Screen {
         // Read once per opening, not per frame. Reopening is what picks up a change made
         // from outside, which is the same rule every other screen in the mod follows.
         if (disabled.isEmpty()) loadDisabled();
+
+        // The raw lines are read straight off the config value, so it has to be loaded —
+        // at the title screen there is nothing to read and every figure shows its default.
+        if (!tuningLoaded && AtlaConfig.SPEC.isLoaded()) {
+            tuning.putAll(AbilityTuning.parseAll(AtlaConfig.ABILITY_OVERRIDES.get()));
+            tuningLoaded = true;
+        }
 
         int bottom = this.height - 26;
 
@@ -482,8 +531,128 @@ public class AtlaSettingsScreen extends Screen {
             rows.add(new ElementHeaderRow(element, abilities));
             for (String ability : abilities) {
                 rows.add(new ToggleRow(ability));
+                if (expanded.contains(ability)) addFigureRows(ability);
             }
         }
+    }
+
+    /**
+     * The ability behind a row, if it has figures worth tuning — or null.
+     *
+     * A PASSIVE has none: it is never cast, so nothing charges chi for it, pays XP for it
+     * or starts a cooldown. Neither does a name with no ability behind it at all (No
+     * bending's Chi blocking, which is only a step in the tree). Rows for either do not
+     * expand.
+     */
+    private static Ability tunable(String name) {
+        Ability ability = AbilityRegistry.get(name);
+        return ability == null || ability instanceof PassiveAbility ? null : ability;
+    }
+
+    /**
+     * The figures shown under an expanded ability.
+     *
+     * WHICH FIGURES, AND WHAT THEY MEAN, FOLLOW THE ABILITY'S SHAPE — see AbilityTuning.
+     * A held ability is billed by the second, so its chi and XP are rates and say so. A
+     * toggle billed by the second has an upkeep pair on top of its price to switch on.
+     */
+    private void addFigureRows(String name) {
+        Ability ability = tunable(name);
+        if (ability == null) return;
+
+        String key = name.toLowerCase(Locale.ROOT);
+        boolean channel = ability instanceof ChanneledAbility;
+
+        int chiDefault = channel
+                ? ((ChanneledAbility) ability).getChiPerSecond(BLANK)
+                : ability.getChiCost(BLANK);
+        int xpDefault = channel
+                ? (int) Math.round(((ChanneledAbility) ability).getXpPerSecond())
+                : ability.getXpReward();
+        int cooldownDefault = ability.getCooldownTicks();
+
+        rows.add(figureRow(name, channel ? "Chi per second" : "Chi cost", 0,
+                channel ? 500 : 2000, 1, chiDefault, AbilityTuning.Entry::chi,
+                (e, v) -> new AbilityTuning.Entry(e.name(), v, e.xp(), e.cooldown(), e.upkeepChi(), e.upkeepXp()),
+                v -> String.valueOf(v),
+                channel ? "Chi drained every second the key is held."
+                        : "Chi spent on each cast. The pool is checked before anything happens,"
+                        + " so a bender who is short loses nothing."));
+
+        rows.add(figureRow(name, channel ? "XP per second" : "XP per use", 0,
+                channel ? 100 : 500, 1, xpDefault, AbilityTuning.Entry::xp,
+                (e, v) -> new AbilityTuning.Entry(e.name(), e.chi(), v, e.cooldown(), e.upkeepChi(), e.upkeepXp()),
+                v -> String.valueOf(v),
+                channel ? "Bending XP earned every second the key is held."
+                        : "Bending XP earned for each successful cast."));
+
+        rows.add(figureRow(name, "Cooldown", 0, 6000, 10, cooldownDefault, AbilityTuning.Entry::cooldown,
+                (e, v) -> new AbilityTuning.Entry(e.name(), e.chi(), e.xp(), v, e.upkeepChi(), e.upkeepXp()),
+                AtlaSettingsScreen::describeCooldown,
+                "How long before it can be used again. Sound boosting and world events still"
+                        + " shorten or lengthen it on top. The - and + buttons move half a second."));
+
+        int[] upkeep = AbilityTuning.defaultUpkeep(key);
+        if (upkeep != null) {
+            rows.add(figureRow(name, "Upkeep chi / sec", 0, 500, 1, upkeep[0], AbilityTuning.Entry::upkeepChi,
+                    (e, v) -> new AbilityTuning.Entry(e.name(), e.chi(), e.xp(), e.cooldown(), v, e.upkeepXp()),
+                    v -> String.valueOf(v),
+                    "Chi taken every second it stays switched on. It switches itself off when"
+                            + " the bender cannot pay."));
+            rows.add(figureRow(name, "Upkeep XP / sec", 0, 100, 1, upkeep[1], AbilityTuning.Entry::upkeepXp,
+                    (e, v) -> new AbilityTuning.Entry(e.name(), e.chi(), e.xp(), e.cooldown(), e.upkeepChi(), v),
+                    v -> String.valueOf(v),
+                    "Bending XP earned every second it stays switched on."));
+        }
+
+        rows.add(new AbilityResetRow(name));
+    }
+
+    /**
+     * One figure's slider, reading and writing its field of the ability's override.
+     *
+     * SETTING A FIGURE BACK TO THE ABILITY'S OWN VALUE REMOVES THE OVERRIDE rather than
+     * storing a copy of it. A stored copy would pin the figure: if a later build retuned
+     * the ability, this world would carry on at the old number with nothing in the file to
+     * say it had ever been touched on purpose.
+     */
+    private StatRow figureRow(String name, String label, int min, int max, int step, int shipped,
+                              java.util.function.Function<AbilityTuning.Entry, Integer> field,
+                              java.util.function.BiFunction<AbilityTuning.Entry, Integer, AbilityTuning.Entry> with,
+                              java.util.function.IntFunction<String> readout, String tooltip) {
+        String key = name.toLowerCase(Locale.ROOT);
+        String fullTooltip = tooltip + " Default: " + readout.apply(shipped) + ".";
+
+        return new StatRow(label, min, Math.max(max, shipped * 2), step, shipped, readout, fullTooltip,
+                () -> {
+                    AbilityTuning.Entry entry = tuning.get(key);
+                    Integer value = entry == null ? null : field.apply(entry);
+                    return value == null ? shipped : value;
+                },
+                wanted -> {
+                    AbilityTuning.Entry entry = tuning.getOrDefault(key,
+                            new AbilityTuning.Entry(name, null, null, null, null, null));
+                    AbilityTuning.Entry changed = with.apply(entry, wanted == shipped ? null : wanted);
+
+                    if (changed.isEmpty()) {
+                        tuning.remove(key);
+                    } else {
+                        tuning.put(key, changed);
+                    }
+                    AtlaConfig.ABILITY_OVERRIDES.set(formatTuning());
+                });
+    }
+
+    private List<String> formatTuning() {
+        List<String> lines = new ArrayList<>();
+        for (AbilityTuning.Entry entry : tuning.values()) lines.add(entry.format());
+        return lines;
+    }
+
+    /** Ticks as seconds — cooldowns are thought of in seconds, not ticks. */
+    private static String describeCooldown(int ticks) {
+        if (ticks == 0) return "none";
+        return String.format(java.util.Locale.ROOT, "%.1fs", ticks / 20.0F);
     }
 
     /**
@@ -740,13 +909,15 @@ public class AtlaSettingsScreen extends Screen {
                 }
             }
 
-            if (editable() && rowClicked(mouseX, mouseY)) return true;
+            // Looking is allowed where changing is not: an ability's figures can be opened
+            // on a server or at the title screen, they just cannot be moved.
+            if (rowClicked(mouseX, mouseY, editable())) return true;
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private boolean rowClicked(double mouseX, double mouseY) {
+    private boolean rowClicked(double mouseX, double mouseY, boolean editable) {
         int left = contentLeft();
         int right = left + contentWidth();
         int top = LIST_TOP + (blockedReason() != null ? 14 : 0);
@@ -757,7 +928,9 @@ public class AtlaSettingsScreen extends Screen {
         int y = top - scroll;
         for (Row row : rows) {
             if (mouseY >= y && mouseY < y + row.height) {
-                return row.click(left, right, y, mouseX, mouseY);
+                return editable
+                        ? row.click(left, right, y, mouseX, mouseY)
+                        : row.clickReadOnly(left, right, y, mouseX, mouseY);
             }
             y += row.height;
         }
@@ -818,12 +991,35 @@ public class AtlaSettingsScreen extends Screen {
     private void save() {
         if (!editable()) return;
 
+        // On a dedicated server the config here is only a synced COPY with no file behind
+        // it. The values are sent up to be written there, and the server sends the result
+        // back to everybody, this client included.
+        if (remote()) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                    new com.minecraft.atlamod.network.UpdateSettingsPacket(
+                            com.minecraft.atlamod.SettingsAccess.snapshot()));
+            return;
+        }
+
         AtlaConfig.SPEC.save();
         AtlaConfig.refresh();
+
+        // Anyone who has joined this world only received the settings as they were when
+        // they connected, so the new file is passed on to them. On the server thread,
+        // since that is who owns the connections.
+        var server = this.minecraft.getSingleplayerServer();
+        if (server != null && server.getPlayerCount() > 1) {
+            server.execute(() -> com.minecraft.atlamod.SettingsAccess.broadcast(server));
+        }
     }
 
     private void writeDisabled() {
         AtlaConfig.DISABLED_ABILITIES.set(new ArrayList<>(disabled));
+        save();
+    }
+
+    private void writeTuning() {
+        AtlaConfig.ABILITY_OVERRIDES.set(formatTuning());
         save();
     }
 
@@ -835,22 +1031,29 @@ public class AtlaSettingsScreen extends Screen {
         // resets correctly without this method being touched. It went wrong exactly that
         // way once: the ability list was "not tab 0", which stopped being true the moment
         // a second slider tab existed.
-        boolean sliders = false;
+        // The ability tab is recognised by its ability rows, since its expanded figures are
+        // sliders too and would otherwise make it look like a slider tab. Resetting it puts
+        // back every ability's figures as well as switching everything on — including the
+        // figures of abilities that are not expanded at the moment.
+        boolean abilityTab = false;
         for (Row row : rows) {
-            if (row instanceof SliderRow slider) {
-                slider.reset();
-                sliders = true;
-            } else if (row instanceof ToggleValueRow toggle) {
-                toggle.reset();
-                sliders = true;
-            }
+            if (row instanceof ToggleRow) abilityTab = true;
         }
 
-        if (sliders) {
-            save();
-        } else {
+        if (abilityTab) {
             disabled.clear();
-            writeDisabled();
+            tuning.clear();
+            AtlaConfig.DISABLED_ABILITIES.set(new ArrayList<>(disabled));
+            writeTuning();
+        } else {
+            for (Row row : rows) {
+                if (row instanceof SliderRow slider) {
+                    slider.reset();
+                } else if (row instanceof ToggleValueRow toggle) {
+                    toggle.reset();
+                }
+            }
+            save();
         }
 
         buildRows();
@@ -881,6 +1084,11 @@ public class AtlaSettingsScreen extends Screen {
         abstract void render(GuiGraphics graphics, int left, int right, int y, int mouseX, int mouseY);
 
         boolean click(int left, int right, int y, double mouseX, double mouseY) {
+            return false;
+        }
+
+        /** A click while nothing may be changed. Only something that changes no setting answers. */
+        boolean clickReadOnly(int left, int right, int y, double mouseX, double mouseY) {
             return false;
         }
 
@@ -1033,21 +1241,40 @@ public class AtlaSettingsScreen extends Screen {
         }
     }
 
-    /** One ability, on or off. */
+    /**
+     * One ability: on or off, and — unless it is a passive — a name that opens its figures.
+     *
+     * THE ROW HAS TWO TARGETS NOW. It used to toggle wherever it was clicked, since there
+     * was nothing else a click could have meant; with the figures underneath, clicking the
+     * NAME opens and closes them and only the On/Off button switches the ability. A passive
+     * has no figures, so clicking its name does nothing at all rather than quietly
+     * switching it off — the two kinds of row should not do different things to the same
+     * click.
+     */
     private class ToggleRow extends Row {
         private final String ability;
+        private final boolean tunable;
 
         ToggleRow(String ability) {
             super(16);
             this.ability = ability;
+            this.tunable = tunable(ability) != null;
         }
 
         @Override
         void render(GuiGraphics graphics, int left, int right, int y, int mouseX, int mouseY) {
             boolean on = !disabled.contains(ability);
+            boolean tuned = tuning.containsKey(ability.toLowerCase(Locale.ROOT));
 
-            graphics.drawString(AtlaSettingsScreen.this.font, ability, left + 8, y + 4,
-                    on ? COLOUR_LABEL : COLOUR_OFF_TEXT);
+            if (tunable) {
+                graphics.drawString(AtlaSettingsScreen.this.font,
+                        expanded.contains(ability) ? "v" : ">", left + 2, y + 4, COLOUR_NOTE);
+            }
+
+            // Gold for an ability whose figures have been changed, so a tuned one can be
+            // found without opening every row.
+            int colour = !on ? COLOUR_OFF_TEXT : tuned ? 0xFFFFCC55 : COLOUR_LABEL;
+            graphics.drawString(AtlaSettingsScreen.this.font, ability, left + 12, y + 4, colour);
 
             int bx = right - TOGGLE_W;
 
@@ -1061,14 +1288,22 @@ public class AtlaSettingsScreen extends Screen {
         boolean click(int left, int right, int y, double mouseX, double mouseY) {
             int bx = right - TOGGLE_W;
 
-            // The whole row is clickable, not just the little button. A sixteen pixel
-            // target in a list of a hundred is a lot of precision to ask for, and there is
-            // nothing else on the row that a click could have meant.
-            if (mouseX < left || mouseX > bx + TOGGLE_W) return false;
+            if (mouseX >= bx && mouseX <= bx + TOGGLE_W) {
+                if (!disabled.remove(ability)) disabled.add(ability);
 
-            if (!disabled.remove(ability)) disabled.add(ability);
+                writeDisabled();
+                return true;
+            }
+            return clickReadOnly(left, right, y, mouseX, mouseY);
+        }
 
-            writeDisabled();
+        /** Opening the figures changes nothing, so it works even where editing does not. */
+        @Override
+        boolean clickReadOnly(int left, int right, int y, double mouseX, double mouseY) {
+            if (!tunable || mouseX < left || mouseX >= right - TOGGLE_W) return false;
+
+            if (!expanded.remove(ability)) expanded.add(ability);
+            buildRows();
             return true;
         }
 
@@ -1084,45 +1319,69 @@ public class AtlaSettingsScreen extends Screen {
     /** A number, dragged along a bar. */
     private class SliderRow extends Row {
 
-        private final String label;
-        private final ModConfigSpec.IntValue value;
-        private final int min;
-        private final int max;
+        final String label;
+        final int min;
+        final int max;
         private final java.util.function.IntFunction<String> readout;
         private final String tooltip;
 
+        /** Where the number comes from and goes to. A config value, or an ability override. */
+        private final java.util.function.IntSupplier getter;
+        private final java.util.function.IntConsumer setter;
+        private final java.util.function.IntSupplier fallback;
+
+        /**
+         * A slider over one config value.
+         *
+         * The getter falls back to the DEFAULT when the config is not loaded, which is the
+         * title screen case: {@code get()} throws outright there, and a settings screen that
+         * crashed rather than showing greyed-out shipped values would be a poor way to say
+         * "open a world first".
+         */
         SliderRow(String label, ModConfigSpec.IntValue value, int min, int max,
                   java.util.function.IntFunction<String> readout, String tooltip) {
+            this(label, min, max, readout, tooltip,
+                    () -> AtlaConfig.SPEC.isLoaded() ? value.get() : value.getDefault(),
+                    wanted -> value.set(wanted),
+                    value::getDefault);
+        }
+
+        SliderRow(String label, int min, int max, java.util.function.IntFunction<String> readout,
+                  String tooltip, java.util.function.IntSupplier getter,
+                  java.util.function.IntConsumer setter, java.util.function.IntSupplier fallback) {
             super(22);
             this.label = label;
-            this.value = value;
             this.min = min;
             this.max = max;
             this.readout = readout;
             this.tooltip = tooltip;
+            this.getter = getter;
+            this.setter = setter;
+            this.fallback = fallback;
         }
 
-        /**
-         * The value to draw.
-         *
-         * Falls back to the DEFAULT when the config is not loaded, which is the title
-         * screen case: {@code get()} throws outright there, and a settings screen that
-         * crashed rather than showing greyed-out shipped values would be a poor way to
-         * say "open a world first".
-         */
-        private int current() {
-            return AtlaConfig.SPEC.isLoaded() ? value.get() : value.getDefault();
+        /** The value to draw. */
+        int current() {
+            return getter.getAsInt();
+        }
+
+        void set(int wanted) {
+            wanted = Math.max(min, Math.min(max, wanted));
+            if (wanted != current()) setter.accept(wanted);
         }
 
         void reset() {
-            if (AtlaConfig.SPEC.isLoaded()) value.set(value.getDefault());
+            if (AtlaConfig.SPEC.isLoaded()) setter.accept(fallback.getAsInt());
         }
 
         void setFromMouse(int barX, double mouseX) {
             double fraction = Math.max(0.0, Math.min(1.0, (mouseX - barX) / (double) SLIDER_BAR_W));
-            int wanted = min + (int) Math.round(fraction * (max - min));
+            set(min + (int) Math.round(fraction * (max - min)));
+        }
 
-            if (wanted != current()) value.set(wanted);
+        /** Where the label sits. Indented further by the ability figures under their row. */
+        int labelX(int left) {
+            return left + 4;
         }
 
         @Override
@@ -1130,7 +1389,7 @@ public class AtlaSettingsScreen extends Screen {
             boolean on = editable();
             int shown = current();
 
-            graphics.drawString(AtlaSettingsScreen.this.font, label, left + 4, y + 7,
+            graphics.drawString(AtlaSettingsScreen.this.font, label, labelX(left), y + 7,
                     on ? COLOUR_LABEL : COLOUR_OFF_TEXT);
 
             int barX = right - SLIDER_BAR_W;
@@ -1163,6 +1422,114 @@ public class AtlaSettingsScreen extends Screen {
         @Override
         String tooltip() {
             return tooltip;
+        }
+    }
+
+    /**
+     * One of an ability's figures, shown under its row once it is expanded.
+     *
+     * A slider like any other, with a pair of one-step buttons beside it. Those are not
+     * decoration: a chi slider has to reach a thousand and a cooldown five minutes across a
+     * hundred and forty pixels, which is several units a pixel — the bar gets somewhere
+     * close, the buttons land it exactly.
+     *
+     * Drawn in gold while it differs from the ability's own figure, so what has been
+     * changed can be read off the list without opening the file.
+     */
+    private class StatRow extends SliderRow {
+        private static final int NUDGE_W = 12;
+
+        private final int step;
+        private final int shipped;
+
+        StatRow(String label, int min, int max, int step, int shipped,
+                java.util.function.IntFunction<String> readout, String tooltip,
+                java.util.function.IntSupplier getter, java.util.function.IntConsumer setter) {
+            super(label, min, max, readout, tooltip, getter, setter, () -> shipped);
+            this.step = step;
+            this.shipped = shipped;
+        }
+
+        @Override
+        int labelX(int left) {
+            return left + 20;
+        }
+
+        @Override
+        void render(GuiGraphics graphics, int left, int right, int y, int mouseX, int mouseY) {
+            super.render(graphics, left, right, y, mouseX, mouseY);
+
+            // Repainted over the plain label so a changed figure stands out.
+            if (current() != shipped) {
+                graphics.drawString(AtlaSettingsScreen.this.font, label, labelX(left), y + 7,
+                        editable() ? 0xFFFFCC55 : COLOUR_OFF_TEXT);
+            }
+
+            int barX = right - SLIDER_BAR_W;
+            drawNudge(graphics, barX - 2 * NUDGE_W - 4, y, "-");
+            drawNudge(graphics, barX - NUDGE_W - 2, y, "+");
+        }
+
+        private void drawNudge(GuiGraphics graphics, int x, int y, String sign) {
+            boolean on = editable();
+
+            graphics.fill(x, y + 4, x + NUDGE_W, y + 18, 0xFF222222);
+            graphics.renderOutline(x, y + 4, NUDGE_W, 14, on ? 0xFF888888 : 0xFF444444);
+            graphics.drawCenteredString(AtlaSettingsScreen.this.font, sign, x + NUDGE_W / 2, y + 7,
+                    on ? 0xFFFFFFFF : 0xFF888888);
+        }
+
+        @Override
+        boolean click(int left, int right, int y, double mouseX, double mouseY) {
+            int barX = right - SLIDER_BAR_W;
+            int minus = barX - 2 * NUDGE_W - 4;
+            int plus = barX - NUDGE_W - 2;
+
+            if (mouseX >= minus && mouseX < minus + NUDGE_W) {
+                set(current() - step);
+                save();
+                return true;
+            }
+            if (mouseX >= plus && mouseX < plus + NUDGE_W) {
+                set(current() + step);
+                save();
+                return true;
+            }
+            return super.click(left, right, y, mouseX, mouseY);
+        }
+    }
+
+    /** "Restore defaults" for one ability's figures, closing off its expanded block. */
+    private class AbilityResetRow extends Row {
+        private final String ability;
+
+        AbilityResetRow(String ability) {
+            super(20);
+            this.ability = ability;
+        }
+
+        @Override
+        void render(GuiGraphics graphics, int left, int right, int y, int mouseX, int mouseY) {
+            boolean tuned = tuning.containsKey(ability.toLowerCase(Locale.ROOT));
+            boolean on = editable() && tuned;
+            int bx = right - SLIDER_BAR_W;
+
+            graphics.fill(bx, y + 3, bx + SLIDER_BAR_W, y + 16, 0xFF222222);
+            graphics.renderOutline(bx, y + 3, SLIDER_BAR_W, 13, on ? 0xFF888888 : 0xFF444444);
+            graphics.drawCenteredString(AtlaSettingsScreen.this.font,
+                    tuned ? "Restore defaults" : "Using defaults",
+                    bx + SLIDER_BAR_W / 2, y + 6, on ? 0xFFDDDDDD : 0xFF777777);
+
+            graphics.fill(left + 16, y + 19, right, y + 20, 0xFF303030);
+        }
+
+        @Override
+        boolean click(int left, int right, int y, double mouseX, double mouseY) {
+            int bx = right - SLIDER_BAR_W;
+            if (mouseX < bx || mouseX > bx + SLIDER_BAR_W) return false;
+
+            if (tuning.remove(ability.toLowerCase(Locale.ROOT)) != null) writeTuning();
+            return true;
         }
     }
 }

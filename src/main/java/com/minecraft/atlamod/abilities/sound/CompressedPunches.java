@@ -118,7 +118,7 @@ public class CompressedPunches implements Ability {
 
         data.setPunchingCompressed(false);
         data.setCompressedPunchTicks(0);
-        data.setCooldown(KEY, COOLDOWN_TICKS);
+        data.setCooldown(KEY, com.minecraft.atlamod.abilities.AbilityTuning.cooldownTicks(KEY, COOLDOWN_TICKS));
 
         Sound.play((ServerLevel) player.level(), player.position(),
                 net.minecraft.sounds.SoundEvents.BEACON_DEACTIVATE, 0.6F, 1.6F);

@@ -332,5 +332,45 @@ public class ModNetworking {
                     });
                 }
         );
+
+        // --- SERVER KIND (Server -> Client) : whether ops may edit settings here ---
+        registrar.playToClient(
+                ServerKindPacket.TYPE,
+                ServerKindPacket.STREAM_CODEC,
+                (ServerKindPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> com.minecraft.atlamod.client.ClientSettingsAccess
+                            .setDedicatedServer(payload.dedicated()));
+                }
+        );
+
+        // --- UPDATE SETTINGS (Client -> Server) : an op editing a dedicated server ---
+        registrar.playToServer(
+                UpdateSettingsPacket.TYPE,
+                UpdateSettingsPacket.STREAM_CODEC,
+                (UpdateSettingsPacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof net.minecraft.server.level.ServerPlayer player)) return;
+
+                        // Checked again here whatever the menu showed — the client is only
+                        // ever asking. See SettingsAccess for who qualifies.
+                        if (!com.minecraft.atlamod.SettingsAccess.canEdit(player)) return;
+
+                        com.minecraft.atlamod.SettingsAccess.apply(payload.values());
+                        com.minecraft.atlamod.AtlaConfig.SPEC.save();
+                        com.minecraft.atlamod.AtlaConfig.refresh();
+                        com.minecraft.atlamod.SettingsAccess.broadcast(player.getServer());
+                    });
+                }
+        );
+
+        // --- SETTINGS FILE (Server -> Client) : the settings as they now are ---
+        registrar.playToClient(
+                SettingsFilePacket.TYPE,
+                SettingsFilePacket.STREAM_CODEC,
+                (SettingsFilePacket payload, IPayloadContext context) -> {
+                    context.enqueueWork(() -> com.minecraft.atlamod.client.ClientSettingsAccess
+                            .receive(payload.fileName(), payload.contents()));
+                }
+        );
     }
 }

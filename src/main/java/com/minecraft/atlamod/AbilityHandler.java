@@ -3,6 +3,7 @@ package com.minecraft.atlamod;
 import com.minecraft.atlamod.abilities.Ability;
 import com.minecraft.atlamod.abilities.AbilityRegistry;
 import com.minecraft.atlamod.abilities.AbilitySupport;
+import com.minecraft.atlamod.abilities.AbilityTuning;
 import com.minecraft.atlamod.abilities.ChanneledAbility;
 import com.minecraft.atlamod.abilities.ChargedAbility;
 import com.minecraft.atlamod.abilities.PassiveAbility;
@@ -36,7 +37,7 @@ public class AbilityHandler {
      * own would be a rule the next ability added would quietly break.
      */
     private static int cooldownFor(ServerPlayer player, BendingData data, Ability ability) {
-        int base = ability.getCooldownTicks();
+        int base = AbilityTuning.cooldownTicks(ability);
         if (base <= 0) return base;
 
         if (boostable(ability)) {
@@ -67,7 +68,7 @@ public class AbilityHandler {
      * made an ability cost less but still be refused at the old price.
      */
     public static int chiCostFor(ServerPlayer player, BendingData data, Ability ability) {
-        return scaled(ability.getChiCost(data), com.minecraft.atlamod.events.WorldEvents
+        return scaled(AbilityTuning.castChiCost(ability, data), com.minecraft.atlamod.events.WorldEvents
                 .chiMultiplier(player.level(), ability.getName()));
     }
 
@@ -286,7 +287,7 @@ public class AbilityHandler {
             return;
         }
 
-        if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
+        if (AbilityTuning.cooldownTicks(ability) > 0 && data.isOnCooldown(ability.getKey())) {
             // WITH the seconds left, the same as the charge and channel paths already
             // showed. Without them a long cooldown is indistinguishable from a broken
             // one: Earth sink says nothing for two minutes and then quietly works, and
@@ -307,7 +308,7 @@ public class AbilityHandler {
             return;
         }
 
-        if (!AbilitySupport.consumeChiAndGiveXp(player, data, chiCostFor(player, data, ability), ability.getXpReward())) {
+        if (!AbilitySupport.consumeChiAndGiveXp(player, data, chiCostFor(player, data, ability), AbilityTuning.xpReward(ability))) {
             return;
         }
 
@@ -323,7 +324,7 @@ public class AbilityHandler {
         runWithElement(data, ability, () -> ability.execute(player, data));
 
         // Two-phase cooldowns start on release instead — see TwoPhaseAbility.
-        if (ability.getCooldownTicks() > 0 && !(ability instanceof TwoPhaseAbility)) {
+        if (AbilityTuning.cooldownTicks(ability) > 0 && !(ability instanceof TwoPhaseAbility)) {
             data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
         }
 
@@ -417,7 +418,7 @@ public class AbilityHandler {
             data.setTwoPhaseShots(0);
 
             // The cooldown waits for the last shot, not the first.
-            if (ability.getCooldownTicks() > 0) {
+            if (AbilityTuning.cooldownTicks(ability) > 0) {
                 data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
             }
         }
@@ -500,7 +501,7 @@ public class AbilityHandler {
         // One held ability at a time, of either shape.
         if (data.isCharging() || data.isChanneling()) return;
 
-        if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
+        if (AbilityTuning.cooldownTicks(ability) > 0 && data.isOnCooldown(ability.getKey())) {
             int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
             player.displayClientMessage(Component.literal(
                     "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
@@ -589,7 +590,7 @@ public class AbilityHandler {
         // One held ability at a time, of either shape.
         if (data.isChanneling() || data.isCharging()) return;
 
-        if (ability.getCooldownTicks() > 0 && data.isOnCooldown(ability.getKey())) {
+        if (AbilityTuning.cooldownTicks(ability) > 0 && data.isOnCooldown(ability.getKey())) {
             int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
             player.displayClientMessage(Component.literal(
                     "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
@@ -642,7 +643,7 @@ public class AbilityHandler {
         data.setActiveChanneledAbility("");
         data.setChannelTicks(0);
 
-        if (ability.getCooldownTicks() > 0) {
+        if (AbilityTuning.cooldownTicks(ability) > 0) {
             data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
         }
 
@@ -719,7 +720,7 @@ public class AbilityHandler {
      * fifteen ticks and 2 chi on five). The chi bar still drains smoothly.
      */
     private static int chiCostForTick(ChanneledAbility ability, BendingData data, int tick) {
-        long rate = ability.getChiPerSecond(data);
+        long rate = AbilityTuning.chiPerSecond(ability, data);
         long t = Math.max(0, tick);
         return (int) ((rate * (t + 1)) / 20L - (rate * t) / 20L);
     }
@@ -735,7 +736,7 @@ public class AbilityHandler {
      * trickled through the second now instead of landing in a lump.
      */
     private static int xpForTick(ChanneledAbility ability, BendingData data) {
-        double rate = ability.getXpPerSecond();
+        double rate = AbilityTuning.xpPerSecond(ability);
         if (rate <= 0.0) return 0;
 
         long t = Math.max(0, data.getChannelTicks());
@@ -894,7 +895,7 @@ public class AbilityHandler {
             data.setTwoPhaseTicks(0);
             data.setTwoPhaseShots(0);
 
-            if (ability.getCooldownTicks() > 0) {
+            if (AbilityTuning.cooldownTicks(ability) > 0) {
                 data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
             }
 

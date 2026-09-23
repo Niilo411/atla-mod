@@ -2,6 +2,7 @@ package com.minecraft.atlamod.abilities.metal;
 
 import com.minecraft.atlamod.AbilityHandler;
 import com.minecraft.atlamod.BendingData;
+import com.minecraft.atlamod.abilities.AbilityTuning;
 import com.minecraft.atlamod.abilities.BendingProjectiles;
 import com.minecraft.atlamod.abilities.ChargedAbility;
 import com.minecraft.atlamod.abilities.TwoPhaseAbility;
@@ -102,7 +103,7 @@ public class Bullets implements ChargedAbility, TwoPhaseAbility {
         // The cooldown is stamped on the way out, exactly as it would be on the last
         // shot. Without it, cancelling and re-summoning would be a way round the two
         // seconds rather than a way out of the ability.
-        data.setCooldown(getKey(), getCooldownTicks());
+        data.setCooldown(getKey(), AbilityTuning.cooldownTicks(this));
 
         Metal.scrape((ServerLevel) player.level(), player.position(), 0.6F, 1.5F);
     }

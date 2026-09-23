@@ -2242,11 +2242,28 @@ holds the values; `client/AtlaSettingsScreen.java` is the UI.
   in the save's own `serverconfig/`, and FML syncs it to every client on connection.
 - **`config/atlamod-server.toml` is the template for FUTURE worlds.** FML copies it into each
   new save. That is the answer to "the settings are per world, so how do I set them once".
-- **The screen is not always editable, and says which.** A server config is not loaded at the
-  title screen, is the remote server's business when connected to one, and is shared with the
-  guests once a world is open to LAN. `AtlaSettingsScreen.editable()` draws exactly the line
-  NeoForge's own screen draws — deliberately copied rather than invented, so the two can
-  never disagree about the same file.
+- **Who may edit (`SettingsAccess` + `AtlaSettingsScreen.blockedReason`):**
+  - Your OWN world (integrated server): with CHEATS (permission level 2, the `/bend`
+    test), or as HOST once it is shared — opened to LAN OR anybody else connected, the
+    second because a world hosted through the Essential mod is not guaranteed to report
+    itself published. A survival singleplayer world with cheats off can only look.
+  - A GUEST in somebody's world (LAN or Essential): never. "Allow Cheats" makes every guest
+    an operator, which is not the same as it being their world.
+  - A DEDICATED server: operators only (level 2).
+  - Title screen: never — nothing is loaded.
+- **A client cannot tell a dedicated server from a LAN/Essential host**, so the server says
+  which on login (`ServerKindPacket` -> `ClientSettingsAccess`). The permission LEVEL is not
+  sent; vanilla keeps the client's copy current through op/deop.
+- **On a dedicated server the screen's config is a synced COPY with no file**, so `save()`
+  sends every value up in `UpdateSettingsPacket` instead of saving. The server re-checks
+  `canEdit`, validates each value against the spec's own `ValueSpec.test` (a packet is no
+  more trusted than a hand-edited TOML), writes, refreshes.
+- **Every change is pushed to everyone connected** (`SettingsFilePacket`, the file's bytes).
+  NeoForge's own `ConfigFilePayload` does the same but is CONFIGURATION-phase only, so it
+  cannot reach a player already in the world; without this, other players' menus showed
+  stale figures until they rejoined. The client loads it through `ConfigSync
+  .receiveSyncedConfig`, which fires Reloading, and skips it on the host (whose client
+  shares the one real config with its own server).
 - **Still an ordinary `ModConfigSpec` underneath**, which matters more than the screen does.
   The TOML is plain, commented and hand-editable, and a server owner with no client at all
   can set every one of these. Nothing in the screen is a second way of storing anything.
@@ -2433,6 +2450,31 @@ where everything under it samples nine columns of terrain and loads a template.
   The screen keeps entries that match no ability in THIS build rather than dropping them —
   an older save or a rolled-back server may name something real, and rewriting the list
   without it would delete a setting the owner meant.
+
+### Per-ability figures (chi, XP, cooldown)
+
+Click an ability's NAME on the Abilities tab to open its figures; the On/Off button is now
+the only thing that switches it. Passives (and Chi blocking, which has no class) do not
+open — nothing is ever charged, paid or cooled down for them.
+
+- **Stored as `abilityOverrides`, one line per ability** (`"Fireball: chi=150, xp=20,
+  cooldown=60"`, cooldown in TICKS), parsed by `abilities/AbilityTuning.java`. Every field
+  is optional, and setting a figure back to the ability's own value REMOVES it rather than
+  storing a copy — a stored copy would pin the figure against a later retune.
+- **The dispatcher asks `AbilityTuning`, never the ability**, for cooldown, cast chi, cast
+  XP and a channel's per-second rates. World events and Sound boosting still scale on top.
+- **What "chi" and "XP" mean follows the shape.** A cast is billed once; a CHANNEL is
+  billed by the second, so for a channel they are per-second rates.
+- **Toggles billed from the player tick get an UPKEEP pair**, because the dispatcher never
+  sees that billing: `chargeSoundToggle` and the Rides tick ask `upkeepChi`/`upkeepXp` by
+  key. `AbilityTuning.UPKEEP` is the one hand-kept table — a new per-second toggle needs a
+  line there to be tunable.
+- The four abilities that stamp their own cooldown (Bullets, Metal shield, Chi block,
+  Compressed punches) go through `AbilityTuning.cooldownTicks(key, fallback)`.
+- **Known gaps**: bloodbending pays its XP into the blood track itself, so an XP override
+  there adds MAIN-level XP on top; Mine's per-second extra and Raised earth's `onStart`
+  price are taken inside the ability and are not covered; skill tree descriptions quote
+  the shipped numbers.
 
 ## The Avatar's torn portal
 

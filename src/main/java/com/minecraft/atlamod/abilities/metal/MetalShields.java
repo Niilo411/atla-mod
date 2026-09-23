@@ -107,7 +107,8 @@ public final class MetalShields {
             Metal.scrape(shield.level, player.position(), 0.8F, 1.4F);
 
             player.getData(ModAttachments.BENDING_DATA)
-                    .setCooldown(MetalShield.KEY, MetalShield.COOLDOWN_TICKS);
+                    .setCooldown(MetalShield.KEY, com.minecraft.atlamod.abilities.AbilityTuning
+                            .cooldownTicks(MetalShield.KEY, MetalShield.COOLDOWN_TICKS));
         }
     }
 

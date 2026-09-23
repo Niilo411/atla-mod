@@ -1051,6 +1051,12 @@ public class ServerEvents {
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                     new com.minecraft.atlamod.network.SyncUpgradesPacket(data.getUnlockedUpgrades()));
 
+            // Whether this is a dedicated server, which decides who the settings screen
+            // lets edit — see SettingsAccess.
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
+                    new com.minecraft.atlamod.network.ServerKindPacket(
+                            player.getServer() != null && player.getServer().isDedicatedServer()));
+
             // Safety net: Fire Rocket grants flight through the vanilla ability
             // flags, and those are saved to player NBT. If the player disconnected
             // mid-flight, onStop() never ran and they would return able to fly
@@ -1698,6 +1704,21 @@ public class ServerEvents {
             // Asked once and held rather than asked again later for the meditation
             // check below — same tick, same unlocked-elements list, so the answer
             // cannot have changed in between.
+            // A MAXIMUM THAT FALLS TAKES THE POOL DOWN WITH IT; ONE THAT RISES DOES NOT.
+            // The maximum can drop out from under a full pool — the base or per-level
+            // figure lowered in the settings, a level taken away with /bend level — and
+            // nothing else would ever bring chi back under it: regen only runs below the
+            // cap, and the HUD would draw a bar overflowing its own frame. So it is held
+            // at the new cap here, every tick, whatever lowered it. A RISE is deliberately
+            // left alone and simply regenerates up, so levelling or a generous settings
+            // change is headroom to earn rather than a free refill.
+            int maxChi = data.getMaxChi();
+            if (data.getCurrentChi() > maxChi) {
+                data.setCurrentChi(Math.max(0, maxChi));
+                player.setData(ModAttachments.BENDING_DATA, data);
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, SyncStatsPacket.of(data));
+            }
+
             boolean isNoBender = com.minecraft.atlamod.abilities.nobending.NoBending.is(data);
             if (isNoBender || data.isChiBlocked()) {
                 // Nothing at all, deliberately — not even the delay countdown, which
@@ -1865,7 +1886,7 @@ public class ServerEvents {
                         >= com.minecraft.atlamod.abilities.sound.CompressedPunches.MAX_TICKS;
 
                 boolean affordable = chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.sound.CompressedPunches.CHI_PER_SECOND,
+                        "compressed punches", com.minecraft.atlamod.abilities.sound.CompressedPunches.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.sound.CompressedPunches.XP_PER_SECOND);
 
                 // Both endings go through the ability's own stop(), so the thirty
@@ -1885,7 +1906,7 @@ public class ServerEvents {
                 com.minecraft.atlamod.abilities.fire.FireRocket.tick(player, data);
 
                 if (!chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.fire.FireRocket.CHI_PER_SECOND,
+                        "fire rocket", com.minecraft.atlamod.abilities.fire.FireRocket.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.fire.FireRocket.XP_PER_SECOND)) {
                     com.minecraft.atlamod.abilities.fire.FireRocket.stop(player, data);
                 }
@@ -1893,7 +1914,7 @@ public class ServerEvents {
 
             if (com.minecraft.atlamod.abilities.combustion.CombustionBeams.has(player)) {
                 if (!chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.combustion.CombustionBeam.CHI_PER_SECOND,
+                        "combustion beam", com.minecraft.atlamod.abilities.combustion.CombustionBeam.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.combustion.CombustionBeam.XP_PER_SECOND)) {
                     com.minecraft.atlamod.abilities.combustion.CombustionBeams.stop(player);
                 }
@@ -1901,7 +1922,7 @@ public class ServerEvents {
 
             if (com.minecraft.atlamod.abilities.metal.MetalShields.has(player)) {
                 if (!chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.metal.MetalShield.CHI_PER_SECOND,
+                        "metal shield", com.minecraft.atlamod.abilities.metal.MetalShield.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.metal.MetalShield.XP_PER_SECOND)) {
                     com.minecraft.atlamod.abilities.metal.MetalShields.drop(player);
                 }
@@ -1909,7 +1930,7 @@ public class ServerEvents {
 
             if (com.minecraft.atlamod.abilities.sound.SoundWalls.has(player)) {
                 if (!chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.sound.SoundWall.CHI_PER_SECOND,
+                        "sound wall", com.minecraft.atlamod.abilities.sound.SoundWall.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.sound.SoundWall.XP_PER_SECOND)) {
                     com.minecraft.atlamod.abilities.sound.SoundWalls.drop(player);
                 }
@@ -1920,7 +1941,7 @@ public class ServerEvents {
                 com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.tick(player);
 
                 if (!chargeSoundToggle(player, data,
-                        com.minecraft.atlamod.abilities.gravity.GravitySpeedBoost.CHI_PER_SECOND,
+                        "speed boost", com.minecraft.atlamod.abilities.gravity.GravitySpeedBoost.CHI_PER_SECOND,
                         com.minecraft.atlamod.abilities.gravity.GravitySpeedBoost.XP_PER_SECOND)) {
                     com.minecraft.atlamod.abilities.gravity.GravitySpeedBoosts.stop(player);
                 }
@@ -1977,8 +1998,14 @@ public class ServerEvents {
      * @return true if the toggle may keep running
      */
     private static boolean chargeSoundToggle(net.minecraft.server.level.ServerPlayer player,
-                                             BendingData data, int chiPerSecond, int xpPerSecond) {
+                                             BendingData data, String key,
+                                             int chiPerSecond, int xpPerSecond) {
         if (player.tickCount % 20 != 0) return true;
+
+        // The constants passed in are only the defaults; the settings screen can retune
+        // each toggle's upkeep, and asking here reaches one that is already running.
+        chiPerSecond = com.minecraft.atlamod.abilities.AbilityTuning.upkeepChi(key, chiPerSecond);
+        xpPerSecond = com.minecraft.atlamod.abilities.AbilityTuning.upkeepXp(key, xpPerSecond);
 
         if (data.getCurrentChi() < chiPerSecond) return false;
 

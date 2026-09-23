@@ -205,7 +205,8 @@ public final class ChiBlocks {
         mark.victim.removeEffect(MobEffects.GLOWING);
 
         BendingData data = caster.getData(ModAttachments.BENDING_DATA);
-        data.setCooldown(ChiBlock.KEY, ChiBlock.COOLDOWN_TICKS);
+        data.setCooldown(ChiBlock.KEY, com.minecraft.atlamod.abilities.AbilityTuning
+                .cooldownTicks(ChiBlock.KEY, ChiBlock.COOLDOWN_TICKS));
         caster.setData(ModAttachments.BENDING_DATA, data);
         PacketDistributor.sendToPlayer(caster, SyncStatsPacket.of(data));
 
