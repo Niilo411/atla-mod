@@ -120,6 +120,14 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Masterclass: Earthquake-15, Ravine-15, Earth sink-15
 
 
+## The Avatar Tab
+
+The mod's creative tab (`Atlamod.AVATAR_TAB`, id `atlamod:avatar_tab`), iconed with the
+Spirit Helmet. It replaced the NeoForge template's "Example Mod Tab", and the template's
+`example_item` and `example_block` were deleted along with it. **A new item must be added
+to its `displayItems` list by hand** — it is a list, not a sweep of the registry. The items
+are still ALSO offered in the matching vanilla tabs through `addCreative`.
+
 ## Waterbending resources
 
 - **Water Canteen** (`WaterCanteenItem`): crafted from 3 sticks (top), string either
@@ -2013,6 +2021,12 @@ and ended at SUNRISE. Two things followed: its second half sat in the same calen
 the blood moon that comes after it, and `/bend event` from inside a comet could land
 somewhere the comet was still up — which is exactly how it was noticed.
 
+- **A SECOND BUG FROM THE SAME SHIFT: every new world opened under the comet.** A world
+  starts at sunrise, the comet's day starts at midnight, so the first 18000 ticks of a
+  world are the comet's day -1 — and `floorMod(-1, 6)` is 5, which IS the comet's day.
+  `WorldEvents.onCycleDay` now refuses any day below 0, and both `isActive` and
+  `nextStart` go through it. It showed up as a second "bug": a fire ability tuned to cost
+  2000 chi only took 500, which was the comet's 25% chi discount quietly applying.
 - **Each event now has an EPOCH**, which is how far its own calendar is shifted from
   Minecraft's. Zero for the blood moon and the eclipse, because an event that happens
   WITHIN a day does not care where the day begins — a night is a night and noon is noon.

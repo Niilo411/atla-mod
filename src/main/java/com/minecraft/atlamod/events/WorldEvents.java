@@ -137,6 +137,21 @@ public final class WorldEvents {
         return time - epoch(event) - dayIndex(time, event) * DAY;
     }
 
+    /**
+     * Whether an event's day of the cycle falls on this day of its own.
+     *
+     * NEVER BEFORE DAY 0, which is the whole point of this method. A new world starts at
+     * sunrise, and the comet's days begin at MIDNIGHT — so the eighteen thousand ticks
+     * between a world being made and its first midnight fall in the comet's day -1. A bare
+     * {@code floorMod} maps -1 to the LAST day of the cycle, which is exactly the comet's
+     * day, and every brand new world opened under Sozin's Comet. The other two events never
+     * see a negative day because their calendar starts at sunrise with the world, but
+     * asking here keeps all three honest if an epoch ever moves.
+     */
+    private static boolean onCycleDay(long dayIndex, Event event) {
+        return dayIndex >= 0 && Math.floorMod(dayIndex, (long) period(event)) == dayOfPeriod(event);
+    }
+
     public static boolean isActive(Level level, Event event) {
         if (level == null) return false;
         if (!enabled(event)) return false;
@@ -146,7 +161,7 @@ public final class WorldEvents {
         // The right day of the cycle — every third, sixth or twelfth. Counted so that the
         // first of each falls a little way in rather than on a brand new world's first
         // night.
-        if (Math.floorMod(dayIndex(time, event), (long) period(event)) != dayOfPeriod(event)) {
+        if (!onCycleDay(dayIndex(time, event), event)) {
             return false;
         }
 
@@ -243,7 +258,6 @@ public final class WorldEvents {
      */
     public static long nextStart(long now, Event event) {
         int period = period(event);
-        int wanted = dayOfPeriod(event);
 
         // Counted in the EVENT'S OWN days, which for the comet begin at midnight — the
         // same arithmetic isActive uses, so the moment this returns is by construction one
@@ -252,7 +266,7 @@ public final class WorldEvents {
 
         for (int ahead = 0; ahead <= period * 2; ahead++) {
             long candidate = index + ahead;
-            if (Math.floorMod(candidate, (long) period) != wanted) continue;
+            if (!onCycleDay(candidate, event)) continue;
 
             long start = candidate * DAY + epoch(event) + startWithin(event);
             if (start >= now) return start;

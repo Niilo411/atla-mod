@@ -6,7 +6,6 @@ import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -46,11 +45,6 @@ public class Atlamod {
     // defence, the toughness and which layer texture is drawn on the body.
     public static final DeferredRegister<net.minecraft.world.item.ArmorMaterial> ARMOR_MATERIALS =
             DeferredRegister.create(Registries.ARMOR_MATERIAL, MODID);
-
-    // Creates a new Block with the id "atlamod:example_block", combining the namespace and path
-    public static final DeferredBlock<Block> EXAMPLE_BLOCK = BLOCKS.registerSimpleBlock("example_block", BlockBehaviour.Properties.of().mapColor(MapColor.STONE));
-    // Creates a new BlockItem with the id "atlamod:example_block", combining the namespace and path
-    public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block", EXAMPLE_BLOCK);
 
     // ------------------------------------------------------------------
     // SPIRIT ORE, ITS SHARD, AND THE ARMOR MADE FROM IT
@@ -228,17 +222,45 @@ public class Atlamod {
                     .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)
                     .noLootTable()));
 
-    // Creates a new food item with the id "atlamod:example_id", nutrition 1 and saturation 2
-    public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item", new Item.Properties().food(new FoodProperties.Builder()
-            .alwaysEdible().nutrition(1).saturationModifier(2f).build()));
-
-    // Creates a creative tab with the id "atlamod:example_tab" for the example item, that is placed after the combat tab
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> EXAMPLE_TAB = CREATIVE_MODE_TABS.register("example_tab", () -> CreativeModeTab.builder()
-            .title(Component.translatable("itemGroup.atlamod")) //The language key for the title of your CreativeModeTab
+    // ------------------------------------------------------------------
+    // THE AVATAR TAB
+    //
+    // Every item the mod adds, in one place, wearing the Spirit Helmet as its icon. It
+    // replaced the template's "Example Mod Tab" and its example item, which were still
+    // shipping from the NeoForge project template.
+    //
+    // A NEW ITEM HAS TO BE ADDED HERE BY HAND — displayItems is a list, not a sweep of
+    // the registry. It is kept a list on purpose: a sweep would also pick up whatever
+    // block items a later change registers purely for internal use.
+    //
+    // The same items are ALSO still offered in the vanilla tabs where their kind lives
+    // (see addCreative), so somebody who looks for armor under Combat still finds it.
+    // ------------------------------------------------------------------
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> AVATAR_TAB = CREATIVE_MODE_TABS.register("avatar_tab", () -> CreativeModeTab.builder()
+            .title(Component.translatable("itemGroup.atlamod"))
             .withTabsBefore(CreativeModeTabs.COMBAT)
-            .icon(() -> EXAMPLE_ITEM.get().getDefaultInstance())
+            .icon(() -> SPIRIT_HELMET.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
-                output.accept(EXAMPLE_ITEM.get());// Add the example item to the tab. For your own tabs, this method is preferred over the event
+                // Spirit World spoils.
+                output.accept(SPIRIT_ORE_ITEM.get());
+                output.accept(SPIRIT_SHARD.get());
+                output.accept(SPIRIT_HELMET.get());
+                output.accept(SPIRIT_CHESTPLATE.get());
+                output.accept(SPIRIT_LEGGINGS.get());
+                output.accept(SPIRIT_BOOTS.get());
+
+                // Waterbending supply.
+                output.accept(WATER_CANTEEN.get());
+
+                // Sub-element scrolls, in the order the sub-elements were added.
+                output.accept(LIGHTNING_SCROLL.get());
+                output.accept(ICE_SCROLL.get());
+                output.accept(SOUND_SCROLL.get());
+                output.accept(METAL_SCROLL.get());
+                output.accept(COMBUSTION_SCROLL.get());
+                output.accept(BLOOD_SCROLL.get());
+                output.accept(LAVA_SCROLL.get());
+                output.accept(GRAVITY_SCROLL.get());
             }).build());
 
     // The constructor for the mod class is the first code that is run when your mod is loaded.
@@ -281,12 +303,8 @@ public class Atlamod {
     private void commonSetup(FMLCommonSetupEvent event) {
     }
 
-    // Add the example block item to the building blocks tab
+    // The mod's items in the vanilla tabs, alongside the Avatar Tab that holds them all.
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            event.accept(EXAMPLE_BLOCK_ITEM);
-        }
-
         // The mod's own items belong somewhere reachable in creative. Both are meant
         // to be earned in survival — the canteen crafted, the scroll bought — but
         // having to remember an item id to test either is needless friction.
