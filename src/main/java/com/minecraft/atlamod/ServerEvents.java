@@ -865,7 +865,7 @@ public class ServerEvents {
         if (!(event.getTarget() instanceof ServerPlayer target)) return;
 
         for (com.minecraft.atlamod.BendingArmorSuit suit
-                : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                : com.minecraft.atlamod.BendingArmorSuit.VALUES) {
             if (suit.isWornBy(target)) {
                 PacketDistributor.sendToPlayer(watcher,
                         new com.minecraft.atlamod.network.BendingArmorPacket(
@@ -973,7 +973,7 @@ public class ServerEvents {
             // Told explicitly here instead.
             data.clearArmorSuitsShown();
             for (com.minecraft.atlamod.BendingArmorSuit suit
-                    : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                    : com.minecraft.atlamod.BendingArmorSuit.VALUES) {
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntityAndSelf(
                         player, new com.minecraft.atlamod.network.BendingArmorPacket(
                                 player.getId(), suit.ordinal(), false));
@@ -1647,7 +1647,12 @@ public class ServerEvents {
             // which is the half of chi blocking that actually decides a fight: being
             // unable to cast for fifteen seconds is an inconvenience, coming out of it
             // with an empty pool is the punishment.
-            if (com.minecraft.atlamod.abilities.nobending.NoBending.is(data) || data.isChiBlocked()) {
+            //
+            // Asked once and held rather than asked again later for the meditation
+            // check below — same tick, same unlocked-elements list, so the answer
+            // cannot have changed in between.
+            boolean isNoBender = com.minecraft.atlamod.abilities.nobending.NoBending.is(data);
+            if (isNoBender || data.isChiBlocked()) {
                 // Nothing at all, deliberately — not even the delay countdown, which
                 // exists only to pace a refill that is not going to happen.
                 player.setData(ModAttachments.BENDING_DATA, data);
@@ -1717,7 +1722,7 @@ public class ServerEvents {
             // earn XP from stillness, and they have neither — their XP comes from
             // killing instead (see NoBending). Stopped HERE rather than at the keybind
             // so it holds however the flag was set.
-            if (data.isMeditating() && com.minecraft.atlamod.abilities.nobending.NoBending.is(data)) {
+            if (data.isMeditating() && isNoBender) {
                 data.setMeditating(false);
                 data.setMeditateTickTimer(0);
                 player.setData(ModAttachments.BENDING_DATA, data);
@@ -1897,7 +1902,7 @@ public class ServerEvents {
             // Broadcast only when it changes. Effects are synced to their owner alone,
             // so onlookers learn about a stone or steel suit from here or not at all.
             for (com.minecraft.atlamod.BendingArmorSuit suit
-                    : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                    : com.minecraft.atlamod.BendingArmorSuit.VALUES) {
                 boolean armored = suit.isWornBy(player);
                 if (armored != data.isArmorSuitShown(suit)) {
                     data.setArmorSuitShown(suit, armored);
@@ -1939,7 +1944,7 @@ public class ServerEvents {
             BendingData armorData = player.getData(ModAttachments.BENDING_DATA);
             armorData.clearArmorSuitsShown();
             for (com.minecraft.atlamod.BendingArmorSuit suit
-                    : com.minecraft.atlamod.BendingArmorSuit.values()) {
+                    : com.minecraft.atlamod.BendingArmorSuit.VALUES) {
                 PacketDistributor.sendToPlayersTrackingEntityAndSelf(player,
                         new com.minecraft.atlamod.network.BendingArmorPacket(
                                 player.getId(), suit.ordinal(), false));

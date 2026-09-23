@@ -245,7 +245,7 @@ public class ModNetworking {
                 (BendingArmorPacket payload, IPayloadContext context) -> {
                     context.enqueueWork(() -> {
                         com.minecraft.atlamod.BendingArmorSuit[] suits =
-                                com.minecraft.atlamod.BendingArmorSuit.values();
+                                com.minecraft.atlamod.BendingArmorSuit.VALUES;
                         // Guarded because the ordinal comes off the wire: a client on a
                         // different version of the mod would otherwise index past the end.
                         if (payload.suit() < 0 || payload.suit() >= suits.length) return;

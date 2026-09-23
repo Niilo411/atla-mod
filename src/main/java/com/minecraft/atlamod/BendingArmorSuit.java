@@ -44,6 +44,16 @@ public enum BendingArmorSuit {
         }
     };
 
+    /**
+     * A cached copy of {@link #values()}.
+     *
+     * Enum#values() clones its backing array on every call — cheap for a two-element
+     * enum, but the per-tick broadcast this class's own doc mentions loops it for
+     * EVERY online player EVERY tick, and there is no reason to keep re-cloning an
+     * array that can never change.
+     */
+    public static final BendingArmorSuit[] VALUES = values();
+
     private final ResourceLocation texture;
 
     BendingArmorSuit(String file) {

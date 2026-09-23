@@ -216,7 +216,7 @@ public class UpgradeMenuScreen extends Screen {
         if (!com.minecraft.atlamod.AtlaConfig.abilityEnabled(node.name())) return;
 
         if (unlocked.contains(node.name()) || playerLevel < node.cost()) return;
-        if (!checkTreeLogic(node, unlocked)) return;
+        if (!checkTreeLogic(node, unlocked, treeArmsFor(activeElement, unlocked))) return;
 
         data.setLevel(playerLevel - node.cost());
         data.unlockAbility(node.name());
@@ -268,6 +268,15 @@ public class UpgradeMenuScreen extends Screen {
                 int playerLevel = data.getLevel();
                 java.util.List<String> unlocked = data.getUnlockedAbilities();
 
+                // Computed ONCE per frame rather than once per node: every node on
+                // screen shares the same active element and the same unlocked list, so
+                // the four arms and their completion booleans cannot differ between
+                // them. checkTreeLogic used to re-derive all of this — four fresh
+                // arrays pulled from ElementPaths — for every single node, every single
+                // frame; with fifteen to twenty nodes in a tree that was fifteen to
+                // twenty times the allocation this screen actually needed.
+                TreeArms treeArms = treeArmsFor(activeElement, unlocked);
+
                 for (net.minecraft.client.gui.components.Renderable renderable : this.renderables) {
                     if (renderable instanceof net.minecraft.client.gui.components.Button button) {
                         AbilityNode node = nodeMap.get(button);
@@ -279,7 +288,7 @@ public class UpgradeMenuScreen extends Screen {
                         int bh = button.getHeight();
 
                         boolean isUnlocked = unlocked.contains(node.name());
-                        boolean meetsTreeReq = checkTreeLogic(node, unlocked);
+                        boolean meetsTreeReq = checkTreeLogic(node, unlocked, treeArms);
                         boolean canAfford = playerLevel >= node.cost();
                         boolean switchedOff =
                                 !com.minecraft.atlamod.AtlaConfig.abilityEnabled(node.name());
@@ -575,7 +584,38 @@ public class UpgradeMenuScreen extends Screen {
     }
 
     // --- HELPER METHODS ---
-    private boolean checkTreeLogic(AbilityNode node, java.util.List<String> unlocked) {
+
+    /**
+     * The four arms of the ACTIVE element's tree, and how far the player has gotten
+     * along each — everything {@link #checkTreeLogic} needs that does not depend on
+     * which particular node is being asked about.
+     *
+     * Every node in a tree shares the same answer to all of this, so it is worked out
+     * once per {@link #treeArmsFor} call rather than once per node — see the call site
+     * in {@link #render}.
+     */
+    private record TreeArms(String[] off, String[] def, String[] bal, String[] mas,
+                             boolean offComp, boolean defComp, boolean balComp, boolean anyInProgress) {
+    }
+
+    private TreeArms treeArmsFor(String element, java.util.List<String> unlocked) {
+        String[] off = getOffensive(element);
+        String[] def = getDefensive(element);
+        String[] bal = getBalanced(element);
+        String[] mas = getMaster(element);
+
+        boolean offComp = isPathComplete(unlocked, off);
+        boolean defComp = isPathComplete(unlocked, def);
+        boolean balComp = isPathComplete(unlocked, bal);
+
+        boolean anyInProgress = (hasStartedPath(unlocked, off) && !offComp) ||
+                (hasStartedPath(unlocked, def) && !defComp) ||
+                (hasStartedPath(unlocked, bal) && !balComp);
+
+        return new TreeArms(off, def, bal, mas, offComp, defComp, balComp, anyInProgress);
+    }
+
+    private boolean checkTreeLogic(AbilityNode node, java.util.List<String> unlocked, TreeArms arms) {
         // The centre answers to none of the path rules: it is bought outright whichever
         // way the bender has gone, which is the whole reason it sits in the middle
         // rather than on an arm.
@@ -592,19 +632,6 @@ public class UpgradeMenuScreen extends Screen {
             }
         }
 
-        String[] off = getOffensive(activeElement);
-        String[] def = getDefensive(activeElement);
-        String[] bal = getBalanced(activeElement);
-        String[] mas = getMaster(activeElement);
-
-        boolean offComp = isPathComplete(unlocked, off);
-        boolean defComp = isPathComplete(unlocked, def);
-        boolean balComp = isPathComplete(unlocked, bal);
-
-        boolean anyInProgress = (hasStartedPath(unlocked, off) && !offComp) ||
-                (hasStartedPath(unlocked, def) && !defComp) ||
-                (hasStartedPath(unlocked, bal) && !balComp);
-
         if (node.index() == 0) {
             if (node.path().equals("masterclass")) {
                 // An element with no balanced arm at all (Gravitybending is the
@@ -615,12 +642,12 @@ public class UpgradeMenuScreen extends Screen {
                 // path is treated as already satisfied rather than permanently
                 // blocking; an element that HAS a balanced path still has to
                 // finish it, same as always.
-                return offComp && defComp && (bal.length == 0 || balComp);
+                return arms.offComp() && arms.defComp() && (arms.bal().length == 0 || arms.balComp());
             } else {
-                return !anyInProgress;
+                return !arms.anyInProgress();
             }
         } else {
-            String[] currentPathArr = getPathArray(node.path(), off, def, bal, mas);
+            String[] currentPathArr = getPathArray(node.path(), arms.off(), arms.def(), arms.bal(), arms.mas());
             return unlocked.contains(currentPathArr[node.index() - 1]);
         }
     }

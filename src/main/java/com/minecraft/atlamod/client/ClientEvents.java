@@ -21,6 +21,16 @@ public class ClientEvents {
     private static final boolean[] lastAbilityHeld = new boolean[4];
 
     /**
+     * The four ability KeyMappings, in slot order.
+     *
+     * KeyBindings' fields are static and never reassigned, so this array is invariant
+     * — it does not need to be rebuilt from scratch every client tick the way it was.
+     */
+    private static final net.minecraft.client.KeyMapping[] ABILITY_KEYS = {
+            KeyBindings.ABILITY_1, KeyBindings.ABILITY_2, KeyBindings.ABILITY_3, KeyBindings.ABILITY_4
+    };
+
+    /**
      * Holds the local player flat while they are on a ride that lies down — Water
      * Surf, and nothing else so far.
      *
@@ -99,9 +109,8 @@ public class ClientEvents {
                 PacketDistributor.sendToServer(new UseAbilityPacket(isShiftDown ? 7 : 3));
             }
             // --- CHANNELED ABILITY HOLD DETECTION (Fire Breath, future held abilities) ---
-            net.minecraft.client.KeyMapping[] abilityKeys = { KeyBindings.ABILITY_1, KeyBindings.ABILITY_2, KeyBindings.ABILITY_3, KeyBindings.ABILITY_4 };
             for (int i = 0; i < 4; i++) {
-                boolean held = abilityKeys[i].isDown();
+                boolean held = ABILITY_KEYS[i].isDown();
                 if (held != lastAbilityHeld[i]) {
                     int slot = isShiftDown ? i + 4 : i;
                     PacketDistributor.sendToServer(new com.minecraft.atlamod.network.AbilityHoldPacket(slot, held));
@@ -120,9 +129,16 @@ public class ClientEvents {
                             com.minecraft.atlamod.spirit.SpiritWorld.isSpiritWorld(mc.level));
 
             // 4. Check Meditation Hold (M key)
-            if (mc.player != null && mc.level != null) {
-                boolean isMeditateKeyDown = KeyBindings.MEDITATE.isDown();
-                PacketDistributor.sendToServer(new MeditatePacket(isMeditateKeyDown));
+            {
+                // The block above already sent this exact packet for this tick
+                // whenever no screen is open (mc.screen == null), which is the
+                // common case — sending the same value again here would just put
+                // the identical packet on the wire twice for nothing. This is only
+                // actually needed here for the one case that block's guard skips:
+                // a screen (the bending menu, most likely) IS open.
+                if (mc.screen != null) {
+                    PacketDistributor.sendToServer(new MeditatePacket(KeyBindings.MEDITATE.isDown()));
+                }
                 boolean isShiftDown = net.minecraft.client.gui.screens.Screen.hasShiftDown();
 
                 while (KeyBindings.ABILITY_1.consumeClick()) {

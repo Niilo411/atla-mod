@@ -283,6 +283,45 @@ public final class ElementPaths {
     }
 
     /**
+     * Ability display name (lowercased) to the element it belongs to, built once.
+     *
+     * {@link #elementOf} used to walk every element's whole tree from scratch on every
+     * call — for an ability near the end of {@link #ELEMENTS} that meant allocating on
+     * the order of forty short-lived arrays (four to five per element checked, times
+     * however many elements came before a match) just to answer "whose ability is
+     * this?". That call is on the hottest paths in the mod: once a TICK for every
+     * actively channeling player, and up to four times a tick for every player winding
+     * up a charge (AbilityHandler#tickChanneled, #tickCharging, #syncChargeStatus all
+     * reach it through cooldownFor/chargeTicksFor/boostable/runWithElement).
+     *
+     * Building the index costs exactly the walk elementOf used to do, but it happens
+     * ONCE, at class load, rather than on every single call — and safely so: everything
+     * this reads (NONE, NO_BENDING, CHI_BLOCKING, ELEMENTS) is declared textually above
+     * this field, so it is already initialised by the time this runs.
+     */
+    private static final java.util.Map<String, String> ABILITY_ELEMENT_INDEX = buildAbilityElementIndex();
+
+    private static java.util.Map<String, String> buildAbilityElementIndex() {
+        java.util.Map<String, String> index = new java.util.HashMap<>();
+
+        for (String element : ELEMENTS) {
+            for (String[] path : all(element)) {
+                for (String ability : path) {
+                    // The first element to claim a name wins, matching elementOf's old
+                    // "first match found walking ELEMENTS in order" behaviour exactly —
+                    // no two elements share an ability name today, but the tie-break
+                    // rule stays the same either way.
+                    index.putIfAbsent(ability.toLowerCase(Locale.ROOT), element);
+                }
+            }
+            for (String ability : centre(element)) {
+                index.putIfAbsent(ability.toLowerCase(Locale.ROOT), element);
+            }
+        }
+        return index;
+    }
+
+    /**
      * Whether this is an element the mod actually has abilities for.
      *
      * Case-insensitive, because the element a player is granted is stored and compared as
@@ -309,19 +348,7 @@ public final class ElementPaths {
     public static String elementOf(String ability) {
         if (ability == null || ability.isEmpty()) return "";
 
-        for (String element : ELEMENTS) {
-            for (String[] path : all(element)) {
-                for (String named : path) {
-                    if (named.equalsIgnoreCase(ability)) return element;
-                }
-            }
-            // The centre too: it is not part of any path, but it is still very much
-            // the element's ability — Sound boosting reaches it like any other.
-            for (String named : centre(element)) {
-                if (named.equalsIgnoreCase(ability)) return element;
-            }
-        }
-        return "";
+        return ABILITY_ELEMENT_INDEX.getOrDefault(ability.toLowerCase(Locale.ROOT), "");
     }
 
     private static boolean containsIgnoreCase(List<String> unlocked, String ability) {
