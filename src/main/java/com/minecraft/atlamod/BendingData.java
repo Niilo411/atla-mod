@@ -593,12 +593,15 @@ public class BendingData {
      * nothing to set up a second time.
      */
     public boolean hasPassiveEquipped(String passiveKey) {
-        if (passiveKey == null || passiveKey.isEmpty()) return false;
-        if (!AtlaConfig.abilityEnabled(passiveKey)) return false;
-        if (passivesSuppressed) return false;
+        if (passivesSuppressed || passiveKey == null || passiveKey.isEmpty()) return false;
 
+        // The slots are scanned BEFORE the settings are asked. This runs a dozen times a
+        // tick for every player, and nearly always for a passive they are not wearing —
+        // so the answer is usually settled by four string compares, and the disabled
+        // list (which lowercases the name to look it up) is only consulted for a passive
+        // that is actually in a slot.
         for (String equipped : getEquippedPassives()) {
-            if (passiveKey.equalsIgnoreCase(equipped)) return true;
+            if (passiveKey.equalsIgnoreCase(equipped)) return AtlaConfig.abilityEnabled(passiveKey);
         }
         return false;
     }

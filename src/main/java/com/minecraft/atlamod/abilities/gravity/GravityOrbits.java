@@ -130,12 +130,29 @@ public final class GravityOrbits {
         return true;
     }
 
-    /** Whether this entity is an orbit seat — nothing consults it yet, kept for parity. */
+    /** What anything caught in an orbit deals, as a fraction of normal. */
+    public static final float VICTIM_DAMAGE_MULTIPLIER = 0.5F;
+
+    /**
+     * Whether this entity is an orbit seat.
+     *
+     * What stops a victim crouching their way out: the dismount handler in ServerEvents
+     * refuses to let anyone off a seat this answers true for, the same way it does for
+     * Earth Trap. The empty check comes first because that handler runs for every
+     * dismount in the game.
+     */
     public static boolean holdsSeat(Entity vehicle) {
+        if (vehicle == null || ACTIVE.isEmpty()) return false;
+
         for (Orbit orbit : ACTIVE) {
             if (orbit.seat == vehicle) return true;
         }
         return false;
+    }
+
+    /** Whether this entity is currently being swung round somebody's orbit. */
+    public static boolean isOrbiting(Entity entity) {
+        return !ACTIVE.isEmpty() && holdsSeat(entity.getVehicle());
     }
 
     private static void release(Orbit orbit) {

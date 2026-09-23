@@ -75,6 +75,9 @@ public final class MetalShields {
     }
 
     public static boolean has(ServerPlayer player) {
+        // Asked every tick for every player, and almost always of an empty list.
+        if (ACTIVE.isEmpty()) return false;
+
         for (Shield shield : ACTIVE) {
             if (shield.ownerId.equals(player.getUUID())) return true;
         }

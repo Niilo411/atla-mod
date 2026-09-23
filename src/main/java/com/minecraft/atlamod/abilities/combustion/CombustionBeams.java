@@ -73,6 +73,9 @@ public final class CombustionBeams {
     }
 
     public static boolean has(ServerPlayer player) {
+        // Asked every tick for every player, and almost always of an empty list.
+        if (ACTIVE.isEmpty()) return false;
+
         for (Beam beam : ACTIVE) {
             if (beam.ownerId.equals(player.getUUID())) return true;
         }

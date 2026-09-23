@@ -120,6 +120,45 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Masterclass: Earthquake-15, Ravine-15, Earth sink-15
 
 
+## Gravitybending notes
+
+- **Gravity Orbit victims cannot crouch out.** The dismount handler refuses anyone
+  off a seat `GravityOrbits.holdsSeat` answers for, exactly as it does for Earth Trap —
+  and lets a DEAD victim off, so a body never rides an empty ring. `GravityOrbits` drops
+  an orbit from its list before releasing anyone, so its own release is never refused.
+- **Anything caught in an orbit deals HALF damage** (`VICTIM_DAMAGE_MULTIPLIER`), applied
+  in the damage handler keyed on the CAUSING entity — so arrows and abilities fired from
+  the ring are halved too, not just punches. After every other multiplier.
+- **Gravity pull is a per-tick tracker now (`GravityPulls`), not one shove.** A single
+  impulse cannot deliver something to a POINT — drag and friction eat it differently on
+  grass, slopes and water — so the target is steered every tick to 1.5 blocks in front of
+  the bender, recomputed from where they stand and face NOW. Flattened facing, capped at
+  1.4 blocks a tick, 2 second backstop. 4 second cooldown (was 1).
+- **Levitation's "Updraft" upgrade** (10 levels) raises the effect's AMPLIFIER to II,
+  which is exactly twice the climb rate in vanilla; same ten seconds, so also twice as
+  high.
+
+## Key slots survive a death
+
+Equipped abilities used to come back unbound after dying. The server-side copy was
+hardened three ways, since no single line could be proven to be the culprit:
+- `onPlayerClone` runs at **LOWEST** priority. NeoForge copies attachments in its own
+  Clone listener, which REPLACES the attachment outright — at lowest priority ours is
+  always the last word.
+- Lists are copied OUT before the new body's list is cleared, so a clear can never
+  empty the source as well.
+- **The client carries its copy across** in `ClientEvents.onClientRespawn`
+  (`ClientPlayerNetworkEvent.Clone`). The client builds a brand new LocalPlayer on
+  respawn and NeoForge copies no attachments onto it, so until the server's resync
+  landed the menu and HUD read a blank copy with every slot EMPTY.
+
+## The meditate key is sent on change, not every tick
+
+`ClientEvents.syncMeditate` replaced a `MeditatePacket` sent EVERY client tick for every
+player — twenty packets a second of "not meditating". It now sends on a change, plus a
+once-a-second refresh while held, because the server's copy is rebuilt false on respawn
+and dimension change and a player still holding the key should pick back up.
+
 ## The Avatar Tab
 
 The mod's creative tab (`Atlamod.AVATAR_TAB`, id `atlamod:avatar_tab`), iconed with the

@@ -12,8 +12,8 @@ import net.minecraft.world.phys.Vec3;
  * Offensive / Gravity. Hauls whoever is in front of the bender in to arm's reach,
  * damaging them on the way.
  *
- * The cheapest, fastest ability on the path — a one second cooldown against the
- * others' three to five — which is the point: this is the opener that puts a
+ * The cheapest ability on the path, and still among the quickest to come back at four
+ * seconds — which is the point: this is the opener that puts a
  * distant target where the rest of the path can reach them, not a finisher of its
  * own. The design's own words for that are "allowing you to start a combo"; there is
  * no combo system behind it, just a fast, cheap pull meant to be followed by
@@ -23,9 +23,6 @@ public class GravityPull implements Ability {
 
     /** How far away a target may be picked from. The design's own figure. */
     private static final double REACH = 10.0;
-
-    /** How close in the target ends up. */
-    private static final double LANDING_DISTANCE = 2.0;
 
     private static final float DAMAGE = 4.0F;
 
@@ -46,7 +43,7 @@ public class GravityPull implements Ability {
 
     @Override
     public int getCooldownTicks() {
-        return 20; // 1 second
+        return 80; // 4 seconds
     }
 
     @Override
@@ -60,18 +57,13 @@ public class GravityPull implements Ability {
         LivingEntity target = Aiming.nearestAlongLook(player, REACH, Gravity.AIM_TOLERANCE);
         if (target == null) return;
 
-        Vec3 toward = player.position().subtract(target.position());
-        double distance = toward.length();
-
         target.hurt(player.damageSources().indirectMagic(player, player), DAMAGE);
 
-        if (distance > LANDING_DISTANCE) {
-            Vec3 direction = new Vec3(toward.x, 0.0, toward.z).normalize();
-            double speed = Math.min(distance - LANDING_DISTANCE, 1.6);
-
-            target.setDeltaMovement(direction.x * speed * 0.3, 0.15, direction.z * speed * 0.3);
-            target.hurtMarked = true;
-        }
+        // AFTER the hit, never before: hurt() applies a knockback of its own, which would
+        // otherwise knock the target back out of the first tick of the pull. The pull
+        // itself is steered every tick until the target is set down right in front of the
+        // bender — see GravityPulls for why one shove could not do that.
+        GravityPulls.start(player, target);
 
         Gravity.gather(level, target.position().add(0.0, target.getBbHeight() * 0.5, 0.0), 20, 0.4);
         Gravity.warp(level, target.position(), 0.7F);

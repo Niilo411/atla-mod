@@ -72,6 +72,7 @@ public class ServerEvents {
 
         com.minecraft.atlamod.abilities.gravity.GravitySlams.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.gravity.GravityOrbits.tickAll(event.getServer());
+        com.minecraft.atlamod.abilities.gravity.GravityPulls.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.gravity.GravityEncases.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.gravity.GravityCrushes.tickAll(event.getServer());
         com.minecraft.atlamod.abilities.gravity.MeteorBlocks.tickAll(event.getServer());
@@ -133,6 +134,7 @@ public class ServerEvents {
 
             com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetLevel(level);
             com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetLevel(level);
+            com.minecraft.atlamod.abilities.gravity.GravityPulls.forgetLevel(level);
             com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetLevel(level);
             com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetLevel(level);
             com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetLevel(level);
@@ -862,6 +864,16 @@ public class ServerEvents {
         if (com.minecraft.atlamod.abilities.earth.EarthTraps.holdsSeat(event.getEntityBeingMounted())) {
             event.setCanceled(true);
         }
+
+        // Gravity Orbit holds its victims the same way, for the same reason: without
+        // this, crouching was a way out of the whole fifteen seconds. GravityOrbits
+        // drops an orbit from its list BEFORE releasing anyone, so the ability's own
+        // release is never refused by this.
+        // A DEAD victim is always let off, so a body is never left riding an empty ring.
+        if (event.getEntityMounting().isAlive()
+                && com.minecraft.atlamod.abilities.gravity.GravityOrbits.holdsSeat(event.getEntityBeingMounted())) {
+            event.setCanceled(true);
+        }
     }
     /**
      * Tells a player about someone else's Earth armor the moment they come into view.
@@ -915,6 +927,7 @@ public class ServerEvents {
 
             com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityPulls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetPlayer(player);
@@ -1011,6 +1024,7 @@ public class ServerEvents {
 
             com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityPulls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetPlayer(player);
@@ -1210,9 +1224,17 @@ public class ServerEvents {
         player.setData(ModAttachments.BENDING_DATA, data);
     }
 
-    @SubscribeEvent
+    /**
+     * Copies your data to your new body when respawning OR travelling to another dimension.
+     *
+     * LOWEST PRIORITY, deliberately. NeoForge copies attachments in a Clone listener of its
+     * own ({@code AttachmentInternals.onPlayerClone}), which REPLACES the new body's
+     * attachment outright — so if it happened to run after this one, everything copied by
+     * hand here would be thrown away and only its codec round-trip would survive. At lowest
+     * priority this is always the last word, whatever order the two are registered in.
+     */
+    @SubscribeEvent(priority = net.neoforged.bus.api.EventPriority.LOWEST)
     public static void onPlayerClone(PlayerEvent.Clone event) {
-        // Copies your data to your new body when respawning OR traveling to the Nether
         var oldData = event.getOriginal().getData(ModAttachments.BENDING_DATA);
         var newData = event.getEntity().getData(ModAttachments.BENDING_DATA);
 
@@ -1220,18 +1242,24 @@ public class ServerEvents {
         newData.setActiveElement(oldData.getActiveElement());
         newData.setHasChosenElement(oldData.hasChosenElement());
 
+        java.util.List<String> elements = new java.util.ArrayList<>(oldData.getUnlockedElements());
         newData.getUnlockedElements().clear();
-        newData.getUnlockedElements().addAll(oldData.getUnlockedElements());
+        newData.getUnlockedElements().addAll(elements);
 
         newData.setXp(oldData.getXp());
         newData.setLevel(oldData.getLevel());
         newData.setCurrentChi(oldData.getCurrentChi());
 
+        // Copied out into a NEW list before anything is cleared. Clearing the new body's
+        // list and then adding the old one's back is only safe while the two are
+        // different lists — if they were ever the same object, the clear would empty
+        // both and nothing would come back. A copy taken first cannot be emptied by it.
+        java.util.List<String> unlocked = new java.util.ArrayList<>(oldData.getUnlockedAbilities());
         newData.getUnlockedAbilities().clear();
-        newData.getUnlockedAbilities().addAll(oldData.getUnlockedAbilities());
+        newData.getUnlockedAbilities().addAll(unlocked);
 
-        newData.getEquippedAbilities().clear();
-        newData.getEquippedAbilities().addAll(oldData.getEquippedAbilities());
+        // Key bindings stay bound through a death until the player unbinds them.
+        newData.setAllEquippedAbilities(new java.util.ArrayList<>(oldData.getEquippedAbilities()));
 
         // Passives too. copyOnDeath already carries these through a death, but this
         // event also fires when changing dimension, where it does not — without this
@@ -1286,6 +1314,7 @@ public class ServerEvents {
 
             com.minecraft.atlamod.abilities.gravity.GravitySlams.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityOrbits.forgetPlayer(player);
+            com.minecraft.atlamod.abilities.gravity.GravityPulls.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityEncases.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.GravityCrushes.forgetPlayer(player);
             com.minecraft.atlamod.abilities.gravity.MeteorBlocks.forgetPlayer(player);
@@ -1572,6 +1601,16 @@ public class ServerEvents {
                 event.setAmount(event.getAmount()
                         * com.minecraft.atlamod.abilities.fire.BlueFire.DAMAGE_MULTIPLIER);
             }
+        }
+
+        // Caught in a Gravity Orbit: whatever the victim manages to land while being
+        // swung round the ring hits for HALF. Keyed on the CAUSING entity, so an arrow or
+        // an ability loosed from the ring is halved as well as a punch. After every
+        // multiplier above, so it halves the finished figure rather than a part of it.
+        if (attacker instanceof net.minecraft.world.entity.LivingEntity orbiting
+                && com.minecraft.atlamod.abilities.gravity.GravityOrbits.isOrbiting(orbiting)) {
+            event.setAmount(event.getAmount()
+                    * com.minecraft.atlamod.abilities.gravity.GravityOrbits.VICTIM_DAMAGE_MULTIPLIER);
         }
 
         // A world event's damage multiplier, applied to ANY damage source rather than to

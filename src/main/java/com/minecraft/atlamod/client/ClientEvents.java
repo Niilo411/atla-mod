@@ -20,6 +20,32 @@ public class ClientEvents {
     private static boolean wasLeftClicking = false;
     private static final boolean[] lastAbilityHeld = new boolean[4];
 
+    /** What the server was last told about the meditate key, and when. */
+    private static boolean lastMeditateSent = false;
+    private static int meditateResendTicks = 0;
+
+    /**
+     * Tells the server about the meditate key — but only when there is something to say.
+     *
+     * THIS USED TO SEND A PACKET EVERY TICK, for every player, whether or not anybody was
+     * touching the key: twenty packets a second per player doing nothing but repeating
+     * "not meditating". It now sends on a CHANGE, the same shape the ability hold keys
+     * already use, plus a refresh once a second while the key is actually held. The
+     * refresh is there because the server can clear its own copy without being asked — a
+     * respawn or a dimension change builds a fresh BendingData with meditating false —
+     * and a player still holding the key should pick back up within a second rather than
+     * having to let go and press it again.
+     */
+    private static void syncMeditate() {
+        boolean down = KeyBindings.MEDITATE.isDown();
+
+        if (down != lastMeditateSent || (down && --meditateResendTicks <= 0)) {
+            PacketDistributor.sendToServer(new MeditatePacket(down));
+            lastMeditateSent = down;
+            meditateResendTicks = 20;
+        }
+    }
+
     /**
      * The four ability KeyMappings, in slot order.
      *
@@ -92,8 +118,7 @@ public class ClientEvents {
             wasLeftClicking = isLeftClicking; // Remember for next tick
 
             // 4. Check Meditation Hold (M key)
-            boolean isMeditateKeyDown = KeyBindings.MEDITATE.isDown();
-            PacketDistributor.sendToServer(new MeditatePacket(isMeditateKeyDown));
+            syncMeditate();
             boolean isShiftDown = net.minecraft.client.gui.screens.Screen.hasShiftDown();
 
             while (KeyBindings.ABILITY_1.consumeClick()) {
@@ -130,15 +155,9 @@ public class ClientEvents {
 
             // 4. Check Meditation Hold (M key)
             {
-                // The block above already sent this exact packet for this tick
-                // whenever no screen is open (mc.screen == null), which is the
-                // common case — sending the same value again here would just put
-                // the identical packet on the wire twice for nothing. This is only
-                // actually needed here for the one case that block's guard skips:
-                // a screen (the bending menu, most likely) IS open.
-                if (mc.screen != null) {
-                    PacketDistributor.sendToServer(new MeditatePacket(KeyBindings.MEDITATE.isDown()));
-                }
+                // The block above already asked for this tick whenever no screen is
+                // open; this covers the one case its guard skips, a screen that IS open.
+                if (mc.screen != null) syncMeditate();
                 boolean isShiftDown = net.minecraft.client.gui.screens.Screen.hasShiftDown();
 
                 while (KeyBindings.ABILITY_1.consumeClick()) {
@@ -295,6 +314,24 @@ public class ClientEvents {
         ClientBendingArmor.clear();
         ClientShake.clear();
         ClientFlash.clear();
+
+        // The next server starts out believing nobody is meditating.
+        lastMeditateSent = false;
+    }
+
+    /**
+     * Carries the client's bending data onto the new player on respawn.
+     *
+     * The client builds a brand new LocalPlayer when you respawn, and NeoForge does not
+     * copy attachments onto it — so until the server's resync arrived, the new body held
+     * a blank copy with every key slot EMPTY. Anything that read it in that gap (the menu,
+     * the HUD) saw the abilities as unbound. Handing the old copy across closes the gap;
+     * the server's resync still follows and has the final say.
+     */
+    @SubscribeEvent
+    public static void onClientRespawn(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.Clone event) {
+        var attachment = com.minecraft.atlamod.ModAttachments.BENDING_DATA;
+        event.getNewPlayer().setData(attachment, event.getOldPlayer().getData(attachment));
     }
 
     /**
