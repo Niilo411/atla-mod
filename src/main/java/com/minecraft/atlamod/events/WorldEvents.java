@@ -7,8 +7,9 @@ import net.minecraft.world.level.Level;
 /**
  * The three things the sky does to bending.
  *
- * A blood moon every three days that lifts waterbending, Sozin's comet every six that
- * lifts fire, and the day of black sun every twelve that takes fire away entirely.
+ * A blood moon that lifts waterbending, Sozin's comet that lifts fire, and the day of
+ * black sun that takes fire away entirely — every three, six and twelve days by
+ * default, all three configurable in AtlaConfig's worldEvents section.
  *
  * DERIVED FROM THE LEVEL'S CLOCK, NEVER COUNTED DOWN, which is the one structural
  * decision here and the same one {@code SpiritGravity} makes for the low-gravity tide.
@@ -190,12 +191,16 @@ public final class WorldEvents {
     //  Jumping to one
     // ==========================================================================
 
-    /** How many days apart an event's occurrences are. */
+    /**
+     * How many days apart an event's occurrences are. A SETTING — see AtlaConfig's
+     * worldEvents section — so "3, 6 and 12" are this method's shipped defaults
+     * rather than a fact anything else may assume.
+     */
     private static int period(Event event) {
         return switch (event) {
-            case BLOOD_MOON -> 3;
-            case SOZINS_COMET -> 6;
-            case BLACK_SUN -> 12;
+            case BLOOD_MOON -> AtlaConfig.bloodMoonPeriodDays();
+            case SOZINS_COMET -> AtlaConfig.cometPeriodDays();
+            case BLACK_SUN -> AtlaConfig.blackSunPeriodDays();
         };
     }
 
@@ -204,12 +209,17 @@ public final class WorldEvents {
         return period(event) - 1;
     }
 
-    /** How long it runs for, in ticks. */
+    /**
+     * How long it runs for, in ticks. Also a SETTING now — the doc comments on the
+     * config entries record what each one still means by default (dusk to dawn, a
+     * whole day, six minutes centred on noon) since the number alone no longer says
+     * so the way a hardcoded {@code DAY - NIGHT_FROM} once did.
+     */
     public static int length(Event event) {
         return switch (event) {
-            case BLOOD_MOON -> DAY - NIGHT_FROM;
-            case SOZINS_COMET -> DAY;
-            case BLACK_SUN -> ECLIPSE_LENGTH;
+            case BLOOD_MOON -> AtlaConfig.bloodMoonDurationTicks();
+            case SOZINS_COMET -> AtlaConfig.cometDurationTicks();
+            case BLACK_SUN -> AtlaConfig.blackSunDurationTicks();
         };
     }
 

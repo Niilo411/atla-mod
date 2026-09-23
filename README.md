@@ -1,7 +1,7 @@
 # Atla Mod
 
 A Minecraft mod that adds Avatar-style **elemental bending** — four elements, eight
-sub-elements, and 121 abilities behind a progression tree you unlock as you play.
+sub-elements, and 123 abilities behind a progression tree you unlock as you play.
 
 Bending here is not a set of spells on a hotbar. Each element has its own resource
 rules, its own way of moving through the world, and its own idea of what a fight looks

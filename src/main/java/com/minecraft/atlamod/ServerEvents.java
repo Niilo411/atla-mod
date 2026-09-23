@@ -829,17 +829,29 @@ public class ServerEvents {
     public static void onEntityTick(net.neoforged.neoforge.event.tick.EntityTickEvent.Post event) {
         if (!(event.getEntity() instanceof net.minecraft.world.entity.LivingEntity living)) return;
         if (living.level().isClientSide()) return;
-        if (!living.hasEffect(com.minecraft.atlamod.ModEffects.STUNNED)) return;
 
-        net.minecraft.world.phys.Vec3 motion = living.getDeltaMovement();
-        living.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
+        if (living.hasEffect(com.minecraft.atlamod.ModEffects.STUNNED)) {
+            net.minecraft.world.phys.Vec3 motion = living.getDeltaMovement();
+            living.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
 
-        if (living instanceof net.minecraft.world.entity.Mob mob) {
-            mob.getNavigation().stop();
-            mob.setTarget(null);
-        } else if (living instanceof ServerPlayer stunnedPlayer) {
-            // A player's client owns their position, so it has to be told.
-            stunnedPlayer.hurtMarked = true;
+            if (living instanceof net.minecraft.world.entity.Mob mob) {
+                mob.getNavigation().stop();
+                mob.setTarget(null);
+            } else if (living instanceof ServerPlayer stunnedPlayer) {
+                // A player's client owns their position, so it has to be told.
+                stunnedPlayer.hurtMarked = true;
+            }
+        }
+
+        // The Spirit World's low-gravity tide, extended to mobs — off by default
+        // (AtlaConfig's affectsMobs), and checked first because it is a single
+        // volatile read that keeps this a no-op for every entity in the game
+        // whenever the setting is left off. Players are handled separately, once
+        // per player per tick, from ServerEvents' own player tick — not here, so
+        // they are excluded rather than run through this path twice.
+        if (com.minecraft.atlamod.AtlaConfig.spiritTideAffectsMobs()
+                && !(living instanceof net.minecraft.world.entity.player.Player)) {
+            com.minecraft.atlamod.spirit.SpiritGravity.tick(living);
         }
     }
 
@@ -1057,37 +1069,57 @@ public class ServerEvents {
         }
     }
     /**
-     * Mining spirit ore pays a bender in XP as well as in shards.
+     * Mining pays XP — Spirit Ore pays every bender, and a non-bender is ALSO paid a
+     * trickle for any block at all.
      *
-     * The SHARD is a loot table and needs nothing here; this is only the XP, which has
-     * nowhere else to come from — vanilla's own experience drops go to the player's levels,
-     * and bending XP is a different pot entirely.
+     * The SHARD Spirit Ore drops is a loot table and needs nothing here; this is only
+     * the XP, which has nowhere else to come from — vanilla's own experience drops go
+     * to the player's levels, and bending XP is a different pot entirely.
      *
-     * Granted whoever mines it, without asking whether they have chosen an element yet. XP
-     * banked before a choice is simply theirs when they make one, and refusing it would
-     * mean the same ore was worth less to a player who happened to arrive earlier.
+     * Spirit Ore's own bonus is granted whoever mines it, without asking whether they
+     * have chosen an element yet. XP banked before a choice is simply theirs when they
+     * make one, and refusing it would mean the same ore was worth less to a player who
+     * happened to arrive earlier. A non-bender breaking Spirit Ore gets BOTH: the ore's
+     * own figure and the flat per-block one, since one is what the ore is worth and the
+     * other is what mining itself is worth to a path with no other physical income.
      *
-     * Ordered cheapest first, like the shrine handler below: this fires for every block
-     * broken in the game, so the block is tested before anything is read off the player.
+     * No longer ordered "block before player" the way this used to be: a non-bender's
+     * flat XP applies to every block, so there is nothing left to reject before reading
+     * the player. Still cheapest-check-first within that — the player type, then
+     * NoBending.is (a couple of list entries at most).
      */
     @SubscribeEvent
     public static void onBlockBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent event) {
         if (event.isCanceled()) return;
-        if (!event.getState().is(Atlamod.SPIRIT_ORE.get())) return;
         if (!(event.getPlayer() instanceof ServerPlayer player)) return;
 
         BendingData data = player.getData(ModAttachments.BENDING_DATA);
+        int gained = 0;
 
-        com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data,
-                com.minecraft.atlamod.spirit.island.SpiritOre.xpPerBlock());
+        if (com.minecraft.atlamod.abilities.nobending.NoBending.is(data)) {
+            gained += com.minecraft.atlamod.abilities.nobending.NoBending.XP_PER_BLOCK_MINED;
+        }
+
+        boolean spiritOre = event.getState().is(Atlamod.SPIRIT_ORE.get());
+        if (spiritOre) {
+            gained += com.minecraft.atlamod.spirit.island.SpiritOre.xpPerBlock();
+        }
+
+        if (gained <= 0) return;
+
+        com.minecraft.atlamod.abilities.AbilitySupport.grantXp(data, gained);
         com.minecraft.atlamod.abilities.AbilitySupport.syncData(player, data);
 
-        // On the action bar rather than in chat: a vein is several blocks and a line each
-        // would bury whatever else the player was being told.
-        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                "§b+" + com.minecraft.atlamod.spirit.island.SpiritOre.xpPerBlock()
-                        + " bending XP §7(" + data.getXp() + "/"
-                        + com.minecraft.atlamod.abilities.AbilitySupport.xpPerLevel() + ")"), true);
+        // On the action bar rather than in chat: a vein is several blocks and a line
+        // each would bury whatever else the player was being told. Only shown for
+        // Spirit Ore's own figure, matching what this already told a bender — a
+        // non-bender's flat trickle from ordinary stone is not worth a line every
+        // single block.
+        if (spiritOre) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    "§b+" + gained + " bending XP §7(" + data.getXp() + "/"
+                            + com.minecraft.atlamod.abilities.AbilitySupport.xpPerLevel() + ")"), true);
+        }
     }
 
     /**
@@ -1307,22 +1339,26 @@ public class ServerEvents {
      */
     @SubscribeEvent
     public static void onLivingFall(net.neoforged.neoforge.event.entity.living.LivingFallEvent event) {
+        // The Spirit World's low-gravity tide, checked FIRST and for whoever fell —
+        // player or mob, since AtlaConfig's affectsMobs can extend the tide to both.
+        // Vanilla charges for fall DISTANCE rather than for impact speed, so something
+        // that drifted gently down would otherwise be billed exactly as if it had
+        // plummeted. See SpiritGravity#cancelsFallDamage.
+        if (com.minecraft.atlamod.spirit.SpiritGravity.cancelsFallDamage(event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
+
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         BendingData data = player.getData(ModAttachments.BENDING_DATA);
 
-        // Two ways to land for free, and they cancel the same way for the same reason —
-        // it takes the landing thud and the puff of dust with it, where a reduced damage
-        // figure would leave both behind.
-        //
-        // The second is the Spirit World's low-gravity tide: vanilla charges for fall
-        // DISTANCE rather than for impact speed, so a player who drifted gently down would
-        // otherwise be billed exactly as if they had plummeted. See SpiritGravity.
-        // The third is the Gravitybending Scroll's confirmation window — see
+        // Two more ways to land for free, both player-only (BendingData has no
+        // meaning for a mob) and both cancelling rather than reducing, for the same
+        // reason as above — it takes the landing thud and the puff of dust with it.
+        // The Gravitybending Scroll's confirmation window is the second — see
         // GravityScrollItem.
-        if (data.getAirJumpTicks() > 0
-                || data.getGravityFallImmuneTicks() > 0
-                || com.minecraft.atlamod.spirit.SpiritGravity.isDrifting(player)) {
+        if (data.getAirJumpTicks() > 0 || data.getGravityFallImmuneTicks() > 0) {
             event.setCanceled(true);
         }
     }
@@ -1496,6 +1532,17 @@ public class ServerEvents {
                 // already worth more than this to somebody with a Strength potion.
                 event.setAmount(Math.max(event.getAmount(),
                         com.minecraft.atlamod.abilities.metal.ToughKnuckles.PUNCH_DAMAGE));
+
+            } else if (puncherData.hasPassiveEquipped(
+                    com.minecraft.atlamod.abilities.nobending.SwordMastery.KEY)
+                    && puncher.getMainHandItem().getItem() instanceof net.minecraft.world.item.SwordItem) {
+
+                // Sword Mastery ADDS to what the sword and its enchantments already hit
+                // for, the mirror of Tough knuckles' replace-an-empty-hand — a sword
+                // already has a real damage figure of its own to build on, where a bare
+                // fist does not.
+                event.setAmount(event.getAmount()
+                        + com.minecraft.atlamod.abilities.nobending.SwordMastery.bonusFor(puncherData));
             }
         }
 
@@ -1890,6 +1937,11 @@ public class ServerEvents {
             // Runs unconditionally, like Flight: taking the Speed back off when the
             // passive is unequipped is as much this call's job as granting it.
             com.minecraft.atlamod.abilities.lightning.LightningStrength.tick(player, data);
+
+            // --- QUICK HANDS PASSIVE ---
+            // Runs unconditionally too, for the same reason: taking Haste back off
+            // when the passive is unequipped is as much this call's job as granting it.
+            com.minecraft.atlamod.abilities.nobending.QuickHands.tick(player, data);
 
             // --- AVATAR LAST STAND ---
             // Resistance and Regeneration below three hearts, taken back off above

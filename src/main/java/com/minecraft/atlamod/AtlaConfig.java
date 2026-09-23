@@ -262,12 +262,16 @@ public final class AtlaConfig {
      * and setting all four to 100 leaves the event running as a purely visual one.
      */
     public static final ModConfigSpec.BooleanValue BLOOD_MOON_ENABLED;
+    public static final ModConfigSpec.IntValue BLOOD_MOON_PERIOD_DAYS;
+    public static final ModConfigSpec.IntValue BLOOD_MOON_DURATION_TICKS;
     public static final ModConfigSpec.IntValue BLOOD_MOON_COOLDOWN;
     public static final ModConfigSpec.IntValue BLOOD_MOON_CHARGE;
     public static final ModConfigSpec.IntValue BLOOD_MOON_CHI;
     public static final ModConfigSpec.IntValue BLOOD_MOON_DAMAGE;
 
     public static final ModConfigSpec.BooleanValue COMET_ENABLED;
+    public static final ModConfigSpec.IntValue COMET_PERIOD_DAYS;
+    public static final ModConfigSpec.IntValue COMET_DURATION_TICKS;
     public static final ModConfigSpec.IntValue COMET_COOLDOWN;
     public static final ModConfigSpec.IntValue COMET_CHARGE;
     public static final ModConfigSpec.IntValue COMET_CHI;
@@ -275,10 +279,29 @@ public final class AtlaConfig {
 
     public static final ModConfigSpec.BooleanValue BLACK_SUN_ENABLED;
     public static final ModConfigSpec.BooleanValue BLACK_SUN_DISABLES_FIRE;
+    public static final ModConfigSpec.IntValue BLACK_SUN_PERIOD_DAYS;
+    public static final ModConfigSpec.IntValue BLACK_SUN_DURATION_TICKS;
     public static final ModConfigSpec.IntValue BLACK_SUN_COOLDOWN;
     public static final ModConfigSpec.IntValue BLACK_SUN_CHARGE;
     public static final ModConfigSpec.IntValue BLACK_SUN_CHI;
     public static final ModConfigSpec.IntValue BLACK_SUN_DAMAGE;
+
+    public static final ModConfigSpec.BooleanValue SPIRIT_TIDE_ENABLED;
+    public static final ModConfigSpec.IntValue SPIRIT_TIDE_PERIOD_MINUTES;
+    public static final ModConfigSpec.IntValue SPIRIT_TIDE_DURATION_MINUTES;
+    public static final ModConfigSpec.IntValue SPIRIT_TIDE_GRAVITY_PERCENT;
+    public static final ModConfigSpec.BooleanValue SPIRIT_TIDE_NO_FALL_DAMAGE;
+    public static final ModConfigSpec.BooleanValue SPIRIT_TIDE_AFFECTS_MOBS;
+
+    public static final ModConfigSpec.IntValue QUICK_HANDS_BASE_AMPLIFIER;
+    public static final ModConfigSpec.IntValue QUICK_HANDS_STEADY_GRIP_AMPLIFIER;
+    public static final ModConfigSpec.IntValue QUICK_HANDS_PRACTICED_SWING_AMPLIFIER;
+    public static final ModConfigSpec.IntValue QUICK_HANDS_MASTERS_TOUCH_AMPLIFIER;
+
+    public static final ModConfigSpec.IntValue SWORD_MASTERY_BASE_BONUS_TENTHS;
+    public static final ModConfigSpec.IntValue SWORD_MASTERY_HONED_EDGE_BONUS_TENTHS;
+    public static final ModConfigSpec.IntValue SWORD_MASTERY_PRACTICED_FORM_BONUS_TENTHS;
+    public static final ModConfigSpec.IntValue SWORD_MASTERY_MASTER_DUELIST_BONUS_TENTHS;
 
     static {
         BUILDER.comment("Things the sky does to bending.",
@@ -293,6 +316,15 @@ public final class AtlaConfig {
                         "waterbending is lifted.")
                 .push("bloodMoon");
         BLOOD_MOON_ENABLED = BUILDER.define("enabled", true);
+        BLOOD_MOON_PERIOD_DAYS = BUILDER
+                .comment("How many days apart blood moons fall. 3 is the shipped figure.")
+                .defineInRange("periodDays", 3, 1, 1000);
+        BLOOD_MOON_DURATION_TICKS = BUILDER
+                .comment("How long a blood moon lasts, in ticks, starting at dusk (20 ticks =",
+                        "1 second). 11000 is the shipped figure - dusk to dawn, a whole night.",
+                        "A duration longer than the time left before dawn simply runs into",
+                        "daylight rather than being cut short.")
+                .defineInRange("durationTicks", 11000, 20, 24000);
         BLOOD_MOON_COOLDOWN = BUILDER
                 .comment("Waterbending cooldowns, as a percentage of normal.")
                 .defineInRange("cooldownPercent", 50, 1, 1000);
@@ -311,6 +343,13 @@ public final class AtlaConfig {
                         "firebending at its height.")
                 .push("sozinsComet");
         COMET_ENABLED = BUILDER.define("enabled", true);
+        COMET_PERIOD_DAYS = BUILDER
+                .comment("How many days apart the comet falls. 6 is the shipped figure.")
+                .defineInRange("periodDays", 6, 1, 1000);
+        COMET_DURATION_TICKS = BUILDER
+                .comment("How long the comet's day lasts, in ticks, starting at midnight",
+                        "(20 ticks = 1 second). 24000 is the shipped figure - the whole day.")
+                .defineInRange("durationTicks", 24000, 20, 24000);
         COMET_COOLDOWN = BUILDER
                 .comment("Firebending cooldowns, as a percentage of normal.")
                 .defineInRange("cooldownPercent", 40, 1, 1000);
@@ -335,6 +374,13 @@ public final class AtlaConfig {
                         "TO REMOVE IT entirely, set enabled to false.")
                 .push("dayOfBlackSun");
         BLACK_SUN_ENABLED = BUILDER.define("enabled", true);
+        BLACK_SUN_PERIOD_DAYS = BUILDER
+                .comment("How many days apart the eclipse falls. 12 is the shipped figure.")
+                .defineInRange("periodDays", 12, 1, 1000);
+        BLACK_SUN_DURATION_TICKS = BUILDER
+                .comment("How long the eclipse lasts, in ticks, centred on noon (20 ticks =",
+                        "1 second). 7200 is the shipped figure - six real minutes.")
+                .defineInRange("durationTicks", 7200, 20, 24000);
         BLACK_SUN_DISABLES_FIRE = BUILDER
                 .comment("Whether firebending is refused outright in the OVERWORLD for the",
                         "whole six minutes. True is the shipped behaviour. When false, only the",
@@ -356,6 +402,93 @@ public final class AtlaConfig {
                 .comment("Firebending damage, as a percentage of normal.",
                         "Only used when disablesFirebending is false.")
                 .defineInRange("damagePercent", 50, 1, 1000);
+        BUILDER.pop();
+
+        BUILDER.pop();
+
+        BUILDER.comment("The Spirit World's tide of low gravity.",
+                        "Derived from the level's own clock, the same as the three events above,",
+                        "so it needs no new world and cannot be left half-running by a crash.")
+                .push("spiritGravityTide");
+        SPIRIT_TIDE_ENABLED = BUILDER
+                .comment("Whether the tide happens at all. False leaves the Spirit World at",
+                        "ordinary gravity permanently.")
+                .define("enabled", true);
+        SPIRIT_TIDE_PERIOD_MINUTES = BUILDER
+                .comment("How often the tide comes in, in real minutes. 10 is the shipped",
+                        "figure.")
+                .defineInRange("periodMinutes", 10, 1, 120);
+        SPIRIT_TIDE_DURATION_MINUTES = BUILDER
+                .comment("How long the tide stays once it comes in, in real minutes, out of",
+                        "each period above. 3 is the shipped figure - three minutes out of",
+                        "every ten. A duration at or past the period leaves the tide running",
+                        "permanently rather than cycling.")
+                .defineInRange("durationMinutes", 3, 1, 120);
+        SPIRIT_TIDE_GRAVITY_PERCENT = BUILDER
+                .comment("How much of normal gravity is left during the tide, as a percentage.",
+                        "40 is the shipped figure - a floaty, drifting fall. 100 makes the tide",
+                        "purely cosmetic (nothing about gravity actually changes); 0 is true",
+                        "weightlessness, drifting rather than falling at all.")
+                .defineInRange("gravityPercent", 40, 0, 100);
+        SPIRIT_TIDE_NO_FALL_DAMAGE = BUILDER
+                .comment("Whether falling costs nothing while the tide is in. True is the",
+                        "shipped behaviour - vanilla charges for fall DISTANCE rather than",
+                        "impact speed, so without this a drifting fall would be billed",
+                        "exactly as if it had been a plummet. Independent of gravityPercent,",
+                        "so a lighter fall can still be made to hurt if that is what is",
+                        "wanted.")
+                .define("noFallDamage", true);
+        SPIRIT_TIDE_AFFECTS_MOBS = BUILDER
+                .comment("Whether the tide lightens every living thing in the Spirit World,",
+                        "not just players. False is the shipped behaviour. True means",
+                        "hostile and passive mobs drift and land as gently as a bender does",
+                        "while the tide is in.")
+                .define("affectsMobs", false);
+        BUILDER.pop();
+
+        BUILDER.comment("How much No Bending's two tiered passives improve at each of their",
+                        "three upgrades.")
+                .push("noBendingPassives");
+
+        BUILDER.comment("Quick Hands. Mining speed as a vanilla HASTE LEVEL: 0 is Haste I",
+                        "(+20% mining speed), 1 is Haste II (+40%), and so on. KEEP THESE LOW —",
+                        "vanilla Haste and a tool's own efficiency multiply the SAME mining",
+                        "speed figure, so a high level stacked on a good pickaxe breaks most",
+                        "blocks in under a tick. The shipped 0/1/2/3 (Haste I through IV) is",
+                        "already more than any vanilla source normally grants at once; a beacon",
+                        "tops out at Haste II.")
+                .push("quickHands");
+        QUICK_HANDS_BASE_AMPLIFIER = BUILDER
+                .comment("Haste level with the passive equipped and no upgrades bought.")
+                .defineInRange("baseAmplifier", 0, 0, 9);
+        QUICK_HANDS_STEADY_GRIP_AMPLIFIER = BUILDER
+                .comment("Haste level with the Steady Grip upgrade.")
+                .defineInRange("steadyGripAmplifier", 1, 0, 9);
+        QUICK_HANDS_PRACTICED_SWING_AMPLIFIER = BUILDER
+                .comment("Haste level with the Practiced Swing upgrade.")
+                .defineInRange("practicedSwingAmplifier", 2, 0, 9);
+        QUICK_HANDS_MASTERS_TOUCH_AMPLIFIER = BUILDER
+                .comment("Haste level with the Master's Touch upgrade — the maximum tier.")
+                .defineInRange("mastersTouchAmplifier", 3, 0, 9);
+        BUILDER.pop();
+
+        BUILDER.comment("Sword Mastery. Bonus damage with a sword, ADDED to whatever the sword",
+                        "and its enchantments already hit for. In TENTHS of a damage point (of",
+                        "half a heart), so 5 is +0.5 damage — the same tenths convention",
+                        "Spirit Armor's regen uses, for a step finer than a whole point allows.")
+                .push("swordMastery");
+        SWORD_MASTERY_BASE_BONUS_TENTHS = BUILDER
+                .comment("Bonus damage with the passive equipped and no upgrades bought.")
+                .defineInRange("baseBonusTenths", 5, 0, 200);
+        SWORD_MASTERY_HONED_EDGE_BONUS_TENTHS = BUILDER
+                .comment("Bonus damage with the Honed Edge upgrade.")
+                .defineInRange("honedEdgeBonusTenths", 10, 0, 200);
+        SWORD_MASTERY_PRACTICED_FORM_BONUS_TENTHS = BUILDER
+                .comment("Bonus damage with the Practiced Form upgrade.")
+                .defineInRange("practicedFormBonusTenths", 15, 0, 200);
+        SWORD_MASTERY_MASTER_DUELIST_BONUS_TENTHS = BUILDER
+                .comment("Bonus damage with the Master Duelist upgrade — the maximum tier.")
+                .defineInRange("masterDuelistBonusTenths", 20, 0, 200);
         BUILDER.pop();
 
         BUILDER.pop();
@@ -412,12 +545,16 @@ public final class AtlaConfig {
     private static volatile int chiRegenDelay = 60;
     private static volatile int xpPerLevel = 200;
     private static volatile boolean bloodMoonEnabled = true;
+    private static volatile int bloodMoonPeriodDays = 3;
+    private static volatile int bloodMoonDurationTicks = 11000;
     private static volatile int bloodMoonCooldown = 50;
     private static volatile int bloodMoonCharge = 50;
     private static volatile int bloodMoonChi = 60;
     private static volatile int bloodMoonDamage = 150;
 
     private static volatile boolean cometEnabled = true;
+    private static volatile int cometPeriodDays = 6;
+    private static volatile int cometDurationTicks = 24000;
     private static volatile int cometCooldown = 40;
     private static volatile int cometCharge = 40;
     private static volatile int cometChi = 25;
@@ -425,10 +562,29 @@ public final class AtlaConfig {
 
     private static volatile boolean blackSunEnabled = true;
     private static volatile boolean blackSunDisablesFire = true;
+    private static volatile int blackSunPeriodDays = 12;
+    private static volatile int blackSunDurationTicks = 7200;
     private static volatile int blackSunCooldown = 200;
     private static volatile int blackSunCharge = 200;
     private static volatile int blackSunChi = 200;
     private static volatile int blackSunDamage = 50;
+
+    private static volatile boolean spiritTideEnabled = true;
+    private static volatile int spiritTidePeriodMinutes = 10;
+    private static volatile int spiritTideDurationMinutes = 3;
+    private static volatile int spiritTideGravityPercent = 40;
+    private static volatile boolean spiritTideNoFallDamage = true;
+    private static volatile boolean spiritTideAffectsMobs = false;
+
+    private static volatile int quickHandsBaseAmplifier = 0;
+    private static volatile int quickHandsSteadyGripAmplifier = 1;
+    private static volatile int quickHandsPracticedSwingAmplifier = 2;
+    private static volatile int quickHandsMastersTouchAmplifier = 3;
+
+    private static volatile int swordMasteryBaseBonusTenths = 5;
+    private static volatile int swordMasteryHonedEdgeBonusTenths = 10;
+    private static volatile int swordMasteryPracticedFormBonusTenths = 15;
+    private static volatile int swordMasteryMasterDuelistBonusTenths = 20;
 
     private static volatile Set<String> disabled = Set.of();
 
@@ -566,12 +722,16 @@ public final class AtlaConfig {
     }
 
     public static boolean bloodMoonEnabled() { return bloodMoonEnabled; }
+    public static int bloodMoonPeriodDays() { return bloodMoonPeriodDays; }
+    public static int bloodMoonDurationTicks() { return bloodMoonDurationTicks; }
     public static int bloodMoonCooldown() { return bloodMoonCooldown; }
     public static int bloodMoonCharge() { return bloodMoonCharge; }
     public static int bloodMoonChi() { return bloodMoonChi; }
     public static int bloodMoonDamage() { return bloodMoonDamage; }
 
     public static boolean cometEnabled() { return cometEnabled; }
+    public static int cometPeriodDays() { return cometPeriodDays; }
+    public static int cometDurationTicks() { return cometDurationTicks; }
     public static int cometCooldown() { return cometCooldown; }
     public static int cometCharge() { return cometCharge; }
     public static int cometChi() { return cometChi; }
@@ -579,10 +739,29 @@ public final class AtlaConfig {
 
     public static boolean blackSunEnabled() { return blackSunEnabled; }
     public static boolean blackSunDisablesFire() { return blackSunDisablesFire; }
+    public static int blackSunPeriodDays() { return blackSunPeriodDays; }
+    public static int blackSunDurationTicks() { return blackSunDurationTicks; }
     public static int blackSunCooldown() { return blackSunCooldown; }
     public static int blackSunCharge() { return blackSunCharge; }
     public static int blackSunChi() { return blackSunChi; }
     public static int blackSunDamage() { return blackSunDamage; }
+
+    public static boolean spiritTideEnabled() { return spiritTideEnabled; }
+    public static int spiritTidePeriodMinutes() { return spiritTidePeriodMinutes; }
+    public static int spiritTideDurationMinutes() { return spiritTideDurationMinutes; }
+    public static int spiritTideGravityPercent() { return spiritTideGravityPercent; }
+    public static boolean spiritTideNoFallDamage() { return spiritTideNoFallDamage; }
+    public static boolean spiritTideAffectsMobs() { return spiritTideAffectsMobs; }
+
+    public static int quickHandsBaseAmplifier() { return quickHandsBaseAmplifier; }
+    public static int quickHandsSteadyGripAmplifier() { return quickHandsSteadyGripAmplifier; }
+    public static int quickHandsPracticedSwingAmplifier() { return quickHandsPracticedSwingAmplifier; }
+    public static int quickHandsMastersTouchAmplifier() { return quickHandsMastersTouchAmplifier; }
+
+    public static int swordMasteryBaseBonusTenths() { return swordMasteryBaseBonusTenths; }
+    public static int swordMasteryHonedEdgeBonusTenths() { return swordMasteryHonedEdgeBonusTenths; }
+    public static int swordMasteryPracticedFormBonusTenths() { return swordMasteryPracticedFormBonusTenths; }
+    public static int swordMasteryMasterDuelistBonusTenths() { return swordMasteryMasterDuelistBonusTenths; }
 
     /**
      * Whether this ability may be used at all.
@@ -651,12 +830,16 @@ public final class AtlaConfig {
         xpPerLevel = 200;
 
         bloodMoonEnabled = true;
+        bloodMoonPeriodDays = 3;
+        bloodMoonDurationTicks = 11000;
         bloodMoonCooldown = 50;
         bloodMoonCharge = 50;
         bloodMoonChi = 60;
         bloodMoonDamage = 150;
 
         cometEnabled = true;
+        cometPeriodDays = 6;
+        cometDurationTicks = 24000;
         cometCooldown = 40;
         cometCharge = 40;
         cometChi = 25;
@@ -664,10 +847,29 @@ public final class AtlaConfig {
 
         blackSunEnabled = true;
         blackSunDisablesFire = true;
+        blackSunPeriodDays = 12;
+        blackSunDurationTicks = 7200;
         blackSunCooldown = 200;
         blackSunCharge = 200;
         blackSunChi = 200;
         blackSunDamage = 50;
+
+        spiritTideEnabled = true;
+        spiritTidePeriodMinutes = 10;
+        spiritTideDurationMinutes = 3;
+        spiritTideGravityPercent = 40;
+        spiritTideNoFallDamage = true;
+        spiritTideAffectsMobs = false;
+
+        quickHandsBaseAmplifier = 0;
+        quickHandsSteadyGripAmplifier = 1;
+        quickHandsPracticedSwingAmplifier = 2;
+        quickHandsMastersTouchAmplifier = 3;
+
+        swordMasteryBaseBonusTenths = 5;
+        swordMasteryHonedEdgeBonusTenths = 10;
+        swordMasteryPracticedFormBonusTenths = 15;
+        swordMasteryMasterDuelistBonusTenths = 20;
 
         disabled = Set.of();
 
@@ -729,12 +931,16 @@ public final class AtlaConfig {
         xpPerLevel = XP_PER_LEVEL.get();
 
         bloodMoonEnabled = BLOOD_MOON_ENABLED.get();
+        bloodMoonPeriodDays = BLOOD_MOON_PERIOD_DAYS.get();
+        bloodMoonDurationTicks = BLOOD_MOON_DURATION_TICKS.get();
         bloodMoonCooldown = BLOOD_MOON_COOLDOWN.get();
         bloodMoonCharge = BLOOD_MOON_CHARGE.get();
         bloodMoonChi = BLOOD_MOON_CHI.get();
         bloodMoonDamage = BLOOD_MOON_DAMAGE.get();
 
         cometEnabled = COMET_ENABLED.get();
+        cometPeriodDays = COMET_PERIOD_DAYS.get();
+        cometDurationTicks = COMET_DURATION_TICKS.get();
         cometCooldown = COMET_COOLDOWN.get();
         cometCharge = COMET_CHARGE.get();
         cometChi = COMET_CHI.get();
@@ -742,10 +948,29 @@ public final class AtlaConfig {
 
         blackSunEnabled = BLACK_SUN_ENABLED.get();
         blackSunDisablesFire = BLACK_SUN_DISABLES_FIRE.get();
+        blackSunPeriodDays = BLACK_SUN_PERIOD_DAYS.get();
+        blackSunDurationTicks = BLACK_SUN_DURATION_TICKS.get();
         blackSunCooldown = BLACK_SUN_COOLDOWN.get();
         blackSunCharge = BLACK_SUN_CHARGE.get();
         blackSunChi = BLACK_SUN_CHI.get();
         blackSunDamage = BLACK_SUN_DAMAGE.get();
+
+        spiritTideEnabled = SPIRIT_TIDE_ENABLED.get();
+        spiritTidePeriodMinutes = SPIRIT_TIDE_PERIOD_MINUTES.get();
+        spiritTideDurationMinutes = SPIRIT_TIDE_DURATION_MINUTES.get();
+        spiritTideGravityPercent = SPIRIT_TIDE_GRAVITY_PERCENT.get();
+        spiritTideNoFallDamage = SPIRIT_TIDE_NO_FALL_DAMAGE.get();
+        spiritTideAffectsMobs = SPIRIT_TIDE_AFFECTS_MOBS.get();
+
+        quickHandsBaseAmplifier = QUICK_HANDS_BASE_AMPLIFIER.get();
+        quickHandsSteadyGripAmplifier = QUICK_HANDS_STEADY_GRIP_AMPLIFIER.get();
+        quickHandsPracticedSwingAmplifier = QUICK_HANDS_PRACTICED_SWING_AMPLIFIER.get();
+        quickHandsMastersTouchAmplifier = QUICK_HANDS_MASTERS_TOUCH_AMPLIFIER.get();
+
+        swordMasteryBaseBonusTenths = SWORD_MASTERY_BASE_BONUS_TENTHS.get();
+        swordMasteryHonedEdgeBonusTenths = SWORD_MASTERY_HONED_EDGE_BONUS_TENTHS.get();
+        swordMasteryPracticedFormBonusTenths = SWORD_MASTERY_PRACTICED_FORM_BONUS_TENTHS.get();
+        swordMasteryMasterDuelistBonusTenths = SWORD_MASTERY_MASTER_DUELIST_BONUS_TENTHS.get();
 
         Set<String> off = new HashSet<>();
         for (String name : DISABLED_ABILITIES.get()) {

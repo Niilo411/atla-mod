@@ -58,7 +58,7 @@ public final class ElementPaths {
             // change for that; only UpgradeMenuScreen's masterclass gate did.
             case "gravity" -> new String[]{
                     "Gravity pull", "Gravity Pin", "Gravity Throw", "Gravity Slam"};
-            case NO_BENDING -> new String[]{"Chi block"};
+            case NO_BENDING -> new String[]{"Chi block", "Sword Mastery"};
             default -> NONE;
         };
     }
@@ -88,7 +88,7 @@ public final class ElementPaths {
                     "Lava wall", "Lava resistance", "Lava throw", "lava rain"};
             case "gravity" -> new String[]{
                     "Levitation", "Speed Boost", "Gravity Orbit", "Repel Shield"};
-            case NO_BENDING -> new String[]{"Kick"};
+            case NO_BENDING -> new String[]{"Kick", "Quick Hands"};
             default -> NONE;
         };
     }

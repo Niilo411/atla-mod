@@ -261,13 +261,15 @@ public final class AbilityRegistry {
         register(new com.minecraft.atlamod.abilities.gravity.GravityCrush());
         register(new com.minecraft.atlamod.abilities.gravity.Meteor());
 
-        // --- NO BENDING : one ability on each of its two arms ---
+        // --- NO BENDING : two abilities on each arm ---
         //
         // Its CENTRE node, "Chi blocking", is deliberately absent: it is a step rather
         // than an ability, with nothing to cast and nothing to equip. Buying it only puts
         // its name in the unlocked list, which is all the tree needs to open the arms.
         register(new com.minecraft.atlamod.abilities.nobending.ChiBlock());
+        register(new com.minecraft.atlamod.abilities.nobending.SwordMastery());
         register(new com.minecraft.atlamod.abilities.nobending.Kick());
+        register(new com.minecraft.atlamod.abilities.nobending.QuickHands());
     }
 
     public static void register(Ability ability) {

@@ -34,8 +34,10 @@ import net.minecraft.world.entity.LivingEntity;
  *
  * SO XP HAS TO COME FROM SOMEWHERE ELSE. Every other path earns it by casting and by
  * meditating, and a non-bender does neither often enough to progress — two abilities on
- * long cooldowns is not an income. They earn it by KILLING instead, scaled by how much
- * the thing they killed was worth: see {@link #xpForKill}.
+ * long cooldowns is not an income. They earn it by KILLING, scaled by how much the thing
+ * they killed was worth (see {@link #xpForKill}), and by MINING — a flat amount per
+ * block, since digging is otherwise the one kind of physical effort in the game that
+ * pays every other path something and this one nothing.
  */
 public final class NoBending {
 
@@ -47,6 +49,15 @@ public final class NoBending {
      * that is roughly thirteen zombies per level.
      */
     public static final int XP_PER_ZOMBIE = 15;
+
+    /**
+     * XP for a single block mined, whatever the block. Flat rather than scaled to
+     * anything, unlike a kill — a block has no "maximum health" to measure it by, and
+     * this is meant as a slow trickle alongside mining's own ordinary rewards (Spirit
+     * Ore's own XP still applies on top of this, for anyone breaking it), not a second
+     * income to rival killing.
+     */
+    public static final int XP_PER_BLOCK_MINED = 1;
 
     /** A zombie's maximum health. The reference the scale divides by. */
     private static final float ZOMBIE_HEALTH = 20.0F;

@@ -239,6 +239,14 @@ public class AtlaSettingsScreen extends Screen {
 
         rows.add(new HeaderRow("Blood Moon — every 3rd night, waterbending"));
         rows.add(new ToggleValueRow("Event happens", AtlaConfig.BLOOD_MOON_ENABLED));
+        rows.add(new SliderRow("How often", AtlaConfig.BLOOD_MOON_PERIOD_DAYS, 1, 60,
+                AtlaSettingsScreen::describeDays,
+                "How many days apart blood moons fall."));
+        rows.add(new SliderRow("How long it lasts", AtlaConfig.BLOOD_MOON_DURATION_TICKS, 20, 24000,
+                AtlaSettingsScreen::describeTicks,
+                "How long a blood moon runs, starting at dusk. 11000 ticks (9m10s) is dusk"
+                        + " to dawn, a whole night — a duration that outlasts the time left"
+                        + " before dawn simply runs into daylight rather than being cut short."));
         rows.add(eventSlider("Cooldowns", AtlaConfig.BLOOD_MOON_COOLDOWN,
                 "Waterbending cooldowns while the blood moon is up."));
         rows.add(eventSlider("Charge times", AtlaConfig.BLOOD_MOON_CHARGE,
@@ -250,6 +258,14 @@ public class AtlaSettingsScreen extends Screen {
 
         rows.add(new HeaderRow("Sozin's Comet — every 6th day, firebending"));
         rows.add(new ToggleValueRow("Event happens", AtlaConfig.COMET_ENABLED));
+        rows.add(new SliderRow("How often", AtlaConfig.COMET_PERIOD_DAYS, 1, 60,
+                AtlaSettingsScreen::describeDays,
+                "How many days apart the comet falls."));
+        rows.add(new SliderRow("How long it lasts", AtlaConfig.COMET_DURATION_TICKS, 20, 24000,
+                AtlaSettingsScreen::describeTicks,
+                "How long the comet's day runs, starting at midnight. 24000 ticks (20m) is"
+                        + " the shipped figure — the whole day, overhead from midnight to"
+                        + " midnight."));
         rows.add(eventSlider("Cooldowns", AtlaConfig.COMET_COOLDOWN,
                 "Firebending cooldowns while the comet is overhead."));
         rows.add(eventSlider("Charge times", AtlaConfig.COMET_CHARGE,
@@ -262,6 +278,13 @@ public class AtlaSettingsScreen extends Screen {
 
         rows.add(new HeaderRow("Day of Black Sun — every 12th day, 6 minutes at noon"));
         rows.add(new ToggleValueRow("Event happens", AtlaConfig.BLACK_SUN_ENABLED));
+        rows.add(new SliderRow("How often", AtlaConfig.BLACK_SUN_PERIOD_DAYS, 1, 60,
+                AtlaSettingsScreen::describeDays,
+                "How many days apart the eclipse falls."));
+        rows.add(new SliderRow("How long it lasts", AtlaConfig.BLACK_SUN_DURATION_TICKS, 20, 24000,
+                AtlaSettingsScreen::describeTicks,
+                "How long the eclipse runs, centred on noon. 7200 ticks (6m) is the shipped"
+                        + " figure."));
         rows.add(new ToggleValueRow("Firebending goes out", AtlaConfig.BLACK_SUN_DISABLES_FIRE));
         rows.add(new NoteRow("Turn that off to soften it: the four below apply instead."));
         rows.add(eventSlider("Cooldowns", AtlaConfig.BLACK_SUN_COOLDOWN,
@@ -276,6 +299,28 @@ public class AtlaSettingsScreen extends Screen {
         rows.add(eventSlider("Damage", AtlaConfig.BLACK_SUN_DAMAGE,
                 "Firebending damage during the eclipse. Only used when firebending is not"
                         + " switched off outright."));
+
+        rows.add(new HeaderRow("Spirit World — Low-Gravity Tide"));
+        rows.add(new ToggleValueRow("Tide happens", AtlaConfig.SPIRIT_TIDE_ENABLED));
+        rows.add(new SliderRow("How often", AtlaConfig.SPIRIT_TIDE_PERIOD_MINUTES, 1, 120,
+                AtlaSettingsScreen::describeMinutes,
+                "How often the tide comes in, in real minutes."));
+        rows.add(new SliderRow("How long it lasts", AtlaConfig.SPIRIT_TIDE_DURATION_MINUTES, 1, 120,
+                AtlaSettingsScreen::describeMinutes,
+                "How long the tide stays once it comes in, out of each period above. A"
+                        + " duration at or past the period leaves it running permanently"
+                        + " rather than cycling."));
+        rows.add(new SliderRow("Gravity while it's in", AtlaConfig.SPIRIT_TIDE_GRAVITY_PERCENT, 0, 100,
+                value -> value + "%" + (value == 100 ? "  (no change)" : value == 0 ? "  (weightless)" : ""),
+                "How much of normal gravity is left during the tide. 40% is the shipped"
+                        + " figure — a floaty, drifting fall. 0% is true weightlessness;"
+                        + " 100% makes the tide purely cosmetic."));
+        rows.add(new ToggleValueRow("Falling is free while it's in", AtlaConfig.SPIRIT_TIDE_NO_FALL_DAMAGE));
+        rows.add(new NoteRow("Independent of the gravity above — a lighter fall can still hurt"
+                + " if this is off."));
+        rows.add(new ToggleValueRow("Also lightens mobs", AtlaConfig.SPIRIT_TIDE_AFFECTS_MOBS));
+        rows.add(new NoteRow("Off by default. On, hostile and passive mobs drift and land as"
+                + " gently as a bender does."));
     }
 
     /** One event multiplier, all of which share a range and a readout. */
@@ -337,6 +382,40 @@ public class AtlaSettingsScreen extends Screen {
                 "Bending XP needed for one level, for the ordinary track and the separate"
                         + " bloodbending one. Overflow carries, so a large grant can cross"
                         + " several levels at once."));
+
+        rows.add(new HeaderRow("No Bending — Quick Hands (mining speed)"));
+        rows.add(new NoteRow("Each value is a vanilla Haste LEVEL: 0 is Haste I (+20% mining"
+                + " speed), 1 is Haste II (+40%), and so on."));
+        rows.add(new NoteRow("Keep these low. Haste and a tool's own efficiency multiply the"
+                + " SAME speed figure, so a high level on a good pickaxe breaks blocks"
+                + " in under a tick."));
+        rows.add(new SliderRow("Base (no upgrades)", AtlaConfig.QUICK_HANDS_BASE_AMPLIFIER, 0, 9,
+                AtlaSettingsScreen::describeHasteLevel,
+                "Haste level with the passive equipped and no upgrades bought."));
+        rows.add(new SliderRow("Steady Grip", AtlaConfig.QUICK_HANDS_STEADY_GRIP_AMPLIFIER, 0, 9,
+                AtlaSettingsScreen::describeHasteLevel,
+                "Haste level with the Steady Grip upgrade."));
+        rows.add(new SliderRow("Practiced Swing", AtlaConfig.QUICK_HANDS_PRACTICED_SWING_AMPLIFIER, 0, 9,
+                AtlaSettingsScreen::describeHasteLevel,
+                "Haste level with the Practiced Swing upgrade."));
+        rows.add(new SliderRow("Master's Touch", AtlaConfig.QUICK_HANDS_MASTERS_TOUCH_AMPLIFIER, 0, 9,
+                AtlaSettingsScreen::describeHasteLevel,
+                "Haste level with the Master's Touch upgrade — the maximum tier."));
+
+        rows.add(new HeaderRow("No Bending — Sword Mastery (sword damage)"));
+        rows.add(new NoteRow("Added to whatever the sword and its enchantments already hit for."));
+        rows.add(new SliderRow("Base (no upgrades)", AtlaConfig.SWORD_MASTERY_BASE_BONUS_TENTHS, 0, 200,
+                AtlaSettingsScreen::describeDamageTenths,
+                "Bonus damage with the passive equipped and no upgrades bought."));
+        rows.add(new SliderRow("Honed Edge", AtlaConfig.SWORD_MASTERY_HONED_EDGE_BONUS_TENTHS, 0, 200,
+                AtlaSettingsScreen::describeDamageTenths,
+                "Bonus damage with the Honed Edge upgrade."));
+        rows.add(new SliderRow("Practiced Form", AtlaConfig.SWORD_MASTERY_PRACTICED_FORM_BONUS_TENTHS, 0, 200,
+                AtlaSettingsScreen::describeDamageTenths,
+                "Bonus damage with the Practiced Form upgrade."));
+        rows.add(new SliderRow("Master Duelist", AtlaConfig.SWORD_MASTERY_MASTER_DUELIST_BONUS_TENTHS, 0, 200,
+                AtlaSettingsScreen::describeDamageTenths,
+                "Bonus damage with the Master Duelist upgrade — the maximum tier."));
     }
 
     private void buildWorldRows() {
@@ -429,6 +508,26 @@ public class AtlaSettingsScreen extends Screen {
         if (ticks == 0) return "none";
 
         return String.format(java.util.Locale.ROOT, "%d ticks (%.1fs)", ticks, ticks / 20.0F);
+    }
+
+    /** For an event's period, in days. */
+    private static String describeDays(int days) {
+        return "every " + days + (days == 1 ? " day" : " days");
+    }
+
+    /** For the gravity tide's period and duration, both authored in real minutes. */
+    private static String describeMinutes(int minutes) {
+        return minutes + (minutes == 1 ? " minute" : " minutes");
+    }
+
+    /** For Quick Hands' tiers, stored as a raw Haste amplifier (0 = Haste I). */
+    private static String describeHasteLevel(int amplifier) {
+        return "Haste " + (amplifier + 1) + "  (+" + ((amplifier + 1) * 20) + "% speed)";
+    }
+
+    /** For Sword Mastery's tiers, stored in TENTHS of a damage point. */
+    private static String describeDamageTenths(int tenths) {
+        return String.format(java.util.Locale.ROOT, "+%.1f damage", tenths / 10.0F);
     }
 
     /**
