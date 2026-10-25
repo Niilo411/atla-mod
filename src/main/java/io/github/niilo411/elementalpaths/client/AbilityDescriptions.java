@@ -169,11 +169,6 @@ public final class AbilityDescriptions {
         put("lava rain", "Rain lava over 15 blocks. Each puddle cools after 5s, and all of it is gone when the storm ends");
 
         // ------------------------------------------------------------------
-        // ENERGY — the Paragon's own
-        // ------------------------------------------------------------------
-        put("Give and take", "The Paragon's own channeling: give a channeler their power, or take it away");
-
-        // ------------------------------------------------------------------
         // NO CHANNELING — the path for people who have none
         // ------------------------------------------------------------------
         put("Chi blocking", "Not an ability. Learning to find the chi points at all, which is what opens both paths");

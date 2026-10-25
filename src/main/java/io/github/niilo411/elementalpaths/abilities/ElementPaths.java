@@ -113,7 +113,6 @@ public final class ElementPaths {
             case "water" -> new String[]{"Drown", "water breathing", "Tsunami"};
             case "air" -> new String[]{"breathless", "Tornado", "Flight"};
             case "earth" -> new String[]{"Earthquake", "Ravine", "Earth sink"};
-            case "energy" -> new String[]{"Give and take"}; // Paragon special element
             // Gravity Channeling has a masterclass with no balanced path beneath it —
             // see UpgradeMenuScreen.checkTreeLogic, whose masterclass gate had to
             // stop requiring a completed balanced path when there isn't one.
@@ -262,14 +261,10 @@ public final class ElementPaths {
      * "/paths add Steve grass" happily granted an element with no abilities, no tree and
      * no emblem, and left the player holding something nothing in the game could do
      * anything with.
-     *
-     * "energy" is in here although nothing grants it yet — it has an ability in
-     * {@link #master} and so is a real element by the only test that matters, and
-     * excluding it would make the list disagree with the trees it is drawn from.
      */
     private static final String[] ELEMENTS = {
             "fire", "water", "air", "earth", "lightning", "ice", "sound", "metal", "combustion",
-            "blood", "lava", "gravity", "energy",
+            "blood", "lava", "gravity",
 
             // Not a channeling art, but it IS a tree with abilities in it, which is the only
             // test this list applies — and /paths add is the one way to hand it to somebody

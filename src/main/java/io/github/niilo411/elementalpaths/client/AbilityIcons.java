@@ -198,11 +198,6 @@ public final class AbilityIcons {
         put("Lava resistance", Items.NETHERITE_BOOTS);    // for walking through your work
         put("Lava throw", Items.FIRE_CHARGE);
         put("lava rain", Items.DRIPSTONE_BLOCK);          // vanilla's own way to drip lava
-
-        // ------------------------------------------------------------------
-        // ENERGY — the Paragon's own, which has no tree of its own to sit in
-        // ------------------------------------------------------------------
-        put("Give and take", Items.TOTEM_OF_UNDYING);
     }
 
     private AbilityIcons() {
