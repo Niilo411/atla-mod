@@ -394,7 +394,9 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   source region as well as the drawn size and so cannot resize on their own.
   Used by BOTH the element selection screen and the HUD badge.
   Adding an element = drop the PNG in that folder + one line in `ICONS`.
-  ALL FOUR base elements have art now; the sub-elements are still on the "?" box.
+  ALL FOUR base elements AND all eight sub-elements have art now (the sub-element ones show
+  in the HUD badge once one is switched to with [Y]). The emblems are 64x64 originals
+  scaled 4x nearest-neighbour to the 256x256 this class expects.
   NOTE: source art must be a REAL PNG. The FIRST fire emblem arrived as a JPEG carrying
   a `.png` extension and had to be re-encoded (JDK `ImageIO`) to a genuine 256x256 ARGB
   PNG. Every emblem since has been checked at the file level before being put in — PNG

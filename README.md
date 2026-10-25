@@ -178,6 +178,8 @@ procedurally by `tools/GenArmor.java`. Where the mod appears to use vanilla art 
 channeling fire, channeled lava, channeled metal, the scroll items — those are model files
 *referencing* a vanilla texture path; no Minecraft assets are redistributed here.
 
+Emblem textures were generated procedurally with AI assistance for this project.
+
 The mod is built against Mojang's official mappings, which carry their own license.
 See [Mojang.md](https://github.com/NeoForged/NeoForm/blob/main/Mojang.md).
 
