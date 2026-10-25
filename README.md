@@ -1,13 +1,13 @@
-# Atla Mod
+# Elemental Paths
 
-A Minecraft mod that adds Avatar-style **elemental bending** — four elements, eight
+A Minecraft mod that adds **elemental channeling** — four elements, eight
 sub-elements, and 123 abilities behind a progression tree you unlock as you play.
 
-Bending here is not a set of spells on a hotbar. Each element has its own resource
+Channeling here is not a set of spells on a hotbar. Each element has its own resource
 rules, its own way of moving through the world, and its own idea of what a fight looks
-like. A firebender fights at range and sets the ground alight. A waterbender has to
-find water. An earthbender rearranges the terrain and gives it back afterwards. A
-bloodbender can only be stopped by another bloodbender.
+like. A fire channeler fights at range and sets the ground alight. A water channeler has to
+find water. An earth channeler rearranges the terrain and gives it back afterwards. A
+blood channeler can only be stopped by another blood channeler.
 
 ![Build](https://github.com/Niilo411/atla-mod/actions/workflows/build.yml/badge.svg)
 
@@ -26,7 +26,7 @@ bloodbender can only be stopped by another bloodbender.
 ## Installation
 
 1. Install [NeoForge 21.1.248+](https://neoforged.net/) for Minecraft 1.21.1.
-2. Download `atlamod-<version>.jar` from
+2. Download `elemental_paths-<version>.jar` from
    [Releases](https://github.com/Niilo411/atla-mod/releases).
 3. Drop it into your `mods` folder.
 4. Launch the NeoForge profile.
@@ -38,11 +38,11 @@ Both singleplayer and servers are supported. On a server the jar goes in the ser
 
 1. Launch a world with the mod installed. You'll be asked to **choose a starting
    element** — fire, water, air, or earth. This is your *main* element and it decides
-   which one the Avatar cycle can pick you for later.
-2. Press **N** to open the bending menu. This is where you spend XP on abilities,
+   which one the Paragon cycle can pick you for later.
+2. Press **N** to open the paths menu. This is where you spend XP on abilities,
    buy upgrades, and bind what you've unlocked.
 3. Unlock an ability in the **skill tree** tab, then bind it in the **equip** tab.
-4. Press its key and bend.
+4. Press its key and channel.
 
 Abilities cost **chi**, a pool that refills on its own — but not for three seconds
 after you spend any, so you cannot fund a cheap ability indefinitely. Your maximum
@@ -56,7 +56,7 @@ Hold **M** to meditate: it roots you in place and trickles XP.
 | Key | Does |
 |---|---|
 | `Z` `X` `C` `V` | Ability slots 1–4 |
-| `N` | Bending menu — skill tree, equip, passives |
+| `N` | Paths menu — skill tree, equip, passives |
 | `Y` | Switch active element (once you have more than one) |
 | `M` | Meditate (hold) |
 | Left click | Throw or fire an ability you are holding |
@@ -84,7 +84,7 @@ half speed.
 | Element | Its character |
 |---|---|
 | **Fire** | Reach and area denial. Lays fire that burns hotter than the real thing, and the masterclass turns it blue and doubles the damage. |
-| **Water** | Supply is the constraint — you bend from open water, from ice and snow with the right passive, or from a canteen you have to fill. |
+| **Water** | Supply is the constraint — you channel from open water, from ice and snow with the right passive, or from a canteen you have to fill. |
 | **Earth** | Moves the world and puts it back. Walls, pillars, pits and traps, none of which leave anything behind. |
 | **Air** | Mobility and control. Very little of it does much damage; nearly all of it decides where everyone else is standing. |
 
@@ -115,33 +115,33 @@ A few of them change how the element plays rather than just adding to it.
 **Lightning** makes every ability serve a wind-up, so nothing fires on the press.
 **Combustion** goes further: letting go of a charge early is a *misfire* that drops
 live TNT on you. **Blood** keeps an experience track entirely of its own, and a
-bloodbender cannot bend anyone whose blood level is higher than theirs. **Gravity**
+blood channeler cannot channel anyone whose blood level is higher than theirs. **Gravity**
 pins and lifts rather than pushing and burning — encasing a target buries them in
 stone, and its masterclass throws a four-block meteor that explodes on impact.
 
-## The Avatar
+## The Paragon
 
 One player at a time can hold the title. They get three lives and a last stand —
 Resistance, Regeneration and a visible glow below three hearts — and when the third
 life is spent the title passes on.
 
-Run the cycle with `/bend avatar cycle start` and it moves earth → fire → air → water,
+Run the cycle with `/paths paragon cycle start` and it moves earth → fire → air → water,
 picking at random among online players whose main element matches. An element nobody
 can claim is skipped rather than waited on. Or name someone directly with
-`/bend avatar <player>`.
+`/paths paragon <player>`.
 
 ## Commands
 
-All of `/bend` needs permission level 2 — cheats in singleplayer, or op on a server.
+All of `/paths` needs permission level 2 — cheats in singleplayer, or op on a server.
 
 ```
-/bend add <targets> <element>
-/bend remove <targets> <element>
-/bend level <targets> <amount>
-/bend avatar <player>
-/bend avatar remove
-/bend avatar cycle start
-/bend avatar cycle stop
+/paths add <targets> <element>
+/paths remove <targets> <element>
+/paths level <targets> <amount>
+/paths paragon <player>
+/paths paragon remove
+/paths paragon cycle start
+/paths paragon cycle stop
 ```
 
 The target is never optional, so these work for setting other people up on a server —
@@ -175,10 +175,11 @@ before any public release.
 
 All textures in this repository are the project's own. The armor sheets are generated
 procedurally by `tools/GenArmor.java`. Where the mod appears to use vanilla art —
-bending fire, bent lava, bent metal, the scroll items — those are model files
+channeling fire, channeled lava, channeled metal, the scroll items — those are model files
 *referencing* a vanilla texture path; no Minecraft assets are redistributed here.
 
 The mod is built against Mojang's official mappings, which carry their own license.
 See [Mojang.md](https://github.com/NeoForged/NeoForm/blob/main/Mojang.md).
 
-Not affiliated with or endorsed by Mojang, Microsoft, Nickelodeon, or Paramount.
+
+Elemental Paths is an unofficial, free fan project and is not affiliated with Mojang, Microsoft, or any other company.

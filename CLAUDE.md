@@ -1,18 +1,18 @@
-# Atla Mod — Project Context
+# Elemental Paths — Project Context
 
-A Minecraft mod (NeoForge, MC 1.21.1) featuring elemental bending abilities with
-a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.atlamod`.
+A Minecraft mod (NeoForge, MC 1.21.1) featuring elemental channeling abilities with
+a progression/upgrade system. Mod ID: `elemental_paths`. Base package: `io.github.niilo411.elementalpaths`.
 
 ## Stack & Architecture
 
 - **Loader:** NeoForge 21.1.248 (not Forge — API differs, e.g. `CustomPacketPayload` +
   `StreamCodec` for networking, `AttachmentType` instead of old Capabilities)
-- **Player data:** Stored via a NeoForge **data attachment** (`ModAttachments.BENDING_DATA`),
-  backed by `BendingData.java`. Holds: main/active element, unlocked elements, xp, level,
+- **Player data:** Stored via a NeoForge **data attachment** (`ModAttachments.CHANNELING_DATA`),
+  backed by `ChannelingData.java`. Holds: main/active element, unlocked elements, xp, level,
   chi (resource pool), unlocked abilities, 8 equipped ability slots, and various transient
   "is currently doing X" flags (e.g. `isFireLeaping`), and `activeChanneledAbility`/
   `activeTwoPhaseAbility` for the two multi-tick ability shapes.
-- **Networking:** Custom packets under `com.minecraft.atlamod.network`, registered once
+- **Networking:** Custom packets under `io.github.niilo411.elementalpaths.network`, registered once
   in `ModNetworking.register()`. **Critical gotcha we've hit twice:** registration calls
   (`registrar.playToServer(...)` / `playToClient(...)`) must be top-level statements
   directly inside `register()` — NEVER nested inside another packet's handler lambda.
@@ -52,7 +52,7 @@ a progression/upgrade system. Mod ID: `atlamod`. Base package: `com.minecraft.at
   Releasing the slot key after a full charge does NOT disarm it — `cancelCharge`
   only ever touches the charging slot.
 - `AbilityRegistry.java` — `Map<String, Ability>`, populated once via
-  `AbilityRegistry.bootstrap()`, called from `Atlamod`'s constructor.
+  `AbilityRegistry.bootstrap()`, called from `ElementalPaths`'s constructor.
 - `AbilitySupport.java` — shared chi/XP/sync helpers (`consumeChiAndGiveXp`,
   `grantXp`, `syncData`). XP threshold per level is `XP_PER_LEVEL` (200).
 
@@ -109,7 +109,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Defensive: Air pull-10, Air jump-5, Air Aura, Wind (the design doc had "Airpush" here;
   it and Balanced's "Air pull" were SWAPPED, so the two names still both exist)
 - Offensive: Air splinters-10, Air cannon-10, wind tunnel-15
-- Balanced: Air scooter-3s, Airpush-10, Air spout-10
+- Balanced: Gale Ride-3s, Airpush-10, Air spout-10
 - Masterclass: breathless-10, Tornado-15, Flight-5s (the design doc's "Air beam" was
   DROPPED — it is gone from the skill tree and will not be built)
 
@@ -120,7 +120,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - Masterclass: Earthquake-15, Ravine-15, Earth sink-15
 
 
-## Gravitybending notes
+## Gravity Channeling notes
 
 - **Gravity Orbit victims cannot crouch out.** The dismount handler refuses anyone
   off a seat `GravityOrbits.holdsSeat` answers for, exactly as it does for Earth Trap —
@@ -132,7 +132,7 @@ Elements: **Fire, Water, Air, Earth** — each with its own 4-path ability list.
 - **Gravity pull is a per-tick tracker now (`GravityPulls`), not one shove.** A single
   impulse cannot deliver something to a POINT — drag and friction eat it differently on
   grass, slopes and water — so the target is steered every tick to 1.5 blocks in front of
-  the bender, recomputed from where they stand and face NOW. Flattened facing, capped at
+  the channeler, recomputed from where they stand and face NOW. Flattened facing, capped at
   1.4 blocks a tick, 2 second backstop. 4 second cooldown (was 1).
 - **Levitation's "Updraft" upgrade** (10 levels) raises the effect's AMPLIFIER to II,
   which is exactly twice the climb rate in vanilla; same ten seconds, so also twice as
@@ -159,26 +159,26 @@ player — twenty packets a second of "not meditating". It now sends on a change
 once-a-second refresh while held, because the server's copy is rebuilt false on respawn
 and dimension change and a player still holding the key should pick back up.
 
-## The Avatar Tab
+## The Paragon Tab
 
-The mod's creative tab (`Atlamod.AVATAR_TAB`, id `atlamod:avatar_tab`), iconed with the
+The mod's creative tab (`ElementalPaths.PARAGON_TAB`, id `elemental_paths:paragon_tab`), iconed with the
 Spirit Helmet. It replaced the NeoForge template's "Example Mod Tab", and the template's
 `example_item` and `example_block` were deleted along with it. **A new item must be added
 to its `displayItems` list by hand** — it is a list, not a sweep of the registry. The items
 are still ALSO offered in the matching vanilla tabs through `addCreative`.
 
-## Waterbending resources
+## Water Channeling resources
 
 - **Water Canteen** (`WaterCanteenItem`): crafted from 3 sticks (top), string either
   side of an empty middle, 3 leather (bottom). Right click at or in open water to
-  fill; each waterbending ability used away from water drinks one unit.
+  fill; each water channeling ability used away from water drinks one unit.
 - **The water level IS the durability value.** 20 units, so one ability costs exactly
   the 5% the design asks for, and the vanilla durability bar becomes the gauge for
   free (recoloured blue, and always visible so an empty canteen still looks like a
   canteen). It is NEVER damaged through `hurtAndBreak` — the damage value is set
   directly, so running dry leaves an empty canteen rather than destroying it.
 - **`Ability.requiresWater()`** (default false) is the hook. The dispatcher checks it
-  in `performCast` BEFORE chi is spent, so a bender caught dry loses nothing for
+  in `performCast` BEFORE chi is spent, so a channeler caught dry loses nothing for
   trying. `WaterSupply.tryConsume` then: free if open water is within 15 blocks,
   otherwise one unit from a canteen in the inventory or off-hand, otherwise refused
   with a message.
@@ -188,9 +188,9 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
 - No water abilities exist yet, so `requiresWater()` is infrastructure waiting to be
   used — nothing overrides it until the Water paths are built.
 
-## Earthbending
+## Earth Channeling
 
-- **`abilities/earth/EarthWorks.java` holds earthbending's shared rule**, and every
+- **`abilities/earth/EarthWorks.java` holds earth channeling's shared rule**, and every
   earth ability that moves blocks should go through it: an ability may only ever fill
   AIR, and whatever it fills it takes back afterwards. Between those two, no earth
   ability can destroy anything or leave anything behind. That matters far more for
@@ -246,11 +246,11 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
     Fall damage applies normally — the height you gain is yours to survive)
   - Taller fire (PASSIVE — equip it in the Passives tab; ability-laid fire becomes
     2 blocks tall. Affects Firewall, Fire Ring, Fire Spikes, and Fire Blow when it
-    exists, since all of them go through BendingFire.placeGrounded)
+    exists, since all of them go through ChannelingFire.placeGrounded)
 - **Fire Rocket is a TOGGLE, and used to be a held channel.** Flight is the one ability
   you want to stay in for minutes at a time, and holding a key for a whole journey is a
   poor way to ask for that; it also puts the rocket in the company it belongs to, since
-  Air scooter, Tornado and Water Surf are all travel and all switch rather than hold.
+  Gale Ride, Tornado and Water Surf are all travel and all switch rather than hold.
   **That moved the billing**: a channel is drained by the dispatcher, a toggle is the
   player tick's business, so the 15/sec is taken by `chargeSoundToggle` on the same beat
   Sound wall, Metal shield and Combustion Beam use, and the rocket puts itself out when
@@ -260,7 +260,7 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   false — the passive would have written its own 0.025 speed over the rocket's 0.03 every
   tick and put flight back after the rocket was switched off. It asks
   `data.isFireRocketing()` now. And casting another ability no longer refuses, because
-  the "only one held ability at a time" rule was what used to stop it; bending while
+  the "only one held ability at a time" rule was what used to stop it; channeling while
   flying is allowed, the same as it already is under the Flight passive.
 - **Fire Rocket owns flight outright**: the keybind is the ONLY thing that starts or
   ends it. Two vanilla behaviours fight that and are both undone in `tick` —
@@ -277,7 +277,7 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   called from the login, respawn AND clone handlers in `ServerEvents`, and skips
   players actually in creative/spectator so it can't strip legitimate flight.
 - **The CLONE handler is the third net and was missing.** `PlayerEvent.Clone` fires on a
-  DIMENSION CHANGE as well as a death, and it builds a fresh `BendingData` and copies the
+  DIMENSION CHANGE as well as a death, and it builds a fresh `ChannelingData` and copies the
   saved fields across by hand — so the transient "is the rocket lit" flag arrives false
   while the flight flags, being player NBT, arrive exactly as they were. Nothing would
   ever close them again, because nothing believed the rocket was still running. One trip
@@ -292,17 +292,17 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
     whatever strength it reached. Erupts a fanning wall of flame ahead: reach 4->16
     blocks, 4->12 blocks WIDE at the far end, damage 4->20, flame columns 2->6 high,
     all scaling with charge. Lays
-    fire through `BendingFire.placeGrounded`, so Taller Fire and blue fire both
+    fire through `ChannelingFire.placeGrounded`, so Taller Fire and blue fire both
     apply to it. 150 chi, 20 xp, 1s cooldown)
   - Fire immunity (PASSIVE — cancels every `IS_FIRE` source aimed at the wearer:
     fire, lava, magma, burning, and every fire ability including their own blue
     fire. Also clears fire ticks each tick, since burning and being hurt by it are
     separate in Minecraft and cancelling only the damage leaves you visibly alight)
-  - Fire Rain (instant cast that then runs for 30s — a countdown on BendingData
+  - Fire Rain (instant cast that then runs for 30s — a countdown on ChannelingData
     ticked by `FireRain.tick`, the Fire Leap pattern, NOT a channel. Burning sky out
     to a 50-block cylinder, 0.5 hearts/sec to every living thing under it INCLUDING the
     caster. 1000 chi, instant 20 xp, 60s cooldown)
-- **Fire Rain costs more chi than a new bender can hold.** `getMaxChi()` is
+- **Fire Rain costs more chi than a new channeler can hold.** `getMaxChi()` is
   `500 + level*100`, so its 1000 cost is uncastable until level 5 — deliberate for
   the last ability in the tree, but it is a gate, not a bug, if it ever looks like
   one. It also damages the caster, which pairs it with Fire immunity.
@@ -316,16 +316,16 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
 - **`ChargedAbility.firesOnRelease()`** (default false) makes an early release cast a
   weaker version instead of throwing the charge away, with `getMinimumChargeTicks()`
   as the floor below which a stray tap still costs nothing. Abilities scale off
-  `BendingData.getLastChargeTicks()`, recorded by the dispatcher immediately before
+  `ChannelingData.getLastChargeTicks()`, recorded by the dispatcher immediately before
   the cast — the live counter has to be cleared first so the key release that follows
   cannot fire the ability a second time.
 - **Blue fire needs its own block too.** Vanilla `SOUL_FIRE` — the only blue fire in
   the game — only survives on soul sand or soul soil, so it can't be laid anywhere
-  else. `BendingFireBlock` (which replaced `TallFireBlock`) carries two properties:
+  else. `ChannelingFireBlock` (which replaced `TallFireBlock`) carries two properties:
   `BLUE` for colour and `STACKED` for role. A stacked block dies with the fire below
   it; an unstacked one burns out on its own after 30s. Four blockstate variants map
   to two models — vanilla's `fire_0` and `soul_fire_0` textures on a `block/cross`.
-- **One place decides the colour**: `BendingFire.flame(data)` returns FLAME or
+- **One place decides the colour**: `ChannelingFire.flame(data)` returns FLAME or
   SOUL_FIRE_FLAME. NOTHING names a flame particle directly any more — not the
   abilities, and not the two per-tick visual blocks in `ServerEvents` (the Fire Whip
   trail and the armed two-phase ball), which were missed the first time and stayed
@@ -335,7 +335,7 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
 - **Blue Fire's damage boost is keyed on the ATTACKER** and limited to `IS_FIRE` only,
   in the `LivingIncomingDamageEvent` handler. That tag with a player behind it is a close
   match for "a fire ability": all five damaging fire abilities go through
-  `damageSources().inFire()`, while the fire a player can cause without bending — a Fire
+  `damageSources().inFire()`, while the fire a player can cause without channeling — a Fire
   Aspect burn, a lit block, spilled lava — arrives with no attacker and never qualifies.
   Water abilities use `indirectMagic`/`drown`, so they are untouched.
   Explosions were briefly included to catch Fireball and were too broad: that doubled any
@@ -349,7 +349,7 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   `data.hasPassiveEquipped(key)`. No chi, no XP: there is no moment of use to hang
   either on. `AbilityHandler.executeAbility` refuses them alongside channels and
   charges, so a passive in a keybind slot does nothing rather than burning chi.
-  4 slots, stored in `BendingData.equippedPassives` (persisted, `"EMPTY"` sentinel
+  4 slots, stored in `ChannelingData.equippedPassives` (persisted, `"EMPTY"` sentinel
   like the 8 ability slots) and synced by `SyncPassivesPacket`. They are unlocked
   through the ordinary skill tree, then slotted in the menu's **Passives** tab.
   `UpgradeMenuScreen` now has three tabs on an `int activeTab` rather than the old
@@ -369,7 +369,7 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   drawn orange, where a bound ABILITY slot is plain grey with yellow text. That is
   pre-existing and not part of the selection work.
 - **Ability icons**: `client/AbilityIcons.java` maps an ability to a PNG under
-  `assets/atlamod/textures/gui/abilities/`, drawn on its skill tree node in place of
+  `assets/elemental_paths/textures/gui/abilities/`, drawn on its skill tree node in place of
   the old "?" box. Same shape and same rules as `ElementIcons` below — only abilities
   listed in its map are drawn, because a texture Minecraft cannot find renders as the
   magenta checkerboard. With 60+ abilities and 7 pictures the "?" fallback is the
@@ -386,7 +386,7 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   The equip and passives tabs deliberately do NOT show them: their rows are 70x20 with
   a centred name in them already, and an icon would need those laid out again.
 - **Element icons**: `client/ElementIcons.java` maps an element to a PNG under
-  `assets/atlamod/textures/gui/elements/`. Only elements listed in its `ICONS` map
+  `assets/elemental_paths/textures/gui/elements/`. Only elements listed in its `ICONS` map
   are drawn — anything else keeps the old "?" box, because a texture Minecraft cannot
   find renders as the magenta checkerboard, which looks far more broken than a
   placeholder. Source PNGs are expected to be **256x256**; the icon is scaled through
@@ -419,22 +419,22 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
 - **The damage handler has an order that matters** (`ServerEvents.onIncomingDamage`):
   shield cancel -> Blue Fire's attacker-side doubling -> then, ONLY for damage with
   no causing entity, the block-contact rules (blue fire's flat 6.0, then
-  `BendingFire`'s per-position multipliers). The no-entity guard is what stops a Fire
-  Whip hit on a mob that happens to be standing in bending fire having the ability's
+  `ChannelingFire`'s per-position multipliers). The no-entity guard is what stops a Fire
+  Whip hit on a mob that happens to be standing in channeling fire having the ability's
   own damage overwritten by the block's.
 - **Taller Fire needs a custom block too.** The second block cannot be vanilla fire:
   `FireBlock#canSurvive` needs a face-sturdy block below or a flammable neighbour,
   and a fire block is neither, so stacked vanilla fire deletes itself on its first
-  scheduled tick. `BendingFireBlock extends BaseFireBlock`, which does NOT override
+  scheduled tick. `ChannelingFireBlock extends BaseFireBlock`, which does NOT override
   `canSurvive` — so it survives anywhere. It burns and ignites like real fire, counts
-  as `IS_FIRE` so `BendingFire`'s multipliers still apply, doesn't spread, and
+  as `IS_FIRE` so `ChannelingFire`'s multipliers still apply, doesn't spread, and
   schedules a tick every 40 ticks to remove itself once the fire underneath is gone.
-  First block assets in the project: `blockstates/bending_fire.json` +
-  `models/block/bending_fire*.json` (`block/cross` wearing vanilla fire textures).
-- `BendingFire.placeGrounded()` is now the single fire-laying helper for Firewall,
+  First block assets in the project: `blockstates/channeling_fire.json` +
+  `models/block/channeling_fire*.json` (`block/cross` wearing vanilla fire textures).
+- `ChannelingFire.placeGrounded()` is now the single fire-laying helper for Firewall,
   Fire Ring and Fire Spikes — they had a copy each, and Taller Fire needed all three
   to change together.
-- **Bending fire that burns hotter**: `abilities/BendingFire.java` remembers which
+- **Channeling fire that burns hotter**: `abilities/ChannelingFire.java` remembers which
   fire blocks an ability placed (dimension + pos -> expiry), and the
   `LivingIncomingDamageEvent` handler multiplies `IS_FIRE` damage for anything
   standing on one, each fire carrying its own multiplier (Fire Ring 3x, Ignite 2x).
@@ -465,9 +465,9 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   show. Sent on charge start/cancel/complete, on the left-click release, every 2
   ticks while charging, and on login to clear a bar left stale by a relog.
 - **Chi regen is delayed after spending**: passive regen (1% of max per second) is
-  held off for `BendingData.CHI_REGEN_DELAY_TICKS` (60 ticks / 3s) after any chi is
+  held off for `ChannelingData.CHI_REGEN_DELAY_TICKS` (60 ticks / 3s) after any chi is
   spent, so regen can't bankroll a cheap ability indefinitely. The delay is armed
-  inside `BendingData.consumeChi()` itself, so every ability gets it without having
+  inside `ChannelingData.consumeChi()` itself, so every ability gets it without having
   to remember — and channels re-arm it every tick, meaning they now drain at their
   full rate rather than rate-minus-regen, and only start refilling 3s after release.
 - The UI needs no work per ability: all four path arrays in `UpgradeMenuScreen`
@@ -476,22 +476,22 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   long as its `getName()` matches the menu string case-insensitively.
 - `AbilityHandler` now uses the registry pattern above (was a switch statement).
   The old "channeled tracking is a single boolean" gap is closed —
-  `BendingData.getActiveChanneledAbility()` is a general string.
-- Commands: `/bend add|remove <targets> <element>`, `/bend level <targets> <amount>` and
-  `/bend event <name>`.
-  Note `/bend level` bumps level without touching xp, so the two can drift.
-- **Every `/bend` command names WHO it acts on, and the target is not optional.** They
+  `ChannelingData.getActiveChanneledAbility()` is a general string.
+- Commands: `/paths add|remove <targets> <element>`, `/paths level <targets> <amount>` and
+  `/paths event <name>`.
+  Note `/paths level` bumps level without touching xp, so the two can drift.
+- **Every `/paths` command names WHO it acts on, and the target is not optional.** They
   used to act on whoever typed them, which made them useless for setting anyone up on
   a server. The argument is `EntityArgument.players()`, so `@s` is the self case and
   `@a` does everybody in one go. There is deliberately no second "just me" form beside
-  it: Brigadier would have to tell `/bend add fire` from `/bend add Steve fire` by
+  it: Brigadier would have to tell `/paths add fire` from `/paths add Steve fire` by
   trying one branch and falling through to the other, and a mistyped element name would
   then be reported as a missing player. All three report what they did and to how many,
   since a command acting on somebody else is otherwise silent to the person who ran it.
-- **EVERY `/bend` command needs permission level 2**, which is exactly "cheats enabled
+- **EVERY `/paths` command needs permission level 2**, which is exactly "cheats enabled
   in singleplayer, or op on a server" — vanilla ties those two together, so one check
   covers both. The `requires()` sits on the ROOT rather than on each subcommand, so
-  anything added under `/bend` later cannot be left ungated by being forgotten, and the
+  anything added under `/paths` later cannot be left ungated by being forgotten, and the
   whole command is hidden from the suggestion list for anyone who cannot use it rather
   than being offered and then refusing.
 - **Picking your element starts you at level 1**, not 0, granted in
@@ -503,15 +503,15 @@ are still ALSO offered in the matching vanilla tabs through `addCreative`.
   600 max chi rather than 500, since `getMaxChi()` is `500 + level*100`.
   Only applies to a FIRST choice, so it can't be farmed by re-sending the packet —
   which also means saves that had already chosen an element before this existed stay
-  at level 0 and need `/bend level 1`.
+  at level 0 and need `/paths level 1`.
 
-## Lightningbending (the first SUB-element)
+## Lightning Channeling (the first SUB-element)
 
 Not one of the four: it is not chosen at the start, it has only TWO paths instead of
 four, and it is earned rather than picked.
 
-- **Getting it**: a village WEAPONSMITH sells the Lightningbending Scroll for 64
-  copper ingots. Right click to read it. It only opens for a bender who has completed
+- **Getting it**: a village WEAPONSMITH sells the Lightning Channeling Scroll for 64
+  copper ingots. Right click to read it. It only opens for a channeler who has completed
   **2 or more fire paths**; anyone else is refused and KEEPS the scroll, because a
   scroll that burned itself on a failed reading would cost 64 copper to discover a
   requirement the game never stated. A successful reading calls a bolt down in front
@@ -527,16 +527,16 @@ four, and it is earned rather than picked.
   before starting another" rule then applies unchanged, since `isPathComplete` returns
   false for an empty array and the masterclass gate is never reachable.
 - **Both scrolls ask `ElementPaths.completedPaths`** — see the note on that class under
-  Icebending. The lightning scroll originally kept its own copy of fire's path lists,
+  Ice Channeling. The lightning scroll originally kept its own copy of fire's path lists,
   since `UpgradeMenuScreen` is client-only and the check has to run on the server; the
   ice scroll needing the same thing for water is what finally paid for extracting them.
-- Left path: Lightning redirection, Lightning aura, Lightning Jump, Lightning Strength
+- Left path: Bolt Deflection, Lightning aura, Lightning Jump, Lightning Strength
 - Right path: Lightning bolt, Lightning ball, Lightning stun, Lightning Swarm
 
 - **`Lightning.java` holds the element's shared parts**: the Lightning Strength damage
   bonus, and the two ways to put a bolt in the world. `visualStrike` is what nearly
   everything uses — a real bolt would add five points of damage nobody asked for and
-  set the world alight every time a bender moved. `realStrike` exists for exactly one
+  set the world alight every time a channeler moved. `realStrike` exists for exactly one
   caller, Lightning bolt's "Storm Caller" upgrade, where calling down actual lightning
   IS the upgrade.
 - **Lightning Strength's damage bonus is applied BY THE ABILITIES** (`Lightning.damage`),
@@ -560,13 +560,13 @@ four, and it is earned rather than picked.
   the server can only ask. Counted down on the client TICK, not in the HUD layer, which
   runs once per FRAME — and the layer is handed a `DeltaTracker`, not a float, so the
   partial tick has to be asked for.
-- **`BendingProjectiles.Spec` gained a generic `onImpact` hook**, fired from `burst()`
+- **`ChannelingProjectiles.Spec` gained a generic `onImpact` hook**, fired from `burst()`
   — the single place a spent shot already funnels through however it ended (target,
   wall, or running out of life). That is what "summons lightning on what it hits OR
   where it lands" needs, and it is a `BiConsumer` rather than a lightning flag so the
   generic projectile class stays element-agnostic.
-- **Lightning redirection is a CHANNEL and a TWO-PHASE in one class**, and the seam
-  between them is the two phases. `absorb()` is called from `BendingProjectiles.strike`
+- **Bolt Deflection is a CHANNEL and a TWO-PHASE in one class**, and the seam
+  between them is the two phases. `absorb()` is called from `ChannelingProjectiles.strike`
   — the only place that knows a bolt was about to land on somebody — and ends the
   channel BEFORE arming, which is what stops the chi and the xp at phase 2 exactly as
   the design asks. It returns WITHOUT `burst()`, deliberately: the shot never landed, so
@@ -574,7 +574,7 @@ four, and it is earned rather than picked.
 - `AbilityHandler` gained two public helpers for this: `armTwoPhase` (arm without
   casting, since catching a bolt is not a cast the catcher paid for) and `endChannel`
   (stop a channel in response to something in the world rather than to a key release).
-- **The caught bolt's strength is remembered on `BendingData.caughtLightning`**, because
+- **The caught bolt's strength is remembered on `ChannelingData.caughtLightning`**, because
   the shot is gone by the time the left click comes. A redirected bolt hits for whatever
   it was going to hit the catcher for. Transient, so a relog mid-hold falls back to an
   ordinary bolt's damage rather than firing for nothing.
@@ -596,7 +596,7 @@ four, and it is earned rather than picked.
   hit far harder than advertised. Same reasoning as wind tunnel.
 - **Lightning Jump walks its path a block at a time** rather than teleporting straight
   to the far end, which is what stops it being a way through walls: the walk stops at
-  the first square with nowhere to stand, so a jump into a cliff puts the bender against
+  the first square with nowhere to stand, so a jump into a cliff puts the channeler against
   it rather than inside or beyond it. The aim is FLATTENED first — following the pitch
   would bury them in the floor when looking down.
 - **Lightning Swarm gathers its targets BEFORE striking any of them**, because the
@@ -648,7 +648,7 @@ four, and it is earned rather than picked.
   called and `onWindupTick` is called instead. Holding through it is a real
   commitment, not a free run-up. Default 0, so every channel outside lightning is
   untouched.
-- **`isReady(data)` is worth asking from outside the tick**, and Lightning redirection
+- **`isReady(data)` is worth asking from outside the tick**, and Bolt Deflection
   is why: its `absorb()` refuses during the wind-up, so the catch has to be raised
   BEFORE the bolt is thrown rather than in reaction to seeing one coming. That is the
   wind-up doing real work rather than being decoration.
@@ -658,7 +658,7 @@ four, and it is earned rather than picked.
 - `Lightning.gather()` draws the wind-up for all six, so the whole element reads the
   same way while charging.
 
-### `getChiCost` now takes the player's BendingData
+### `getChiCost` now takes the player's ChannelingData
 
 - Changed across all 55 abilities so Lightning Swarm can cost 150 ordinarily and
   **1000 with Unbroken Storm**. Done as a SIGNATURE change rather than an overload with
@@ -675,15 +675,15 @@ four, and it is earned rather than picked.
   `500 + level*100`. A gate rather than a bug, and the same one Fire Rain and Tsunami
   have — anyone with 25 levels to spend on the upgrade is long past it.
 
-## Icebending (the second SUB-element)
+## Ice Channeling (the second SUB-element)
 
 Same shape as lightning: two paths, not chosen at the start, unlocked with a scroll.
 
-- **Getting it**: a village FISHERMAN sells the Icebending Scroll for one Heart of the
+- **Getting it**: a village FISHERMAN sells the Ice Channeling Scroll for one Heart of the
   Sea, at trade levels 1 and 3 (same two-entry reasoning as the weaponsmith's). Right
   click to read; the scroll burns itself and lays a 5x5 patch of snow around the reader
   as confirmation.
-- **It needs 2 completed WATERbending paths**, exactly as the lightning scroll needs 2
+- **It needs 2 completed WATER Channeling paths**, exactly as the lightning scroll needs 2
   fire paths. Ice comes out of water the way lightning comes out of fire, so the gate is
   deliberately identical. A reader who is short keeps the scroll rather than burning it.
 - **`abilities/ElementPaths.java` holds every element's path tables**, in COMMON code.
@@ -704,7 +704,7 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
   waits indefinitely and there is never a case where re-summoning is what was wanted.
 - Right path: Ice sphere, Ice Bomb, Freezing Beam, Ice Breath
 
-- **`IceWorks` is icebending's `EarthWorks`** and keeps the same rule, which matters as
+- **`IceWorks` is ice channeling's `EarthWorks`** and keeps the same rule, which matters as
   much here: an ability may only fill AIR, and takes back exactly what it filled.
   Without it Ice over would pave a permanent rink every fifty seconds. `IceWorks` has a
   SECOND half for that one though — `freezeOver` deliberately breaks the air-only rule
@@ -770,11 +770,11 @@ Same shape as lightning: two paths, not chosen at the start, unlocked with a scr
   method CLEARS the block at the position it spawns in. HeldBlocks gets away with it
   because the block it names has just been removed on purpose. Summoning one out of
   nothing had to save and restore whatever was there, or every cast deleted whatever was
-  floating three blocks in front of the bender.
+  floating three blocks in front of the channeler.
 - Ice bomb, Lightning ball and Air spout all pass `null` to `getEntities` rather than
   the owner: the first argument is the entity to SKIP, and all three are hazards put in
   a place rather than spells aimed at somebody. Standing in your own blast should hurt.
-- **A thrown bomb outlives its bender's presence; a carried one does not.** Once it is
+- **A thrown bomb outlives its channeler's presence; a carried one does not.** Once it is
   out of their hands it is a hazard with its own clock, and should still go off if they
   log out — the same distinction `AirSpouts` draws between a Tornado and a placed spout.
 - **Ice Breath reuses lightning's Stunned effect**, which is the second cross-element
@@ -805,7 +805,7 @@ better with the stated duration, which nobody could otherwise reach without hold
 mouse button down for twenty seconds.
 
 A running beam is **switched off by pressing its own keybind again**, through the same
-`isActive`/`deactivate` hook Tornado, Air scooter and Lightning ball use. That hook is
+`isActive`/`deactivate` hook Tornado, Gale Ride and Lightning ball use. That hook is
 checked at the very top of `startCharge`, before the held-ability guard, the cooldown
 and the chi — which is the whole reason it exists here: the beam runs twenty seconds
 behind a ten second cooldown, so a cancel routed through the ordinary cast path would
@@ -813,13 +813,13 @@ be refused as "on cooldown" for the first half of its life and would charge anot
 150 chi when it finally worked. Cancelling also skips the three second wind-up, since
 nothing needs building to put something down.
 
-## Soundbending (the third SUB-element)
+## Sound Channeling (the third SUB-element)
 
 Same shape as lightning and ice: two paths, not chosen at the start, unlocked with a
 scroll gated behind two completed paths of the parent element — AIR here.
 
-- **Getting it**: a village FLETCHER sells the Soundbending Scroll for 32 feathers, at
-  trade levels 1 and 3. Reading it needs 2 completed airbending paths, plays a loud
+- **Getting it**: a village FLETCHER sells the Sound Channeling Scroll for 32 feathers, at
+  trade levels 1 and 3. Reading it needs 2 completed air channeling paths, plays a loud
   screech, and destroys the scroll. A reader who is short keeps it.
 - Left path: Bass Bounce, Sound boosting, Sound wall, Sound Leap
 - Right path: Roar, Deafen, Compressed punches, Bass waves
@@ -851,11 +851,11 @@ halves live in three places because no single hook could carry all of them:
   tries to play while the local player carries it. Not filtered by category — muting
   effects but leaving music would be a half-deafness nobody asked for.
 - Mobs receive it and are unaffected, exactly as they are by Disorientation.
-- **Deafen's bending lockout is a SEPARATE mechanism**, and stays one even now that
+- **Deafen's channeling lockout is a SEPARATE mechanism**, and stays one even now that
   both halves run 10 seconds (the deafness was cut from 25, which ran on well after
   the half that actually decides a fight had lapsed). The deafness is a MobEffect and
-  lands on mobs too; the lockout is a transient counter on `BendingData` checked at the
-  top of both dispatcher entry points, and only means anything to a bender. Two effects
+  lands on mobs too; the lockout is a transient counter on `ChannelingData` checked at the
+  top of both dispatcher entry points, and only means anything to a channeler. Two effects
   for one ability would also be two icons for a single thing.
 - **Only a key PRESS is refused while locked out, never a release.** A channel already
   running when the lockout lands has to be able to be let go of, or it would drain chi
@@ -871,7 +871,7 @@ halves live in three places because no single hook could carry all of them:
   all). Still mostly control — two hearts across a whole crowd is a scratch — but a
   shout that took nothing off anything read as half an ability beside the rest of the
   path. The damage goes through `Sound.damage`, so Sound boosting raises it.
-- **Bass waves PINS the bender for the fifteen seconds it throws**, using the same two
+- **Bass waves PINS the channeler for the fifteen seconds it throws**, using the same two
   halves every rooting channel does — `AbilityHandler.setRooted` for the client and
   `holdStill` on the server every tick, both made public for it since rooting was
   previously a channel-only affair. The pin lifts the moment the LAST wave goes out
@@ -880,14 +880,14 @@ halves live in three places because no single hook could carry all of them:
   is a client static and a missed release leaves a player who cannot move.
 - **Compressed punches' cooldown starts when it ENDS, not when it starts** — the
   channel rule rather than the toggle one, and deliberately so: with the cooldown
-  running from the cast, a bender could hold it for its full thirty seconds and switch
+  running from the cast, a channeler could hold it for its full thirty seconds and switch
   straight back on the moment it dropped. `CompressedPunches.stop` is the single exit
   all three endings go through (pressed off, out of time, out of chi), so the thirty
   seconds applies uniformly. That matters most for the deliberate toggle-off, which
   reaches it through `deactivate` — the dispatcher's toggle path skips the cooldown
   stamp entirely, so without stamping it there that route would be free.
 - At 25 chi a second its thirty second cap costs 750 chi to run dry, which is more than
-  a bender below level 3 can hold at all. The cap and the pool between them make the
+  a channeler below level 3 can hold at all. The cap and the pool between them make the
   full thirty seconds something to grow into.
 - **Compressed punches is two effects, not one.** The WAVE goes out on every left click
   whether it connects or not (fired from `LeftClickTriggerPacket`, before the two-phase
@@ -914,7 +914,7 @@ halves live in three places because no single hook could carry all of them:
   still stick in whoever is behind the wall. The caster passes through freely, since
   cover you cannot get behind is a cage.
 - **Bass Bounce is Fire Leap's shape**: cast, hop, and the SLAM fires on landing from a
-  countdown on BendingData. It reuses Air jump's "has actually left the ground" guard,
+  countdown on ChannelingData. It reuses Air jump's "has actually left the ground" guard,
   which is needed for the same reason — the server applies the launch but the CLIENT
   moves the player, so a landing test without it fires on the launch itself.
 - **Bass Bounce and Sound Leap both SOLVE for their launch speed** rather than using a
@@ -923,7 +923,7 @@ halves live in three places because no single hook could carry all of them:
   value would be wrong at every size but one.
 - **Sound Leap reuses Air jump's fall protection wholesale** — the same `airJumpTicks`
   countdown, left-ground guard and `LivingFallEvent` cancel. It is a LAUNCH, not a
-  teleport like Lightning Jump, so the bender really crosses the ground and a wall in
+  teleport like Lightning Jump, so the channeler really crosses the ground and a wall in
   the way stops them.
 
 ### Figures that were NOT in the design
@@ -931,22 +931,22 @@ halves live in three places because no single hook could carry all of them:
 - **Sound wall's costs** (10 chi/sec, 100 to raise, 1 xp/sec) — the design gives it no
   numbers at all. Flagged INVENTED in the source, like Ice Bomb's.
 
-## Metalbending (the fourth SUB-element)
+## Metal Channeling (the fourth SUB-element)
 
 Same shape as the other three: two paths, not chosen at the start, unlocked with a
 scroll gated behind two completed paths of the parent element — EARTH here, as metal
 is refined out of earth.
 
-- **Getting it**: a village MASON sells the Metalbending Scroll for 4 iron blocks, at
+- **Getting it**: a village MASON sells the Metal Channeling Scroll for 4 iron blocks, at
   trade levels 1 and 3. Reading it lays a 2x2 floor of unbreakable metal under the
   reader that gives the ground back after fifteen seconds, and destroys the scroll.
 - Left path: Metal armor, Crush, Metal shield, Extract
 - Right path: Tough knuckles, Bullets, Stone walls, Armor pierce
 
-- **`BendingMetalBlock` is a block of our own because it has to be UNBREAKABLE.** Every
-  metal ability that places blocks is borrowing them and takes them back, and a bender
+- **`ChannelingMetalBlock` is a block of our own because it has to be UNBREAKABLE.** Every
+  metal ability that places blocks is borrowing them and takes them back, and a channeler
   who could mine their own shield would have an infinite iron supply — the same
-  argument earthbending makes for never leaving raised ground behind. Negative destroy
+  argument earth channeling makes for never leaving raised ground behind. Negative destroy
   speed and a huge blast resistance is how vanilla makes bedrock unbreakable, and it is
   what this borrows. It wears vanilla's iron block texture, so it needs no art.
 - **`MetalWorks` differs from `IceWorks` in one way that matters: it does NOT only fill
@@ -968,7 +968,7 @@ registration can only ever produce a base and its double. Iron's 15 points and
 diamond's 20 are not in that relationship and no base gives both — so
 `METAL_ARMOR` (15) and `METAL_ARMOR_DIAMOND` (20) are separate registrations, and the
 Diamond Plating upgrade swaps which is applied rather than raising an amplifier. The
-other is removed first, or buying the upgrade mid-suit would leave a bender wearing
+other is removed first, or buying the upgrade mid-suit would leave a channeler wearing
 both at 35 points.
 
 ### The rest
@@ -994,7 +994,7 @@ both at 35 points.
   a tick, and the moment it crossed anything it would either overwrite it or stop dead.
 - **Bullets is Air splinters' shape at four times the count**: the charge SUMMONS
   twenty slugs and the armed slot spends them ONE PER LEFT CLICK. That makes it a
-  magazine, which is the opposite of Icicles beside it in icebending — one click there
+  magazine, which is the opposite of Icicles beside it in ice channeling — one click there
   spends five shards at once.
 - **Pressing its key again puts the magazine down.** Twenty shots is a long time to be
   committed to one ability, so it uses the isActive/deactivate hook the toggles use,
@@ -1006,7 +1006,7 @@ both at 35 points.
   the last shot — otherwise cancelling and re-summoning would be a way round the wait
   rather than a way out of the ability.
 - **Bullets pierce invulnerability frames, which is not optional at this rate of fire.**
-  Vanilla ignores a second hit of equal size within ten ticks, so without it a bender
+  Vanilla ignores a second hit of equal size within ten ticks, so without it a channeler
   clicking quickly would have most of the magazine silently discarded.
 - **Armor pierce is deliberately NOT gated on having a target**, which makes it the one
   precision ability in the mod that charges for a miss. Every other one refuses the
@@ -1026,13 +1026,13 @@ both at 35 points.
   the dispatcher already owns every part of running one — draining the chi spread
   evenly across each second, trickling the xp, stopping when the chi runs out, and
   syncing on its own schedule. All of that was being done by hand from the player tick
-  while it was a toggle, along with two transient fields on BendingData; converting it
+  while it was a toggle, along with two transient fields on ChannelingData; converting it
   deleted the lot. Its yield counts off `getChannelTicks()`, so letting go and starting
   again restarts the two seconds rather than resuming a part-paid one.
 - **Extract takes nothing out of the world.** The iron is drawn from the ground in the
   fiction but no block is touched — an ability that really consumed ground would be
   either a duplication glitch or a way to delete terrain depending on which half went
-  wrong. Mine remains earthbending's ability for actually digging.
+  wrong. Mine remains earth channeling's ability for actually digging.
 - **Crush and Stone walls are both built out of `EarthGrabs`**, which was generalised
   to travel in EITHER direction for them. Earth grab comes HOME (20 -> 5), Stone walls
   goes AWAY (2 -> 20), and Crush points the same wave sideways and launches it twice,
@@ -1040,11 +1040,11 @@ both at 35 points.
   now carried in its OWN direction of travel rather than always inward, which is what
   makes all three read as one mechanism used three ways.
 - **Neither is made of metal, and that is deliberate**: both use `EarthWorks.materialFor`
-  so the walls are whatever the ground actually is. A metalbender conjuring walls of
+  so the walls are whatever the ground actually is. A metal channeler conjuring walls of
   iron out of nothing would be a different ability — what these do is take hold of the
-  ground, which is why they borrow earthbending's wave whole.
+  ground, which is why they borrow earth channeling's wave whole.
 - **Crush pins its victims before the walls close**, and that gap is the only warning
-  anyone gets. It starts three blocks out rather than at the bender's feet, so they are
+  anyone gets. It starts three blocks out rather than at the channeler's feet, so they are
   not standing inside their own crush.
 - **Stone walls damages ONCE, up front**, to everything in the corridor the wall is
   about to cross — not per tick as it travels, which would multiply six hearts by
@@ -1067,7 +1067,7 @@ both at 35 points.
 - It also has a SECOND PHASE now, like Fireball: the charge sharpens the rod, the rod
   hangs on the crosshair drawn as a short segment along the line it will fly, and the
   left click throws it.
-- **`BendingProjectiles.Spec` gained `onHitEntity`** for it, alongside the existing
+- **`ChannelingProjectiles.Spec` gained `onHitEntity`** for it, alongside the existing
   `onImpact`. Taking somebody's armour needs the VICTIM, which a position-based hook
   cannot give. The rod carries no damage of its own, so the either/or the design asks
   for actually holds: armour is destroyed OR 8 damage is dealt, never both.
@@ -1077,25 +1077,25 @@ both at 35 points.
 - **Crush's chi, xp, cooldown and damage** — the design gives this ability no numbers at
   all. Flagged INVENTED in the source, like Ice Bomb's and Sound wall's.
 
-## Combustionbending (the fifth SUB-element)
+## Combustion Channeling (the fifth SUB-element)
 
-The steepest of the five, and the only one that can kill its own bender by accident.
+The steepest of the five, and the only one that can kill its own channeler by accident.
 
-- **Getting it**: a village ARMORER sells the Combustionbending Scroll for 32
-  gunpowder, at trade levels 1 and 3. Reading it needs **ALL FOUR** firebending paths,
+- **Getting it**: a village ARMORER sells the Combustion Channeling Scroll for 32
+  gunpowder, at trade levels 1 and 3. Reading it needs **ALL FOUR** fire channeling paths,
   not the two every other scroll asks for — combustion is the end of the fire road
   rather than a branch off it. It destroys the scroll and sets four sticks of primed
   TNT down in a square around the reader.
 - **Those four sticks are REAL primed TNT with a full fuse**, and they will wreck the
   ground and anything else standing there — but NOT the reader. A short blast-immunity
-  window (`BendingData.blastImmuneTicks`, 140 ticks, comfortably past a TNT fuse) is
+  window (`ChannelingData.blastImmuneTicks`, 140 ticks, comfortably past a TNT fuse) is
   set as the scroll is read and checked first in the damage handler. Blowing up the
   person who just finished all four fire paths is a poor reward; frightening everything
   around them is the point.
 - **Combustion Beam is billed by the SECOND** (15 chi/sec) from the player tick, the
   same way Sound wall and Metal shield are, and switches itself off when the chi runs
   out. A toggle that cost a lump sum and then ran forever would have no limit beyond
-  the bender remembering to stop.
+  the channeler remembering to stop.
 - **Combustion nuke costs 1000 chi**, which makes it uncastable below level 5 since
   `getMaxChi()` is `500 + level*100` — the same gate Fire Rain, Tsunami and an upgraded
   Lightning Swarm have.
@@ -1128,14 +1128,14 @@ The steepest of the five, and the only one that can kill its own bender by accid
 - **Letting go early is a MISFIRE**, and this is what makes the element its own thing.
   Every other charged ability in the mod treats an abandoned charge as free — chi is
   only checked at the start and taken when the cast lands. Combustion instead drops one
-  primed TNT on the bender with a ten tick fuse. Raising a charge is a commitment made
+  primed TNT on the channeler with a ten tick fuse. Raising a charge is a commitment made
   before the key goes down rather than after.
 - Implemented per ability through `onChargeCancel`, which the dispatcher already calls
   on an early release. No dispatcher change was needed.
 - **The toggle is exempt from its own misfire, and had to be.** Combustion Beam's second
   press goes through `isActive`/`deactivate`, which is checked at the very top of
   `startCharge` — before the cooldown, before the chi, and crucially before the wind-up.
-  A cancel that reached `onChargeCancel` would blow the bender up for switching their
+  A cancel that reached `onChargeCancel` would blow the channeler up for switching their
   own ability off.
 - Combustion resistance is the other exception and barely one: a passive is never cast,
   so there is no moment of use to put a wind-up in front of.
@@ -1154,13 +1154,13 @@ The steepest of the five, and the only one that can kill its own bender by accid
   4.0, and radius goes roughly as the power rather than as its cube — so "4 tnt" is 8.0
   and "7 tnt" is 12.0 rather than 16 and 28. Both are flagged in the source.
 - **Combustion Beam leaves from ABOVE the eyes, not from them.** A beam starting at
-  exactly the camera's own position is invisible to the bender firing it — every
+  exactly the camera's own position is invisible to the channeler firing it — every
   particle spawns inside their head and is culled — so from the inside the ability
   looked like it did nothing at all. The whole ORIGIN moves, not just the drawing: the
   line that is drawn and the line that burns have to stay the same line, or the beam
   hits things it visibly missed. It is also the truer picture, since the charge comes
   off the third eye.
-- **A misfire says the explosion went off in the bender's HEAD**, not in their hands —
+- **A misfire says the explosion went off in the channeler's HEAD**, not in their hands —
   a combustion charge is gathered behind the third eye and thrown from there, so a
   failed one has nowhere else to go.
 - **Combustion Beam eats one block every six ticks**, not a tunnel at once. The design
@@ -1168,16 +1168,16 @@ The steepest of the five, and the only one that can kill its own bender by accid
   be a digging tool, where taking a block at a time makes it something to hold on a
   target while it works. Blocks are DESTROYED rather than dropped, the same call Earth
   dig makes and for the same reason.
-- **Combustion nuke's four blasts start a quarter of the way out**, not at the bender's
+- **Combustion nuke's four blasts start a quarter of the way out**, not at the channeler's
   feet. At power 12 a blast underneath them is simply suicide, so the loop runs from 1
   rather than 0.
 - Its ten second wind-up plays a rising tone once a second. Anything within range of
   four twelve-power explosions deserves to hear it coming.
 - **Combustion resistance is applied in the damage handler**, because vanilla has no
   explosion-resistance attribute to modify — blast protection is an enchantment, not a
-  number anything can be given. Keyed on the whole `IS_EXPLOSION` tag, so a bender's own
+  number anything can be given. Keyed on the whole `IS_EXPLOSION` tag, so a channeler's own
   charges, their misfires, TNT, creepers and beds are all covered at once.
-- It is deliberately NOT immunity. A bender who could ignore their own nuke would have
+- It is deliberately NOT immunity. A channeler who could ignore their own nuke would have
   the wind-up as its only cost, and a misfire that could be shrugged off would stop
   being a reason to finish what you started.
 
@@ -1187,14 +1187,14 @@ The steepest of the five, and the only one that can kill its own bender by accid
 - **Everything about Combustion resistance** — the design names it and says "Wip". The
   reading taken is the obvious one, and all of it is flagged INVENTED in the source.
 
-## Bloodbending (the sixth SUB-element)
+## Blood Channeling (the sixth SUB-element)
 
 The only element with a rule about who it may be used ON, and the only one with an
 experience track of its own.
 
-- **Getting it**: a village CLERIC sells the Bloodbending Scroll for 5 rabbit feet, at
-  trade levels 1 and 3. Reading it needs **ALL FOUR** waterbending paths — like the
-  combustion scroll and unlike the other four, because bloodbending is the end of the
+- **Getting it**: a village CLERIC sells the Blood Channeling Scroll for 5 rabbit feet, at
+  trade levels 1 and 3. Reading it needs **ALL FOUR** water channeling paths — like the
+  combustion scroll and unlike the other four, because blood channeling is the end of the
   water road rather than a branch off it. It burns itself and rains blood over a 5x5
   patch, which is purely particles: the element is unpleasant enough without the unlock
   being a hazard.
@@ -1203,19 +1203,19 @@ experience track of its own.
 
 ### A SECOND experience track
 
-- **`BendingData.bloodXp` / `bloodLevel` are entirely separate from the ordinary
-  level**, and have to be: Blood strength decides who may bend whom by comparing two
-  players' blood levels, and a figure that also went up from firebending would make the
+- **`ChannelingData.bloodXp` / `bloodLevel` are entirely separate from the ordinary
+  level**, and have to be: Blood strength decides who may channel whom by comparing two
+  players' blood levels, and a figure that also went up from fire channeling would make the
   comparison meaningless. 200 blood xp is a blood level, the same rate the main track
   uses.
-- **Bloodbending abilities pay into it and NOT the ordinary one.** Every one of them
+- **Blood Channeling abilities pay into it and NOT the ordinary one.** Every one of them
   returns 0 from `getXpPerSecond` (channels) or `getXpReward` (casts) and calls
   `Blood.grantXp` itself instead — the dispatcher's reward goes to the main level,
   which is the wrong pot. Blood freeze and Flesh shield briefly paid 10 into BOTH, by
   returning a reward AND granting the same figure to blood; each now has its own
   `BLOOD_XP` constant so the two cannot be confused again.
-- It needed its own packet (`SyncBloodPacket`), like the passives, upgrades and Avatar
-  ones, because `SyncBendingDataPacket` is already at the six fields
+- It needed its own packet (`SyncBloodPacket`), like the passives, upgrades and Paragon
+  ones, because `SyncChannelingDataPacket` is already at the six fields
   `StreamCodec.composite` takes. Synced on login, respawn and dimension change, and
   every time xp is earned.
 - Persisted, and copied by hand in `PlayerEvent.Clone` as well as by `copyOnDeath` —
@@ -1223,9 +1223,9 @@ experience track of its own.
 
 ### The pecking order
 
-- **`Blood.canBend` is the single place the rule lives**, and every bloodbending ability
+- **`Blood.canChannel` is the single place the rule lives**, and every blood channeling ability
   that picks a target calls it, so the next one added cannot forget. A lower-level
-  bloodbender cannot touch a higher-level one; mobs have no blood level and are always
+  blood channeler cannot touch a higher-level one; mobs have no blood level and are always
   fair game.
 - **The protection is tied to the TARGET carrying Blood strength**, not merely having
   unlocked it. The level accumulates either way, but a passive that worked from the
@@ -1247,21 +1247,21 @@ experience track of its own.
   dropped by glancing away would be unusable for the thing it exists to do.
 - **`BloodPuppets` is deliberately not a ticking tracker.** A puppet lives exactly as
   long as the channel holding it, so the ability drives it from its own `onTick` and
-  this only remembers who holds whom. Every other bloodbending manager ticks because it
+  this only remembers who holds whom. Every other blood channeling manager ticks because it
   outlives its cast.
 - **Blood suck heals directly rather than through Regeneration.** Re-applying that
   effect every tick breaks it outright — the trap Water heal documents — and a straight
   trade should land exactly when the damage does rather than on a beat of its own.
 - At 100 chi a second it is the most expensive channel in the mod, and it is ALSO
   capped at 3 seconds (`getMaxDurationTicks`). The price alone stopped being a ceiling
-  once a bender's pool grew: a straight trade of somebody else's health for your own
+  once a channeler's pool grew: a straight trade of somebody else's health for your own
   wins any fight it is allowed to run to the end of. Three seconds is six hearts moved
   across, for 300 chi and ten seconds of waiting.
 - **Flesh shield costs 100 CHI.** The design doc said xp, which was a typo — it was
   briefly built that way and taken in `execute`, since the dispatcher only knows how to
   spend chi. It now goes through the ordinary path like everything else, and refuses
   for free when there is nobody to take.
-- **The wall follows the crosshair**, rebuilt every tick wherever the bender now points,
+- **The wall follows the crosshair**, rebuilt every tick wherever the channeler now points,
   which is Metal shield's behaviour done with bodies instead of blocks. It stands 30
   seconds and can be put down at any point in them through `isActive`/`deactivate`.
 - **Mobs are moved with `setPos`, players with a rate-limited teleport.** A mob is
@@ -1269,13 +1269,13 @@ experience track of its own.
   their own client and the only way to override it is a teleport packet. Sending twenty
   of those a second is exactly the rubber-banding Fire Rocket's old height cap suffered,
   so a player body is only teleported once it has actually drifted half a block out of
-  its slot — which, while Stunned, means when the BENDER turns rather than every tick.
+  its slot — which, while Stunned, means when the CHANNELER turns rather than every tick.
 - **Absorbed damage is split evenly across whoever is still alive in the wall**, so a
   bigger shield spreads a blow further — the only reason to gather more than one body.
   Invulnerability frames are cleared before each, or most of a simultaneous hit on the
   whole wall would be discarded.
-- A shield of corpses is no shield: with nobody left alive the blow lands on the bender.
-- The pecking order applies to being MADE into a shield too — a stronger bloodbender is
+- A shield of corpses is no shield: with nobody left alive the blow lands on the channeler.
+- The pecking order applies to being MADE into a shield too — a stronger blood channeler is
   not somebody's cover.
 
 ### Figures that were NOT in the design
@@ -1284,26 +1284,26 @@ experience track of its own.
   neither.
 - **Whether Blood strength must be EQUIPPED to protect** — see above.
 
-## Lavabending (the seventh SUB-element)
+## Lava Channeling (the seventh SUB-element)
 
-The second element to come out of earthbending, and the one with the most dangerous
+The second element to come out of earth channeling, and the one with the most dangerous
 material in the game to hand.
 
-- **Getting it**: a village SHEPHERD sells the Lavabending Scroll for 5 nether bricks,
-  at trade levels 1 and 3. Reading it needs **ALL FOUR** earthbending paths — like the
+- **Getting it**: a village SHEPHERD sells the Lava Channeling Scroll for 5 nether bricks,
+  at trade levels 1 and 3. Reading it needs **ALL FOUR** earth channeling paths — like the
   combustion and blood scrolls and unlike the first four, because lava is the end of the
   earth road rather than a branch off it. It burns itself and sets four blocks of
   temporary lava down around the reader, which cool away after five seconds.
 - Those four blocks are OUR lava, not the real thing, so they take nothing with them.
   That is the opposite call to the combustion scroll's four sticks of live TNT, and
-  deliberately so: a misfire is combustion's whole character, where lavabending's is
+  deliberately so: a misfire is combustion's whole character, where lava channeling's is
   that the lava is always given back.
 - Left path: Lava river, Lava geyser, Lava sinkhole, Lava tsunami
 - Right path: Lava wall, Lava resistance, Lava throw, lava rain
 
 ### The block is the element
 
-- **`BendingLavaBlock` exists because REAL LAVA FLOWS**, and that single fact decides
+- **`ChannelingLavaBlock` exists because REAL LAVA FLOWS**, and that single fact decides
   the shape of everything else. Placing a lava source spawns flowing lava into every
   space beside and below it, none of which any tracker knows about — so a "temporary"
   wall of real lava would leave a permanent lava field behind it, burn down whatever was
@@ -1315,17 +1315,17 @@ material in the game to hand.
   on it, light level 15, and it burns and hurts whatever is inside it through
   `entityInside`. It wears vanilla's `lava_still` texture on a plain cube, which ships
   animated, so the block animates for free and needs no art.
-- **It is UNBREAKABLE**, for the same reason `BendingMetalBlock` is: every ability that
-  places it is borrowing it, and a bender who could mine their own lava would have an
+- **It is UNBREAKABLE**, for the same reason `ChannelingMetalBlock` is: every ability that
+  places it is borrowing it, and a channeler who could mine their own lava would have an
   infinite supply.
 - **`noCollission` also settles two questions that would otherwise need code.** An empty
   collision shape makes `isSolid()` false, so `Lava.footing` never treats our own lava as
   ground and a wave cannot climb its own back; and it makes `blocksMotion()` false, so
   nothing suffocates in it — Minecraft only smothers something inside a block that blocks
   motion.
-- **`LavaWorks` is lavabending's `IceWorks`** and keeps the same rule, which matters more
+- **`LavaWorks` is lava channeling's `IceWorks`** and keeps the same rule, which matters more
   here than anywhere else in the mod: an ability may only ever fill AIR, and whatever it
-  fills it takes back. Lava is the one material a bender could use to erase a build
+  fills it takes back. Lava is the one material a channeler could use to erase a build
   outright.
 - What it does NOT share with IceWorks is the material question, because there isn't one.
   Ice has to be PACKED ice or it melts to water and floods somebody's build; our lava is
@@ -1353,19 +1353,19 @@ ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one ou
 
 - The design's words are "fire resistance to Lava only", and the "only" is the whole
   ability. Fire immunity over in the fire masterclass cancels the entire `IS_FIRE` tag;
-  this cancels exactly ONE damage type, so a lavabender wearing it still burns in an
+  this cancels exactly ONE damage type, so a lava channeler wearing it still burns in an
   ordinary fire, still takes a Fire Breath in the face, and still cooks on magma. What
   they can do is walk through their own work — which an element whose every ability drops
-  a hazard at the bender's own feet needs. It is Combustion resistance's counterpart, not
+  a hazard at the channeler's own feet needs. It is Combustion resistance's counterpart, not
   Fire immunity's.
 - **One damage type covers everything because `Lava.scorch` uses vanilla's own lava
-  source.** Our block hurts through `damageSources().lava()` rather than through a bending
+  source.** Our block hurts through `damageSources().lava()` rather than through a channeling
   source, so the passive is one check against `DamageTypes.LAVA` instead of a list of
   ability names — and our lava is indistinguishable from the real thing to everything else
   in the game as a bonus.
 - **Two halves, in two places, exactly as Fire immunity needs.** Damage is cancelled in
   the damage handler; the BURNING is cleared in the player tick, because cancelling only
-  the damage leaves a bender standing in lava taking nothing while visibly ablaze. The
+  the damage leaves a channeler standing in lava taking nothing while visibly ablaze. The
   fire ticks are cleared only while they are actually IN lava, which is what keeps it
   "lava only" — and they leave with nothing alight because it was cleared on the way, so
   stepping out is clean without the check ever reaching beyond lava.
@@ -1389,21 +1389,21 @@ ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one ou
   downhill happily and climbs nothing.
 - **A geyser has no owner**, the same distinction `AirSpouts` draws between a Tornado and
   a placed spout: it is a hazard put in a place with a clock of its own, so it keeps
-  erupting whether or not the bender is still standing there, still in the level, or still
+  erupting whether or not the channeler is still standing there, still in the level, or still
   logged in. And it throws EVERYONE — `null` to `getEntities` is what makes that work,
   since that argument is the entity to SKIP.
 - **Lava geyser is Air spout's shape** (arm the slot, one geyser per left click) because
   "create 3" wants three PLACED things. A cast that dropped all three at once would bunch
-  them within a couple of blocks and give the bender no say in where any went.
+  them within a couple of blocks and give the channeler no say in where any went.
 - **Lava throw is CHARGED and TWO-PHASE**, the way Fireball is: two seconds gathers the
   four blobs, the left click throws them. That separation matters more here than for
   most — this is the one ability in the element that changes the world permanently, so
   taking the aim after the wind-up rather than during it means four blocks of lava go
-  where the bender chose rather than wherever they happened to be pointing when the
+  where the channeler chose rather than wherever they happened to be pointing when the
   timer filled.
 - **Lava tsunami charges for five seconds.** Thirty blocks of moving lava should be
   something the people near it can see coming. Letting go early just cancels and costs
-  nothing — this is not combustion, and lavabending has no misfire.
+  nothing — this is not combustion, and lava channeling has no misfire.
 - **Lava sinkhole does NOT require a target.** The design says "under a player or mob"
   and it started out refusing the cast with nobody in view, which made it unusable on
   an empty field — no way to test it, and no way to lay it as ground work ahead of a
@@ -1432,10 +1432,10 @@ ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one ou
   puddled falls straight through it and reports the puddle's own position; retrying a
   block higher would stack a second one on top and a storm would build towers.
 - **lava rain does not spare its caster's feet.** The drops themselves skip the owner —
-  that falls out of how `BendingProjectiles` picks targets — but the lava they leave is
-  lava, and a bender standing in the middle of their own storm burns in it. Which is what
+  that falls out of how `ChannelingProjectiles` picks targets — but the lava they leave is
+  lava, and a channeler standing in the middle of their own storm burns in it. Which is what
   Lava resistance is for, and pairs the two the way Fire Rain pairs with Fire immunity.
-- **`Style.LAVA`** was added to `BendingProjectiles` for the throw and the rain. Its
+- **`Style.LAVA`** was added to `ChannelingProjectiles` for the throw and the rain. Its
   particles are given no velocity because the LAVA particle already falls on its own, so a
   blob leaves a short trail without a second style having to be invented for one. Both
   users carry their real payload in the impact hook rather than in the style.
@@ -1456,9 +1456,9 @@ ordinary casts, and there is no `MINIMUM_CHARGE_TICKS` here to be the odd one ou
 
 
 
-## The Spirit World's low-gravity tide
+## The Spirit Realm's low-gravity tide
 
-Three minutes in every ten, the Spirit World lightens: gravity drops to 40% of normal and
+Three minutes in every ten, the Spirit Realm lightens: gravity drops to 40% of normal and
 falls stop hurting entirely.
 
 - **Vanilla's own `Attributes.GRAVITY`, not a per-tick velocity nudge.** The attribute is
@@ -1485,7 +1485,7 @@ falls stop hurting entirely.
   a correction than a buff: without it a player drifting gently down is billed exactly as if
   they had plummeted.
 - It does mean the drop between islands is free for three minutes in every ten. That is the
-  intent — the tide is the window in which the Spirit World can be crossed without fear of
+  intent — the tide is the window in which the Spirit Realm can be crossed without fear of
   the gaps, and the other seven minutes are when it cannot.
 - **`SpiritGravity.isDrifting` asks for the MODIFIER**, not for the tide. That is the honest
   test — it is true of exactly whoever the physics is treating as light, so it cannot drift
@@ -1502,11 +1502,11 @@ registration plus a `sounds.json` and an `.ogg` supplied from outside.
 
 ## Spirit Shrines
 
-A small hand-built structure scattered across the Spirit World's floating islands. Right
+A small hand-built structure scattered across the Spirit Realm's floating islands. Right
 click the beacon inside one and it grants **+100 permanent max Chi**, once per player per
 shrine.
 
-- **The .nbt lives at `data/atlamod/structure/spirit_shrine.nbt`** — `structure`, SINGULAR.
+- **The .nbt lives at `data/elemental_paths/structure/spirit_shrine.nbt`** — `structure`, SINGULAR.
   1.21 renamed every data pack folder to its singular form, so `structures/` would simply
   never be loaded and the shrine would silently not exist.
 - **The marker is a REDSTONE BLOCK**, picked for the same reason the temple's stripped oak
@@ -1542,7 +1542,7 @@ shrine.
 
 ### It is a real STRUCTURE, which is what makes /locate work
 
-`/locate structure atlamod:spirit_shrine`.
+`/locate structure elemental_paths:spirit_shrine`.
 
 - **This replaced placement from inside the island feature.** The shrines go exactly where
   they went before — the island arithmetic is untouched — but a feature leaves no record of
@@ -1580,9 +1580,9 @@ shrine.
   does structures before features — so step 4 is after step 0 for every chunk. The feature
   used to guarantee this by hand, by placing shrines at the bottom of its own method.
 - **`terrain_adaptation` is `none`**, not the temple's `beard_thin`. Adaptation shapes NOISE
-  terrain, and the Spirit World has none — its ground is a feature.
+  terrain, and the Spirit Realm has none — its ground is a feature.
 - Its biome tag `has_spirit_shrine` is the temple's list MINUS `#minecraft:is_overworld`.
-  Shrines belong to the Spirit World only.
+  Shrines belong to the Spirit Realm only.
 
 ### The chance is 6% per island, about 5.5% after the ground test
 
@@ -1621,11 +1621,11 @@ shrine.
 
 ### What it grants, and where that is kept
 
-- `BendingData.bonusMaxChi` (persisted) is a flat addend on `getMaxChi()`, which is now
+- `ChannelingData.bonusMaxChi` (persisted) is a flat addend on `getMaxChi()`, which is now
   `500 + level*100 + bonusMaxChi`. **Flat rather than a multiplier deliberately** — it has
   to be worth the same at level 20 as at level 1, or the reward for crossing the Spirit
   World would be worth least to exactly the player who has just arrived there.
-- `BendingData.usedShrines` (persisted) is the list of beacon positions already drawn from,
+- `ChannelingData.usedShrines` (persisted) is the list of beacon positions already drawn from,
   packed as longs. **A POSITION IS THE IDENTIFIER**, which works because shrines never move
   and their placement is pure. Nothing is written on the shrine itself, so a second player
   finds it untouched.
@@ -1635,19 +1635,19 @@ shrine.
   number on the wire, one truth on both sides, and the bar's colour provably changes on
   exactly the ticks the maximum does.
 - **Both are copied by hand in `PlayerEvent.Clone`** as well as by `copyOnDeath`: that event
-  also fires on a dimension change, and the Spirit World is a dimension — so without it,
+  also fires on a dimension change, and the Spirit Realm is a dimension — so without it,
   walking back out of the place the shrines are in is what would lose them.
 
 ### The Codec had to be split, and that is a hard limit
 
-- **A `RecordCodecBuilder` group holds AT MOST SIXTEEN fields, and `BendingData` was at
+- **A `RecordCodecBuilder` group holds AT MOST SIXTEEN fields, and `ChannelingData` was at
   exactly sixteen.** So `CORE` is now a `MapCodec` of those sixteen and `SHRINES` a second
   of the two new ones, paired with `Codec.mapPair` (NOT `MapCodec.pair`, which does not
-  exist in DFU 8) and `xmap`ped back to a `BendingData`. Both halves write into the SAME
+  exist in DFU 8) and `xmap`ped back to a `ChannelingData`. Both halves write into the SAME
   compound, so the save format stays flat and nothing already saved moved.
 - The next field added goes in the shrine group — or, once that fills, a third group. This
-  is the same ceiling `SyncBendingDataPacket` hit at six fields, and it is the reason the
-  passives, upgrades, avatar and blood tracks all have packets of their own.
+  is the same ceiling `SyncChannelingDataPacket` hit at six fields, and it is the reason the
+  passives, upgrades, paragon and blood tracks all have packets of their own.
 
 ### The chi bar's colour is the record of how many
 
@@ -1670,12 +1670,12 @@ shrine.
 
 ## Spirit Ore, the Shard and Spirit Armor
 
-The Spirit World's own resource chain: ore in the islands, one shard per block, and a four
-piece armor set made of shards that feeds a bender's chi.
+The Spirit Realm's own resource chain: ore in the islands, one shard per block, and a four
+piece armor set made of shards that feeds a channeler's chi.
 
 ### The textures are real files, recoloured from vanilla once, offline
 
-- **The mod's first real block and item textures**, under `assets/atlamod/textures`. Made by
+- **The mod's first real block and item textures**, under `assets/elemental_paths/textures`. Made by
   `tools/SpiritTextures.java`, which reads vanilla's emerald ore, amethyst shard and
   chainmail armor straight out of the client-resources jar and writes the recoloured
   results. Run by
@@ -1770,12 +1770,12 @@ piece armor set made of shards that feeds a bender's chi.
 
 ### 15 XP a block, and it does not come from vanilla
 
-- Mining one block pays **15 bending XP**, deliberately a mid-tier ability's reward (Wind,
+- Mining one block pays **15 channeling XP**, deliberately a mid-tier ability's reward (Wind,
   Earth trap and breathless all pay 15), so a vein is worth about as much as landing three
   good casts. At 200 XP to a level that is roughly thirteen blocks per level.
 - Granted in a `BlockEvent.BreakEvent` handler in `ServerEvents`, because there is nowhere
   else for it to come from: vanilla's own experience drops go to the player's LEVELS, and
-  bending XP is a different pot entirely. The shard itself is an ordinary loot table and
+  channeling XP is a different pot entirely. The shard itself is an ordinary loot table and
   needs no code.
 - Ordered cheapest first — the block is tested before anything is read off the player —
   since this fires for every block broken in the game.
@@ -1824,7 +1824,7 @@ piece armor set made of shards that feeds a bender's chi.
   reach 35 seconds: 46% a piece gives 35.2 and 47% gives 34.7. 46.5% gives 34.97, which is
   35 to the nearest tenth of a second. Hence `REGEN_BONUS_PER_PIECE_TENTHS = 465` against a
   `BONUS_SCALE` of 1000.
-- **`BendingData.chiRegenCarry` is what makes a fractional percentage land exactly.** Regen
+- **`ChannelingData.chiRegenCarry` is what makes a fractional percentage land exactly.** Regen
   hands over a whole number of chi per second, so at a base of 6 one piece is 8.79 — and
   truncating every second would lose most of a chi each time and the set would never reach
   the 35 seconds it promises. The arithmetic runs in thousandths and keeps the remainder.
@@ -1833,62 +1833,62 @@ piece armor set made of shards that feeds a bender's chi.
 - **`SpiritArmor.isSpiritPiece` asks the MATERIAL**, not a list of the four items, so a fifth
   piece added later is counted without that method being touched.
 
-## No bending (the path for people who have none)
+## No channeling (the path for people who have none)
 
 Not an element, not a sub-element, and the only choice on the selection screen that is an
 opt OUT of the other four. Chosen from the middle of the 2x2 of emblems, drawn smaller
 than them on purpose — size is meaning here, and drawing it the same would present it as a
 fifth element, which is the one thing it is not.
 
-- **Only two ways to have it**: picking it on a FIRST join, or `/bend add <player>
-  nobending`. `ElementChoicePacket` now refuses anything but a first choice, which refuses
+- **Only two ways to have it**: picking it on a FIRST join, or `/paths add <player>
+  nochanneling`. `ElementChoicePacket` now refuses anything but a first choice, which refuses
   nothing anybody can legitimately do — the screen only opens for somebody who has not
   chosen — but stops a hand-sent packet rewriting a main element that is already set.
-- **THE AVATAR CAN NEVER HOLD IT.** The cycle only ever looks for the four bending arts, so
-  it is skipped there for free; being NAMED Avatar by command is the route that had to be
-  closed by hand, and `Avatar.grant` now returns a boolean so `/bend avatar` can say why it
+- **THE PARAGON CAN NEVER HOLD IT.** The cycle only ever looks for the four channeling arts, so
+  it is skipped there for free; being NAMED Paragon by command is the route that had to be
+  closed by hand, and `Paragon.grant` now returns a boolean so `/paths paragon` can say why it
   refused rather than reporting a success that did not happen. Granting it would destroy
-  the choice outright anyway, since becoming the Avatar hands over all four elements.
-- **`/bend add nobending` grants it like anything else**, with no special case at all.
+  the choice outright anyway, since becoming the Paragon hands over all four elements.
+- **`/paths add nochanneling` grants it like anything else**, with no special case at all.
 
-### A non-bender is somebody who BENDS NOTHING
+### A non-channeler is somebody who CHANNELS NOTHING
 
-Not somebody who once picked "no bending" off the screen. The test is the unlocked element
-list: hold the no-bending path and nothing else and you are a non-bender; hold anything
-else as well and you are a bender who has also learned to block chi.
+Not somebody who once picked "no channeling" off the screen. The test is the unlocked element
+list: hold the no-channeling path and nothing else and you are a non-channeler; hold anything
+else as well and you are a channeler who has also learned to block chi.
 
 **THIS USED TO ASK THE MAIN ELEMENT and was wrong in both directions**, which is what made
 the commands misbehave:
 
 <pre>
-  picked no bending                      -> no chi         (nothing else unlocked)
-  picked no bending, then given fire     -> chi comes back  (fire is a bending art)
-  picked fire, then given no bending     -> chi stays       (fire is still there)
-  given no bending having nothing at all -> no chi
+  picked no channeling                      -> no chi         (nothing else unlocked)
+  picked no channeling, then given fire     -> chi comes back  (fire is a channeling art)
+  picked fire, then given no channeling     -> chi stays       (fire is still there)
+  given no channeling having nothing at all -> no chi
 </pre>
 
-- Somebody who picked no bending and was then GIVEN firebending kept a main element of
-  "nobending" for ever — a firebender with no chi bar and no way to fill a pool they could
+- Somebody who picked no channeling and was then GIVEN fire channeling kept a main element of
+  "nochanneling" for ever — a fire channeler with no chi bar and no way to fill a pool they could
   now spend from.
-- And granting no bending by command had to OVERWRITE the main element to register at all,
-  which silently took a bender's chi away. That special case is gone; nothing needs
-  overwriting, because "do you actually bend anything" answers both cases at once.
-- **`/bend add` does still take over for a player who has not reached the selection screen
+- And granting no channeling by command had to OVERWRITE the main element to register at all,
+  which silently took a channeler's chi away. That special case is gone; nothing needs
+  overwriting, because "do you actually channel anything" answers both cases at once.
+- **`/paths add` does still take over for a player who has not reached the selection screen
   yet**, whatever the element is. Without that their main element stays empty, so the
   screen opens on their next login and overwrites whatever they were given.
-- The chi bar reads `NoBending.is` rather than the main element, so it follows what the
+- The chi bar reads `NoChanneling.is` rather than the main element, so it follows what the
   player can actually do. The unlocked list it needs is on the client already, carried by
-  `SyncBendingDataPacket`.
-- **The Avatar cycle can never reach no bending.** Its list is the four bending arts and
-  nothing adds to it, so the element match alone already excludes a non-bender;
-  `candidatesFor` says so explicitly as well, because `findAvatar` treats a returned
+  `SyncChannelingDataPacket`.
+- **The Paragon cycle can never reach no channeling.** Its list is the four channeling arts and
+  nothing adds to it, so the element match alone already excludes a non-channeler;
+  `candidatesFor` says so explicitly as well, because `findParagon` treats a returned
   candidate as the search being over and a `grant` refusal it did not expect would leave
-  the cycle believing it had found somebody. `grant` asks whether they BEND anything, so
-  somebody who picked no bending and was later given a real element can hold the title.
+  the cycle believing it had found somebody. `grant` asks whether they CHANNEL anything, so
+  somebody who picked no channeling and was later given a real element can hold the title.
 
 ### It has a centre that is not an ability
 
-Three unlockables: a centre and one ability on each arm, which is airbending's centre and a
+Three unlockables: a centre and one ability on each arm, which is air channeling's centre and a
 sub-element's two paths combined.
 
 - **`Chi blocking` (centre, 15 levels) is NOT an ability and NOT a passive.** Nothing casts
@@ -1901,19 +1901,19 @@ sub-element's two paths combined.
   bindable". `equippableAbilities` now drops anything the registry does not know, checked
   BEFORE the passive test since both ask the same registry.
 - **`ElementPaths.centreGatesPaths` is why the arms wait for it.** Air's centre gates
-  nothing — it is an ordinary extra its bender may buy whenever — so this is a question
-  about the element rather than a blanket rule for every centre. No bending's centre is
+  nothing — it is an ordinary extra its channeler may buy whenever — so this is a question
+  about the element rather than a blanket rule for every centre. No channeling's centre is
   learning to touch chi at all, and both arms are applications of that, so neither means
   anything before it.
 - **`ElementPaths.centreCost` moved the figure out of `UpgradeMenuScreen`** when it stopped
-  being one number. 20 is the standing figure; no bending's is 15, cheaper on purpose since
-  a non-bender has nothing at all until they pay it where an airbender buying theirs
+  being one number. 20 is the standing figure; no channeling's is 15, cheaper on purpose since
+  a non-channeler has nothing at all until they pay it where an air channeler buying theirs
   already has twelve abilities. It is a rule about the tree rather than about the screen,
   so it belongs where the server could ask it too.
 
 ### No chi, and therefore no meditating
 
-All the same fact said three ways. A non-bender has no chi, so it does not regenerate
+All the same fact said three ways. A non-channeler has no chi, so it does not regenerate
 (`ServerEvents`' regen block skips them outright, not even counting the delay down),
 meditating is refused, and the HUD draws no chi bar — a bar sitting permanently full at a
 number that means nothing is worse than no bar.
@@ -1935,7 +1935,7 @@ number that means nothing is worse than no bar.
 
 - **Casting it does nothing but MARK somebody** for 10 seconds. The block only lands once
   five hits have gone in inside that window. Miss it and the cast is spent for nothing.
-  That is the whole character of the path: a non-bender's answer to bending is not a better
+  That is the whole character of the path: a non-channeler's answer to channeling is not a better
   projectile, it is getting close enough.
 - **Glowing is the mark**, and it is the only vanilla effect that renders through walls — so
   the caster can follow a target that has broken line of sight, and the target can see they
@@ -1962,18 +1962,18 @@ number that means nothing is worse than no bar.
 
 ### Being chi blocked
 
-- **`BendingData.chiBlockedTicks` is a SECOND counter rather than Deafen's lockout**,
-  although both stop a bender casting. Deafen's does exactly that and nothing else; this
+- **`ChannelingData.chiBlockedTicks` is a SECOND counter rather than Deafen's lockout**,
+  although both stop a channeler casting. Deafen's does exactly that and nothing else; this
   also freezes chi REGENERATION, which is the half that decides a fight — being unable to
   cast for fifteen seconds is an inconvenience, coming out of it with an empty pool is the
   punishment. They also run for different lengths from different elements, so one number
   could only ever be wrong for one of them.
 - Refused at both dispatcher entry points beside the lockout, and on a PRESS only: a channel
   already running when the block landed has to be able to be let go of.
-- **It stops the no-bending abilities too**, deliberately — a chi blocker whose own points
+- **It stops the no-channeling abilities too**, deliberately — a chi blocker whose own points
   have been struck is as stopped as anyone else.
 - **Slowness II, not I.** The chi half does nothing at all to somebody who was never a
-  bender, and mobs have no chi to shut off either, so without a real movement penalty the
+  channeler, and mobs have no chi to shut off either, so without a real movement penalty the
   ability would land on half the things in the game and visibly do nothing. The slow is the
   part that is always true.
 
@@ -1989,7 +1989,7 @@ everything within 2 blocks in front, five blocks of knockback, 20 second cooldow
   should not step in and undo. What it costs is the twenty seconds.
 - **`indirectMagic` so the stated 8 is the 8 that lands.** A plain `playerAttack` would be
   reduced by armour to a couple of points against anyone geared, which for the only damaging
-  ability a non-bender has would make the path useless in exactly the fight it exists for.
+  ability a non-channeler has would make the path useless in exactly the fight it exists for.
   Same call, and the same reasoning, as Tsunami's.
 - **A cone of 0.3** (~72 degrees), WIDER than the pushes use at 0.5. Those reach eight and
   twelve blocks, where a two-block cone at 0.5 is barely wider than the player themselves —
@@ -2004,12 +2004,12 @@ everything within 2 blocks in front, five blocks of knockback, 20 second cooldow
 - Knockback is applied AFTER the damage, never before: `hurt()` applies a knockback of its
   own, so a velocity set first is quietly overwritten by a much smaller vanilla one.
 
-### No bending is not silent in the Spirit World
+### No channeling is not silent in the Spirit Realm
 
-`AbilityHandler.refusedInSpiritWorld` now asks which element the ability belongs to and
-lets the no-bending pair through. A kick is not bending and neither is striking somebody's
-chi points — the rule is that bending is silent there, not that nobody may move — and a
-non-bender refused both of their abilities would have nothing whatsoever to do in the one
+`AbilityHandler.refusedInSpiritRealm` now asks which element the ability belongs to and
+lets the no-channeling pair through. A kick is not channeling and neither is striking somebody's
+chi points — the rule is that channeling is silent there, not that nobody may move — and a
+non-channeler refused both of their abilities would have nothing whatsoever to do in the one
 place the mod most wants people to go.
 
 ### The emblem
@@ -2031,14 +2031,14 @@ like the armor sheets and for the same reason.
 
 ## World events
 
-Three things the sky does to bending. `events/WorldEvents.java` decides when and by how
+Three things the sky does to channeling. `events/WorldEvents.java` decides when and by how
 much; nothing else knows an event exists.
 
 | | How often | How long | What it touches |
 |---|---|---|---|
-| **Blood Moon** | night of every 3rd day | dusk to dawn, ~9 min | waterbending, lifted |
-| **Sozin's Comet** | every 6th day | midnight to midnight, 20 min | firebending, lifted hard |
-| **Day of Black Sun** | every 12th day | 6 min across noon | firebending, gone |
+| **Blood Moon** | night of every 3rd day | dusk to dawn, ~9 min | water channeling, lifted |
+| **Sozin's Comet** | every 6th day | midnight to midnight, 20 min | fire channeling, lifted hard |
+| **Day of Black Sun** | every 12th day | 6 min across noon | fire channeling, gone |
 
 - **DERIVED FROM THE CLOCK, NEVER COUNTED DOWN**, which is the one structural decision
   here and the same one the low-gravity tide makes. Every player asks the same clock, so
@@ -2057,7 +2057,7 @@ starting at midnight has to say so.
 
 **That was a real bug.** The comet ran on the raw day counter, so its twenty minutes began
 and ended at SUNRISE. Two things followed: its second half sat in the same calendar day as
-the blood moon that comes after it, and `/bend event` from inside a comet could land
+the blood moon that comes after it, and `/paths event` from inside a comet could land
 somewhere the comet was still up — which is exactly how it was noticed.
 
 - **A SECOND BUG FROM THE SAME SHIFT: every new world opened under the comet.** A world
@@ -2094,14 +2094,14 @@ damage handler.
 - **`chiCostFor` is now the single place a cost is decided**, which it had to become:
   three separate things ask for it, and left as three calls a comet would have made an
   ability cost less while still refusing it at the old price.
-- **Sub-elements are deliberately NOT swept up.** A blood moon lifts waterbending, not
-  icebending or bloodbending however closely related — an event that quietly buffed three
+- **Sub-elements are deliberately NOT swept up.** A blood moon lifts water channeling, not
+  ice channeling or blood channeling however closely related — an event that quietly buffed three
   trees would be three times the change anybody reading the config expected.
 - **The black sun's suppression is a REFUSAL, not a multiplier**, because no multiplier
   says "not at all" and one small enough to try would leave abilities casting for nothing.
   Overworld only: the sun is what is being eclipsed. Turning it off in the config leaves
-  the multipliers in force, which is how the event goes from "firebending is gone" to
-  "firebending is worse" without a second setting deciding which.
+  the multipliers in force, which is how the event goes from "fire channeling is gone" to
+  "fire channeling is worse" without a second setting deciding which.
 
 ### The damage multiplier needed something new
 
@@ -2110,7 +2110,7 @@ cannot tell which element caused a blow — damage arrives as a source and an at
 nearly every element in this mod hits through `indirectMagic`. Blue Fire gets away with
 keying on `IS_FIRE` because fire is the exception.
 
-- **`BendingData.castingElement`** is the answer: the dispatcher records the element of
+- **`ChannelingData.castingElement`** is the answer: the dispatcher records the element of
   whatever it is running, immediately before the effect and cleared immediately after, by
   `runWithElement`. Cleared in a `finally`, which is the whole reason it is a method
   rather than two lines at each of the three call sites — an ability that threw would
@@ -2167,7 +2167,7 @@ the fog nor the screen wash touches the comet's day.
   up here; it would show up as something unrelated rendering wrongly later in the frame,
   which is the worst kind of bug to trace.
 - Skipped where there is no ordinary sky (`skyType() != NORMAL`, so not the Nether, the
-  End or the Spirit World) and when the camera is in a fluid, where vanilla draws no sky
+  End or the Spirit Realm) and when the camera is in a fluid, where vanilla draws no sky
   at all and there would be nothing behind it.
 
 ### Recolouring vanilla's own sun and moon
@@ -2210,7 +2210,7 @@ than a night sky. Built ONCE and kept: each is a small quad on a sphere of radiu
 a quaternion rotating its normal onto the star's own direction, so it faces the viewer —
 verified over all 120 that every quad faces dead on and the corners sit on the dome.
 
-### `/bend event <name>` starts one
+### `/paths event <name>` starts one
 
 **IT SETS THE TIME RATHER THAN SETTING A FLAG**, and that is the only honest way to do it.
 Every event is derived from the clock, so there is nothing to switch on — no field says an
@@ -2249,7 +2249,7 @@ every tick — the edges are minutes apart.
 
 `EntityTravelToDimensionEvent`, which fires BEFORE the move — and that is the whole reason
 it is its own handler rather than more lines in `PlayerEvent.Clone`. Clone runs AFTER, on
-a fresh `BendingData` whose transient flags have already come back false, so by the time it
+a fresh `ChannelingData` whose transient flags have already come back false, so by the time it
 looks no toggle appears to be on and nothing would be switched off.
 
 - **Asks the registry rather than naming the toggles**, so one added later is covered
@@ -2261,13 +2261,13 @@ looks no toggle appears to be on and nothing would be switched off.
   Fire Rocket closes the flight flags. Cleaning up by hand would be a second copy of all
   of those.
 
-### Passives are silent in the Spirit World
+### Passives are silent in the Spirit Realm
 
-Bending is already refused there; a passive is bending that happens to need no cast, so
+Channeling is already refused there; a passive is channeling that happens to need no cast, so
 leaving them running meant fire immunity, flight and doubled chi regen all working in the
 one place nothing else does.
 
-- **`BendingData.passivesSuppressed` is a FLAG rather than a level check inside
+- **`ChannelingData.passivesSuppressed` is a FLAG rather than a level check inside
   `hasPassiveEquipped`**, because that method has no player and no level — it is asked of
   the DATA, by thirteen different passives, and giving it a level would mean threading one
   through every call site. The flag is set once a tick from whichever side is ticking,
@@ -2279,24 +2279,24 @@ one place nothing else does.
 
 ## Settings
 
-What a player may change about the mod, and the screen that changes it. `AtlaConfig.java`
-holds the values; `client/AtlaSettingsScreen.java` is the UI.
+What a player may change about the mod, and the screen that changes it. `PathsConfig.java`
+holds the values; `client/PathsSettingsScreen.java` is the UI.
 
 - **Reachable from two places, and they are the same screen**: `Settings` at the bottom left
-  of the bending menu, and `Mods -> Atla mod -> Config`. The second used to open NeoForge's
+  of the paths menu, and `Mods -> Elemental Paths -> Config`. The second used to open NeoForge's
   generic `ConfigurationScreen`, which is now replaced — `IConfigScreenFactory` points at
   ours instead, so there is one settings UI rather than two that could disagree.
 - **A `SERVER` config, not a `COMMON` one**, and that is the decision everything else falls
-  out of. Every value is either a world generation rule or a rule about what a bender may
+  out of. Every value is either a world generation rule or a rule about what a channeler may
   do, and both belong to a WORLD rather than to an installation. A common config lives
   beside the game and is shared by every save, so turning the ore down for one world would
   quietly retune every other; and on a server each client would have its own copy, so two
   people could disagree about which abilities exist. `SERVER` answers both — the file sits
   in the save's own `serverconfig/`, and FML syncs it to every client on connection.
-- **`config/atlamod-server.toml` is the template for FUTURE worlds.** FML copies it into each
+- **`config/elemental_paths-server.toml` is the template for FUTURE worlds.** FML copies it into each
   new save. That is the answer to "the settings are per world, so how do I set them once".
-- **Who may edit (`SettingsAccess` + `AtlaSettingsScreen.blockedReason`):**
-  - Your OWN world (integrated server): with CHEATS (permission level 2, the `/bend`
+- **Who may edit (`SettingsAccess` + `PathsSettingsScreen.blockedReason`):**
+  - Your OWN world (integrated server): with CHEATS (permission level 2, the `/paths`
     test), or as HOST once it is shared — opened to LAN OR anybody else connected, the
     second because a world hosted through the Essential mod is not guaranteed to report
     itself published. A survival singleplayer world with cheats off can only look.
@@ -2330,7 +2330,7 @@ drawn up to that point, the GUI included.
 
 - So the obvious shape for a custom screen — paint your own content, then call
   `super.render` to put the buttons on top — **smears the entire screen**. The first
-  version of `AtlaSettingsScreen` was completely illegible this way, and the giveaway was
+  version of `PathsSettingsScreen` was completely illegible this way, and the giveaway was
   that the two vanilla `Button`s were the only sharp things on it: they are renderables, so
   they were drawn AFTER the blur while everything else was drawn before it.
 - The fix is to stop calling `super.render` at all and do its two steps separately, with
@@ -2362,7 +2362,7 @@ the world is laid out.
   The cache is only refreshed on save, which is mouse release, so building it from the
   cache would report the time for the value the slider used to have. Worth remembering for
   any future readout that depends on more than its own slider.
-- Also here: the Water Canteen's capacity, how far open water counts as a bending source,
+- Also here: the Water Canteen's capacity, how far open water counts as a channeling source,
   what a shrine grants, base max chi, max chi per level, the regen delay, and XP per level.
 - **A DURABILITY-BACKED FIGURE *CAN* BE MADE LIVE, which was got wrong once.** The
   canteen's capacity was written off as unconfigurable on the grounds that durability is a
@@ -2380,7 +2380,7 @@ the world is laid out.
 #### Two things a configurable XP threshold exposed
 
 - **`grantXp` discarded overflow.** It was a single `if` that set XP back to zero, so a
-  grant larger than the threshold gave ONE level and lost the rest — a non-bender killing
+  grant larger than the threshold gave ONE level and lost the rest — a non-channeler killing
   a wither for 225 gained one level and dropped 25, and at a low configured threshold a
   single ore block could be worth several levels and pay one. It is a loop that carries
   the remainder now.
@@ -2405,7 +2405,7 @@ right for a handful of values and wrong for the two things this mod actually has
   Here they are grouped under the element they belong to, toggled by clicking anywhere on
   the row, and carry the same description the skill tree shows — so an owner deciding what
   to switch off reads exactly what a player reads about it. Each element header also has an
-  `Enable all` / `Disable all`, because "no firebending on this server" is a far likelier
+  `Enable all` / `Disable all`, because "no fire channeling on this server" is a far likelier
   thing to want than any single ability, and thirteen clicks is a poor way to say it.
 - **Generation rates whose numbers mean nothing bare.** Every slider says what it works out
   as — `6% of islands`, `11 in 1000 cells`, `every site` — and a biome weight says its SHARE
@@ -2414,7 +2414,7 @@ right for a handful of values and wrong for the two things this mod actually has
 
 ### Reading the values
 
-- **NEVER through the `ModConfigSpec` values; always through `AtlaConfig`'s cached getters.**
+- **NEVER through the `ModConfigSpec` values; always through `PathsConfig`'s cached getters.**
   Two separate reasons, both real: some of these are asked per BLOCK on worldgen worker
   threads, where a map lookup and a `Preconditions` check apiece is genuine cost — and a
   `ConfigValue` THROWS outright when its config is not loaded, which is the normal state at
@@ -2423,7 +2423,7 @@ right for a handful of values and wrong for the two things this mod actually has
   `.Reloading`, and put back to the shipped defaults on `.Unloading`. Resetting on unload is
   not tidiness: unloading is a world closing, and keeping the last world's numbers would mean
   a fresh save generating with whatever the previous one was set to until its own config loads.
-- **`AtlaConfig.generation()` is a counter for anything that MEMOISES an answer derived from
+- **`PathsConfig.generation()` is a counter for anything that MEMOISES an answer derived from
   the settings.** At present that is only `SpiritIslands.Cache`, which remembers where the
   islands in a cell are — and a cached island worked out under the old spacing does not merely
   go stale, it actively disagrees with a freshly computed one. The cache compares the counter
@@ -2464,7 +2464,7 @@ million cells with **zero mismatches** against the old arithmetic.
 ### Temples can only be made RARER, and that is inherent
 
 Which chunks are even OFFERED as a temple site is decided by the structure SET —
-`spacing: 40, separation: 15` in `data/atlamod/worldgen/structure_set/spirit_temples.json` —
+`spacing: 40, separation: 15` in `data/elemental_paths/worldgen/structure_set/spirit_temples.json` —
 and no config value can offer a site the grid did not. So `templeChanceInHundred` is a second
 refusal on top of that grid, checked FIRST in `findGenerationPoint` because it is one hash
 where everything under it samples nine columns of terrain and loads a template.
@@ -2474,7 +2474,7 @@ where everything under it samples nine columns of terrain and loads a template.
   while searching, and a site that said yes to `/locate` and no to the generator would send
   a player to an empty field.
 - **0 is safe.** Portals fall back to the fixed temple at the world origin, which
-  `SpiritWorld.ensureTemple` builds on demand.
+  `SpiritRealm.ensureTemple` builds on demand.
 
 ### A disabled ability
 
@@ -2483,12 +2483,12 @@ where everything under it samples nine columns of terrain and loads a template.
   and `EquipPassivePacket`. The menu greys it out as well, but the menu is only ever asking —
   the client's copy of the settings arrives over the wire and a client is not the authority.
 - **A TOGGLE ALREADY RUNNING IS LET THROUGH, and that exemption is load-bearing.** Tornado,
-  Air scooter, Combustion Beam, Metal shield and the rest are switched OFF by pressing their
+  Gale Ride, Combustion Beam, Metal shield and the rest are switched OFF by pressing their
   own key, which reaches the dispatcher through the same door — so refusing it outright would
   leave anybody who had one up when it was disabled riding, shielded or draining chi with no
   way to stop. Only STARTING one is refused. Same reasoning on the hold path: only a PRESS is
   refused, never a RELEASE, or a channel already running would drain chi until it ran dry.
-- **Passives are stopped in `BendingData.hasPassiveEquipped`**, not at the dispatcher, and it
+- **Passives are stopped in `ChannelingData.hasPassiveEquipped`**, not at the dispatcher, and it
   has to be there: a passive is never cast, so it never goes through `AbilityHandler` at all
   and there is no moment of use to refuse. What every passive DOES have in common is that
   whatever it affects asks that method, so one check switches them all off including passives
@@ -2524,21 +2524,21 @@ open — nothing is ever charged, paid or cooled down for them.
   line there to be tunable.
 - The four abilities that stamp their own cooldown (Bullets, Metal shield, Chi block,
   Compressed punches) go through `AbilityTuning.cooldownTicks(key, fallback)`.
-- **Known gaps**: bloodbending pays its XP into the blood track itself, so an XP override
+- **Known gaps**: blood channeling pays its XP into the blood track itself, so an XP override
   there adds MAIN-level XP on top; Mine's per-second extra and Raised earth's `onStart`
   price are taken inside the ability and are not covered; skill tree descriptions quote
   the shipped numbers.
 
-## The Avatar's torn portal
+## The Paragon's torn portal
 
-Meditate as the Avatar and bend anyway — five casts inside ten seconds, without moving —
-and a way into the Spirit World tears open in front of you. It stands fifteen seconds.
+Meditate as the Paragon and channel anyway — five casts inside ten seconds, without moving —
+and a way into the Spirit Realm tears open in front of you. It stands fifteen seconds.
 
 - **It reuses the activation sequence that already existed.** `SpiritPortals.recordUse`
   has counted five casts in ten seconds since portals were built; all that is new is a
   second thing to do when the count lands. Nothing about the counting changed.
 - **A FRAME IS TRIED FIRST, ALWAYS** (`tryLight(player) || tryTear(player)`). The two
-  triggers overlap — an Avatar can perfectly well meditate inside a temple — and this
+  triggers overlap — a Paragon can perfectly well meditate inside a temple — and this
   ordering means the behaviour that already existed is never taken away by the new one.
   It is also plainly the better outcome: a lit frame lasts a minute and has a temple with
   a permanent way home at the far end, where a tear lasts fifteen seconds and lands you on
@@ -2546,7 +2546,7 @@ and a way into the Spirit World tears open in front of you. It stands fifteen se
 - **Meditating is what makes the trigger deliberate.** Meditation roots the player, and
   casting is the one thing the rooting does not stop — so five casts without moving is an
   act, not something an ordinary fight produces by accident. That is the whole reason the
-  condition is "while meditating" rather than just "as the Avatar".
+  condition is "while meditating" rather than just "as the Paragon".
 - **Three by three, opened two blocks in front, standing across the look** so you walk into
   its face rather than along its edge. Three is tried if two will not fit.
 - **All of the footprint must be AIR, or none of it is filled.** The same rule every
@@ -2565,7 +2565,7 @@ and a way into the Spirit World tears open in front of you. It stands fifteen se
   unloading and to a save; a blockstate is saved with the chunk and cannot go out of step
   with the block it describes. Both values map to the same two models, so the blockstate
   file gained variants but no art, and portals already in old saves read back as `false`.
-- **`SpiritWorld.islandArrivalNear` is the dimension's SECOND arrival.** A temple portal
+- **`SpiritRealm.islandArrivalNear` is the dimension's SECOND arrival.** A temple portal
   leads to the nearest temple, which is the whole navigation of the place. This one leads
   to open ground on the island nearest wherever it was torn, with nothing on it.
 - **The island is found by ARITHMETIC, not by looking**, which is what lets it answer for
@@ -2588,13 +2588,13 @@ traveller had looked around — so the trip was either rushed or the portal had 
 by the time they turned round. Walking into an island portal now simply puts you down on
 the island. Nothing stands over you.
 
-The way home is its own ritual: **meditate five seconds in the Spirit World, then punch the
+The way home is its own ritual: **meditate five seconds in the Spirit Realm, then punch the
 air.**
 
 - **It had to be a different ritual from the tear**, because the tear's own one is
-  impossible on that side — it wants five casts and nothing bends in the Spirit World.
-  Meditation is the one thing a bender can still do there, so the way home is paid for in
-  stillness rather than in bending.
+  impossible on that side — it wants five casts and nothing channels in the Spirit Realm.
+  Meditation is the one thing a channeler can still do there, so the way home is paid for in
+  stillness rather than in channeling.
 - **Where it leads is not the ritual's business.** It lays an ordinary spirit portal, and
   every spirit portal on that side already means "out": `SpiritTravel.through` sends
   whatever walks into one back to the position it entered from. So the return needed no
@@ -2607,95 +2607,95 @@ air.**
   it, and somebody chipping away at the ground in front of them should not have the world
   open up by accident. Entities are not distinguished — `Entity#pick` only traces blocks —
   which is a knowing gap rather than an oversight: a mob standing in front of a meditating
-  Avatar is a rare enough false positive to be worth the simpler check.
+  Paragon is a rare enough false positive to be worth the simpler check.
 - **The click is CONSUMED**, checked before anything else in `LeftClickTriggerPacket`. The
   same press would otherwise also release whatever two-phase ability happened to be armed,
   and somebody sitting in meditation asking for a portal did not mean to loose a fireball
   at the same moment.
-- **Avatar only**, matching the way in. Worth knowing the consequence: somebody who is NOT
-  the Avatar and follows one through a torn portal cannot open their own way back, and has
-  to find a temple (`/locate structure atlamod:spirit_temple`) and walk.
-- **Both of the Avatar's portals are scheduled on BOTH sides.** `activate`'s single `if` —
+- **Paragon only**, matching the way in. Worth knowing the consequence: somebody who is NOT
+  the Paragon and follows one through a torn portal cannot open their own way back, and has
+  to find a temple (`/locate structure elemental_paths:spirit_temple`) and walk.
+- **Both of the Paragon's portals are scheduled on BOTH sides.** `activate`'s single `if` —
   overworld portals get a clock, spirit ones do not — is what makes a temple portal a
   permanent way home. A torn one is not a temple, and a permanent hole on a random island
   is exactly what it must not leave behind, so `openAt` always schedules.
 
-## The Avatar
+## The Paragon
 
-Four commands, covered by the permission gate on the `/bend` root:
-- `/bend avatar <player>` — names that player the Avatar
-- `/bend avatar cycle start` — begins the cycle at earth
-- `/bend avatar remove` — takes the title off whoever holds it
-- `/bend avatar cycle stop` — ends the cycle and leaves nobody the Avatar
+Four commands, covered by the permission gate on the `/paths` root:
+- `/paths paragon <player>` — names that player the Paragon
+- `/paths paragon cycle start` — begins the cycle at earth
+- `/paths paragon remove` — takes the title off whoever holds it
+- `/paths paragon cycle stop` — ends the cycle and leaves nobody the Paragon
 
-- **The Avatar's state is split in two, and the split is the design.** Per-player
-  facts (are you the Avatar, lives left, which elements you had first) live on
-  `BendingData`, where every check reaches them cheaply and `copyOnDeath` carries
+- **The Paragon's state is split in two, and the split is the design.** Per-player
+  facts (are you the Paragon, lives left, which elements you had first) live on
+  `ChannelingData`, where every check reaches them cheaply and `copyOnDeath` carries
   them through a death. Facts about the WORLD (is the cycle running, which element
-  it has reached, who holds the title) live on `avatar/AvatarState`, a LEVEL
-  attachment on the overworld — `ModAttachments.AVATAR_STATE`. Same mechanism as
-  `BENDING_DATA` with a level as the holder, so it serialises with the world for
+  it has reached, who holds the title) live on `paragon/ParagonState`, a LEVEL
+  attachment on the overworld — `ModAttachments.PARAGON_STATE`. Same mechanism as
+  `CHANNELING_DATA` with a level as the holder, so it serialises with the world for
   free: `ServerLevel`'s constructor calls `LevelAttachmentsSavedData.init`, whose
   `isDirty()` always returns true, so mutating the state in place is enough to save
   it. No `SavedData` of our own was needed.
-- **There is only ever ONE Avatar.** `grant` revokes the previous holder first, so
+- **There is only ever ONE Paragon.** `grant` revokes the previous holder first, so
   naming a second one is a handover rather than a second title.
 - **The title is tracked by UUID as well as by the flag, and the duplication is
   load-bearing.** The flag is what everything reads, but it lives on the player —
-  which is unreachable while they are logged out. The UUID on `AvatarState` is what
-  lets `/bend avatar remove` and `cycle stop` revoke an OFFLINE Avatar: the command
-  clears the UUID, and `Avatar.checkOnLogin` strips the stale flag the moment they
+  which is unreachable while they are logged out. The UUID on `ParagonState` is what
+  lets `/paths paragon remove` and `cycle stop` revoke an OFFLINE Paragon: the command
+  clears the UUID, and `Paragon.checkOnLogin` strips the stale flag the moment they
   come back.
-- **Becoming the Avatar SNAPSHOTS the elements you already had** (`preAvatarElements`,
+- **Becoming the Paragon SNAPSHOTS the elements you already had** (`preParagonElements`,
   persisted). Losing it restores exactly that set. The obvious alternative — "keep
   only the main element" — would quietly destroy anything the player had earned or
-  been granted with `/bend add` beforehand, which is real data loss from what is
+  been granted with `/paths add` beforehand, which is real data loss from what is
   meant to be a reversible flag.
 - **The cycle runs earth -> fire -> air -> water and then round again**, picking at
   random among ONLINE players whose `getMainElement()` (their FIRST chosen element)
   matches. The index wraps via `Math.floorMod` rather than being clamped.
 - **An element nobody can claim is SKIPPED, not waited on.** Earth with no
-  earthbender online moves straight to fire, fire to air, air to water. `findAvatar`
+  earth channeler online moves straight to fire, fire to air, air to water. `findParagon`
   runs at most ONE full lap, and that bound is what makes it safe: four advances come
   back round to where it started, so a lap that finds nobody at all leaves the cycle
   exactly as it was rather than spinning the index.
-- **The just-fallen Avatar is filtered out of the handover — unless they are the only
+- **The just-fallen Paragon is filtered out of the handover — unless they are the only
   candidate.** That only bites when the lap comes all the way back to their own
-  element, i.e. nobody online bends anything else. The title should pass ON where it
+  element, i.e. nobody online channels anything else. The title should pass ON where it
   can, but putting them back when they are alone is what stops a single-player world
-  ending up with a running cycle that can never have an Avatar again.
+  ending up with a running cycle that can never have a Paragon again.
 - **Nobody qualifying AT ALL is a WAIT, not a failure**, and now means exactly that:
   an empty server, or one where nobody has chosen an element. The search retries
   every 5 seconds from the server tick, so the title lands on the first qualifying
   player to log in. `cycle start` says so explicitly rather than reporting success
   and appearing to do nothing. The search costs a player-list walk only while there
-  is no Avatar; a cycle with one in place does no work at all.
+  is no Paragon; a cycle with one in place does no work at all.
 - **The element is NOT named when the cycle turns on a death.** The search skips
   past empty elements, so where it lands is not necessarily the next one along —
   `grant` announces whoever it settles on, and only a search that finds nobody needs
   a line of its own.
-- **`/bend avatar remove` does NOT stop or advance the cycle.** The Avatar was taken
+- **`/paths paragon remove` does NOT stop or advance the cycle.** The Paragon was taken
   away, not defeated, so the search resumes on the SAME element. `cycle stop` is the
   command for ending the cycle, and it also sweeps every online player rather than
-  only the tracked one, since "remove all avatars" is what it promises.
+  only the tracked one, since "remove all paragons" is what it promises.
 - **Three lives, spent in `LivingDeathEvent`.** The decrement runs on the DYING
   player's data, which is correct: that event fires before `PlayerEvent.Clone`, so
-  it is carried onto the new body along with everything else. The avatar fields are
+  it is carried onto the new body along with everything else. The paragon fields are
   copied by hand in `Clone` as well as by `copyOnDeath`, because that event also
   fires on a dimension change where `copyOnDeath` does not — without it, walking
   into the Nether would cost a player the title.
 - On the third death the title is stripped and, if the cycle is running, it advances
-  to the next element and looks for a new Avatar immediately. A hand-named Avatar who
+  to the next element and looks for a new Paragon immediately. A hand-named Paragon who
   runs out simply stops being one.
-- **The last stand ("Avatar State"): Resistance II, Regeneration II and Glowing
-  below 3 hearts**, taken back off above it. Glowing is what makes an Avatar in
+- **The last stand ("Paragon State"): Resistance II, Regeneration II and Glowing
+  below 3 hearts**, taken back off above it. Glowing is what makes a Paragon in
   trouble unmistakable to everyone else, not just to themselves.
-- **The "Avatar State Active" line is derived entirely CLIENT-SIDE** from the health
-  and the Avatar flag, both of which the client already has. The server applies the
+- **The "Paragon State Active" line is derived entirely CLIENT-SIDE** from the health
+  and the Paragon flag, both of which the client already has. The server applies the
   buffs off those same two facts, so a packet announcing the state would be a second
   source of truth that could only ever disagree with the first. It mirrors the
-  server's condition exactly, `isAlive()` included — without that a dead Avatar reads
-  as being in the Avatar State behind the death screen. Drawn right under the lives
+  server's condition exactly, `isAlive()` included — without that a dead Paragon reads
+  as being in the Paragon State behind the death screen. Drawn right under the lives
   hearts, top right.
 - Regeneration is only re-applied once the previous instance has
   EXPIRED, with its duration derived from the amplifier (`50 >> amplifier`) — the
@@ -2704,18 +2704,18 @@ Four commands, covered by the permission gate on the `/bend` root:
   permanent icon that never heals. Resistance is not counter-driven and is simply
   topped up, but still not every tick, since each `addEffect` is a packet.
 - **The buffs are only removed if we were the ones who applied them** — the
-  amplifier is checked as well as the transient `avatarBuffed` flag, so a potion the
+  amplifier is checked as well as the transient `paragonBuffed` flag, so a potion the
   player drank is left alone. Water heal and the last stand cooperate rather than
   fight, since both gate on `getEffect(REGENERATION) == null`.
-- `Avatar.tick` runs for every player every tick and the non-Avatar path is two
+- `Paragon.tick` runs for every player every tick and the non-Paragon path is two
   boolean reads, because taking the buffs off when the title is lost is as much its
   job as putting them on.
 - **The HUD counter uses the VANILLA heart sprites** (`hud/heart/full` and
   `hud/heart/container`), not a text glyph: they are the game's own idiom for lives,
   they follow the player's resource pack, and a spent life leaves its empty container
-  behind so the row keeps its width. Drawn top right, and only for the Avatar.
-- `SyncAvatarPacket` is the client's only source for this — a packet of its own
-  because `SyncBendingDataPacket` is already at the six fields
+  behind so the row keeps its width. Drawn top right, and only for the Paragon.
+- `SyncParagonPacket` is the client's only source for this — a packet of its own
+  because `SyncChannelingDataPacket` is already at the six fields
   `StreamCodec.composite` takes, the same reason passives and upgrades have theirs.
   Sent on login, respawn and dimension change as well as on every change, since the
   client's copy is rebuilt in all three.
@@ -2723,10 +2723,10 @@ Four commands, covered by the permission gate on the `/bend` root:
   - Drown (renamed from the design doc's "Water bubble"; CHARGED up to 5s and fires on
     release like Fire blow. Pops every air bubble and then keeps the victim without air
     — 5s of drowning at a 1s charge, 15s at 5s, one heart a second throughout, and it
-    ENDS EARLY the moment the bender loses sight of them. 250 chi, 15 xp, 30s cooldown)
+    ENDS EARLY the moment the channeler loses sight of them. 250 chi, 15 xp, 30s cooldown)
   - water breathing (PASSIVE — air is topped up every tick rather than granted as a
     potion effect, so nothing can dispel it and no timer is ever shown. Also makes the
-    bender immune to Drown)
+    channeler immune to Drown)
   - Tsunami (CHARGED 3s, then a wall of water 9 across and 4 high rolls 20 blocks out,
     hitting everything once for 20.0 and carrying it along — still exactly enough to
     one-shot a zombie (cut from 24.0), and `indirect_magic` bypasses armour so a geared
@@ -2747,9 +2747,9 @@ Four commands, covered by the permission gate on the `/bend` root:
   5. Break it and the wave spawns real flowing water that nothing is tracking, which stays
   long after the wave has gone. Slowing the wave to a step every 2 ticks while still 4
   slices deep did exactly that; depth is 2 now.
-- **Tsunami costs more chi than a new bender can hold**, like Fire Rain: `getMaxChi()` is
+- **Tsunami costs more chi than a new channeler can hold**, like Fire Rain: `getMaxChi()` is
   `500 + level*100`, so 750 needs level 3. A gate, not a bug.
-- **water breathing answers Drown.** A bender who cannot run out of air cannot be
+- **water breathing answers Drown.** A channeler who cannot run out of air cannot be
   drowned, so `Drownings` DROPS a victim wearing it rather than ignoring them — otherwise
   the two masterclass abilities would spend fifteen seconds setting the same air value
   back and forth every tick, and the victim would watch their bubbles flicker.
@@ -2761,36 +2761,36 @@ Four commands, covered by the permission gate on the `/bend` root:
 - Drown picks its victim by distance from the aim LINE rather than by a raycast, so a cast
   does not have to be pixel-perfect on something that is moving; nearest along the line
   wins. `canStart` runs both when the charge begins and again when it lands, so a target
-  breaking line of sight during the wind-up costs the bender nothing.
+  breaking line of sight during the wind-up costs the channeler nothing.
 - Water Balanced path COMPLETE:
   - Water Manipulation (look at a water SOURCE block and press the key to take hold of
     it; it rides your crosshair until left click sets it down. 50 chi, 5 xp, no
     cooldown)
-  - Water Surf (TOGGLE, and Air scooter's twin — press once to get on, again to get
+  - Water Surf (TOGGLE, and Gale Ride's twin — press once to get on, again to get
     off. Carried across the WATERLINE wherever you look, LYING FLAT along it.
     Ends when the water does. 10 chi/sec, 4 xp/sec, no cooldown. "Swift Current"
     (10 levels) doubles the speed)
   - Water Sphere (channeled; holds the water back in a 5-block sphere so oceans can be
-    walked through. Water closes in behind as the bender moves and the whole pocket
+    walked through. Water closes in behind as the channeler moves and the whole pocket
     fills in on release. 2 chi/sec, 2 xp/sec, no cooldown)
 - **The sphere changes blocks WITHOUT neighbour updates** (`Block.UPDATE_CLIENTS`), which
   is load-bearing. Emptying a block mid-ocean the ordinary way tells every neighbouring
   water block to reconsider itself and they flow straight back in — the pocket would
   fight the sea every tick and churn its whole boundary. Suppressing the update leaves
   the surrounding water believing nothing happened.
-- Every emptied block is remembered so it can be put back; otherwise a bender could
+- Every emptied block is remembered so it can be put back; otherwise a channeler could
   drain an ocean by walking across the bottom of it. Restoring skips anything no longer
   air, so building inside your own pocket survives. Closed on release, death, logout,
   level unload and dimension change.
 - **Two separate passes, and they run at different rates.** The pocket already claimed
   is re-cleared EVERY tick (~515 lookups) because water does creep back in and that is
-  what a bender actually sees. The expensive outward scan (~1300) only runs when they
+  what a channeler actually sees. The expensive outward scan (~1300) only runs when they
   move to a new block, plus a forced rescan each second. Doing only the outward scan on
   a timer meant someone standing still watched the sea close on them and snap away again.
 - **Water Surf lies FLAT, and getting a player into a pose takes THREE mechanisms.**
   This is worth knowing before trying it again for anything else. `Player#updatePlayerPose`
   recomputes the pose from scratch every tick on BOTH sides, so `setPose` alone is
-  undone immediately — the same trap that killed `Pose.SITTING` for Air scooter.
+  undone immediately — the same trap that killed `Pose.SITTING` for Gale Ride.
   - The SERVER is settled with NeoForge's `Player#setForcedPose`, which
     `updatePlayerPose` returns from before looking at anything else.
   - Everyone WATCHING is settled with `setSwimming(true)`. That is a shared flag, so it
@@ -2800,7 +2800,7 @@ Four commands, covered by the permission gate on the `/bend` root:
     passenger is never swimming), so `Rides.advance` re-asserts it every tick.
   - The rider's OWN client is the one copy neither reaches, and `ClientEvents` forces
     the pose there from a POST tick, after the player's own tick has had its say.
-  `BendingSeat` carries a synched `LAYING` flag purely so that client half knows to.
+  `ChannelingSeat` carries a synched `LAYING` flag purely so that client half knows to.
   Kept separate from `seated`, because sitting is a question the VEHICLE answers
   (`shouldRiderSit`) where a pose belongs to the player.
 - **Water Surf used to lay invisible platform blocks; it does not any more.** That
@@ -2813,7 +2813,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   every tick has the server correcting the client constantly, which is the rubber-band
   that made Fire Rocket's old height cap feel bad.
 - **`abilities/HeldBlocks.java` is the block-moving system**, written element-agnostic
-  because earthbending is expected to lean on it — nothing in it knows what the block
+  because earth channeling is expected to lean on it — nothing in it knows what the block
   is. The block is genuinely REMOVED on grab and put back on place, so it moves rather
   than being copied. Visual is a `FallingBlockEntity` with gravity off and its `time`
   pinned at 0 (its own timer would otherwise drop it as an item); fluids have no model
@@ -2822,27 +2822,27 @@ Four commands, covered by the permission gate on the `/bend` root:
   disconnect, level unload, and changing dimension mid-carry. The block is out of the
   world while held, so any missed path would silently destroy it — which is a far worse
   failure than an awkward drop.
-- **Cold water (PASSIVE, Water Offensive)**: ice and snow count as a bending source,
-  free like open water, but ONLY the block the bender is standing directly on. Water's
+- **Cold water (PASSIVE, Water Offensive)**: ice and snow count as a channeling source,
+  free like open water, but ONLY the block the channeler is standing directly on. Water's
   whole constraint is supply, and this widens it without removing it — a frozen lake or
-  a snowfield becomes bendable ground where before it was as dry as a desert. The
+  a snowfield becomes channelable ground where before it was as dry as a desert. The
   "directly on" rule is what keeps it a passive rather than a free pass: open water
   works from fifteen blocks, this from zero.
 - It is a third source inside `WaterSupply.tryConsume`, checked BEFORE the canteen so a
-  bender stood on ice does not quietly drain one while surrounded by bendable ground.
+  channeler stood on ice does not quietly drain one while surrounded by channelable ground.
   It reads `BlockTags.ICE` and `BlockTags.SNOW` rather than a list of blocks, and checks
   the block at the feet as well as the one below — a snow LAYER is walked on rather than
   stood above, so refusing that would fail on the most obvious case it exists for.
 - **Adding it made water's Offensive path four abilities rather than three**, which
   means anyone who had "completed" that path no longer has until they buy it. That
-  matters beyond the tree: the Icebending Scroll gates on two completed water paths.
+  matters beyond the tree: the Ice Channeling Scroll gates on two completed water paths.
 - Water Offensive path COMPLETE:
   - Water ball (hold 2s to gather, then LEFT CLICK to throw — the same
     ChargedAbility + TwoPhaseAbility pairing Fireball uses. 6.0 damage and a shove on
     hit. 50 chi, 5 xp, 2s cooldown from the throw)
   - Water stream (must be LOOKING at water within 20 blocks; tears a stream out and
     holds it for a 3s window, then left click to throw for 8.0 damage. 100 chi, 8 xp,
-    3s cooldown from the throw — it had none, but a bender stood beside a pond has
+    3s cooldown from the throw — it had none, but a channeler stood beside a pond has
     effectively unlimited chi, so "the 3s window and the 100 chi are the whole limit"
     came out as a stream every three seconds forever. Ten seconds was the first
     correction and overshot; three is the deliberate middle. Chi is spent on the DRAW, so
@@ -2862,7 +2862,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   — the chi was already spent at arm time — and drains the HUD meter as the window
   closes, so the bar doubles as the timer.
 - Water stream does NOT remove the water block it draws from. Draining sources would
-  let a bender empty a pond a stream at a time, and with infinite sources it would only
+  let a channeler empty a pond a stream at a time, and with infinite sources it would only
   refill, so the pull is drawn rather than performed. Like Water heal it also opts out
   of `requiresWater()`: needing a body of water in SIGHT is stronger than the generic
   15-block rule, so charging a canteen unit for water in plain view would be nonsense.
@@ -2870,7 +2870,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   `ServerEvents` used to draw flame for anything armed, which rendered a gathered body
   of water as fire — what is being held differs per ability, so the tick loop cannot
   get it right for all of them.
-- **Projectiles are tracked, not entities**: `BendingProjectiles` keeps shots in flight in
+- **Projectiles are tracked, not entities**: `ChannelingProjectiles` keeps shots in flight in
   a static list, advances them from `ServerTickEvent.Post`, and draws them purely with
   particles. A custom projectile entity would need its own `EntityType` and a client
   renderer — and an entity spawning without a renderer takes the client down, which is
@@ -2902,7 +2902,7 @@ Four commands, covered by the permission gate on the `/bend` root:
 - **Ability upgrades**: abilities declare their own via `Ability.getUpgrades()`
   returning `AbilityUpgrade(key, name, description, cost)` — so an upgrade lives beside
   the code that reads it rather than in a table that has to be kept in step. Bought
-  with levels, stored in `BendingData.unlockedUpgrades` (persisted + synced by
+  with levels, stored in `ChannelingData.unlockedUpgrades` (persisted + synced by
   `SyncUpgradesPacket`), checked with `data.hasUpgrade(key)`.
 - **Right click an ability node** in the skill tree to pop its upgrades out beside it;
   right click again, or off a node, to close. The panel's left clicks are taken BEFORE
@@ -2912,7 +2912,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   real and belonging to that ability, not already owned, levels affordable. The client
   applies the purchase locally for an immediate response, but is not trusted.
 - **Water heal has the first one**: "Potent Healing" (10 levels) raises it to
-  Regeneration II AND lets the bender heal on snow (`BlockTags.SNOW` — layers, blocks
+  Regeneration II AND lets the channeler heal on snow (`BlockTags.SNOW` — layers, blocks
   and powder snow, underfoot or stood in).
   The effect DURATION is derived from the amplifier (`50 >> amplifier`),
   because regeneration's heal interval halves at II — a fixed duration would have left
@@ -2921,7 +2921,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   Water heal itself sets `requiresWater()` FALSE: its own "must be standing in it" test
   is strictly stronger than the generic 15-block rule, so the canteen check would only
   ever bite in the case the snow upgrade exists to allow — charging a unit for water
-  the bender is stood on.
+  the channeler is stood on.
 - **Rooting**: `ChanneledAbility.rootsPlayer()` (both shields) pins the player. Done on
   BOTH sides — the server zeroes horizontal motion (leaving downward alone, so a shield
   is not also a hover), and `RootedPacket` tells the client to stop taking movement
@@ -2941,22 +2941,22 @@ Four commands, covered by the permission gate on the `/bend` root:
     Balanced's "Air pull", so Balanced #2 is now "Airpush" and nothing was lost. Both
     slots still exist, only the two names traded places). Water push and Fire push
     reversed: a 60-degree forward cone reaching 12 blocks that DRAGS everything in it
-    towards the bender and leaves it Disoriented for 5s. No damage at all — pure
+    towards the channeler and leaves it Disoriented for 5s. No damage at all — pure
     control, like Water push. 100 chi, 10 xp, 2s cooldown. Pull speed SCALES with
     distance (`0.35 + 0.07 * d`, capped at 1.1) because knockback is an impulse
     decaying under drag: one flat value tuned for a target 3 blocks away leaves one at
     12 blocks barely stirring. Targets already within 1.5 blocks are only disoriented,
-    or they'd be yanked straight through the bender and out the far side.
+    or they'd be yanked straight through the channeler and out the far side.
   - Air jump (CHARGED 2s and FIRES ON RELEASE, like Fire blow — the whole point is
     picking a height, so a charge that only paid out when full would waste 19 of the
     20 blocks. 5 blocks at the shortest press up to 20 at a full hold, and ZERO fall
     damage on the way down. 100 chi, 10 xp, no cooldown)
   - Air Aura (channeled; a shell of racing wind that turns PROJECTILES aside and
     cancels fall damage, but NOT melee — getting close enough to swing is how you
-    beat it. 5 chi/sec, 1 xp/sec, no cooldown, no cap. Roots the bender, until its
+    beat it. 5 chi/sec, 1 xp/sec, no cooldown, no cap. Roots the channeler, until its
     one upgrade "Buffeting Wind" (10 levels) adds melee protection AND frees them to
     walk while it is up, and doubles the rate to 10 chi/sec. XP stays at 1/sec)
-  - Wind (one enormous gust across everything the bender can SEE — 20 blocks, one
+  - Wind (one enormous gust across everything the channeler can SEE — 20 blocks, one
     heart each and 20 SECONDS of Slowness I. Hits players as well as mobs. 150 chi,
     15 xp, 30s cooldown. The damage is a scratch; twenty seconds of Slowness on a
     whole screenful at once is the actual weapon)
@@ -2978,7 +2978,7 @@ Four commands, covered by the permission gate on the `/bend` root:
     chi/sec, 2 xp/sec, no cooldown, no cap. The damage is the least of it — nothing
     caught in it can close the distance while it runs)
 - Air Balanced path COMPLETE:
-  - Air scooter (TOGGLE — press once to get on, again to get off. Carries the rider
+  - Gale Ride (TOGGLE — press once to get on, again to get off. Carries the rider
     where they LOOK at sprint speed, exactly ONE block off the ground, gliding down
     over drops and climbing over rises. Stops dead over water. 5 chi/sec, 1 xp/sec,
     no cooldown. One upgrade, "Slipstream" (10 levels), doubles the travel speed)
@@ -2986,18 +2986,18 @@ Four commands, covered by the permission gate on the `/bend` root:
     of Disorientation, but everything caught is thrown AWAY — and unlike the pull,
     this one hurts, for 2 hearts. 100 chi, 10 xp, 2s cooldown)
   - Air spout (CHARGE 3s, then THREE small tornadoes set down one per left click,
-    wherever the bender is looking out to 20 blocks. Each stands 10 blocks high for
+    wherever the channeler is looking out to 20 blocks. Each stands 10 blocks high for
     60 SECONDS, throwing anything that walks into it up and around. 150 chi, 15 xp,
     15s cooldown from the LAST of the three)
 - Air Masterclass path IN PROGRESS (gated behind the other three, which are all done):
   - breathless (CHARGED up to 3s, fires on release like Drown. Pulls the air out of a
     victim's lungs: every tick of charge buys FIVE of suffocation, so 1s held is 5s
     suffered and the 3s ceiling is 15s, at one heart a second throughout — and like
-    Drown it ends early if the bender loses sight of them. Also leaves
+    Drown it ends early if the channeler loses sight of them. Also leaves
     them Disoriented for 5s. 150 chi, 15 xp, 30s cooldown)
   - Tornado (TOGGLE — press to raise, press again to put it down, whether or not its
     30 seconds have run. An Air spout grown up: TWICE the height (20 blocks) and twice
-    the throwing strength, and it follows the bender's CROSSHAIR instead of standing
+    the throwing strength, and it follows the channeler's CROSSHAIR instead of standing
     where it was put. 250 chi, 25 xp, 10s cooldown)
   - Flight (PASSIVE — equip it in the Passives tab. Grants vanilla creative flight at
     exactly HALF speed, 0.025 against creative's 0.05. No chi, no XP, like every other
@@ -3006,7 +3006,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   opposite of Fire Rocket. The rocket re-asserts `flying` every tick so only its
   keybind can end it; this is CREATIVE flight, and a creative flier is free to land and
   take off again with a double-tap of space. Forcing the flag would take that away.
-- **`BendingData.passiveFlightGranted` exists because the flight flags are PERSISTED**
+- **`ChannelingData.passiveFlightGranted` exists because the flight flags are PERSISTED**
   (`Abilities#addSaveData`). Something has to remember that WE opened them, or
   unequipping the passive in mid-air would leave permanent creative flight — the same
   trap Fire Rocket has, and it shares the login/respawn safety nets. The flag is
@@ -3021,13 +3021,13 @@ Four commands, covered by the permission gate on the `/bend` root:
   taken away, only while actually flying, and horizontal flight at the ceiling is left
   completely alone. Pinning a position server-side is exactly what made Fire Rocket's
   old height cap rubber-band — the client owns the player's movement and simply
-  disagrees — where cancelling the climb reads as a ceiling to push against. A bender
+  disagrees — where cancelling the climb reads as a ceiling to push against. A channeler
   already above the line is not shoved down either; they just cannot go higher.
 - **Advanced meditating (air, CENTRE)**: two firsts at once. It belongs to NO path —
-  bought outright for 20 levels whichever way the bender has gone — and it is a PASSIVE
+  bought outright for 20 levels whichever way the channeler has gone — and it is a PASSIVE
   that modifies something else rather than doing anything itself.
 - **What it modifies is MEDITATION**, which has existed on its own key since long before
-  it: holding that roots the bender and paid a flat 2 xp a second at any level. The
+  it: holding that roots the channeler and paid a flat 2 xp a second at any level. The
   passive changes that rate and nothing else, so there is no key to press and nothing
   new to learn. The rate STEPS UP by 2 every ten levels — 2/sec to start, 4 at level 10,
   6 at 20, 8 at 30 — capping at 10 from level 40 until the "Pure peace" upgrade (40
@@ -3042,7 +3042,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   intended rule and the 8 was the slip, so the rate steps by 2. Integer division, so it
   changes at each ten-level boundary rather than creeping up level by level.
 - **The base of 2 is load-bearing**: the ability costs 20 LEVELS, which are spent, so a
-  bender can be at level 0 the moment they unlock it. Starting from nothing would mean
+  channeler can be at level 0 the moment they unlock it. Starting from nothing would mean
   paying twenty levels for something that gathered nothing at all. 2 is also exactly
   what ordinary meditation gives, so this is never worse than what it improves on.
 - **`ElementPaths.centre` is deliberately NOT part of `all()`.** A centre ability belongs
@@ -3059,17 +3059,17 @@ Four commands, covered by the permission gate on the `/bend` root:
   masterclass entry, "Air beam", was dropped by decision and removed from the tree.
 - Earth Defensive path COMPLETE:
   - Earth wall (HELD: one block of height per second, capping itself at 7 and ending
-    the channel there. 6 blocks across the bender's facing, 2 blocks in front,
+    the channel there. 6 blocks across the channeler's facing, 2 blocks in front,
     following Firewall's geometry. Slides up smoothly, stands 30 seconds, slides back
     down. Flat 50 chi and 5 xp however tall it ends up, 1s cooldown from release)
   - Earth pillar (Earth wall narrowed to ONE column, and otherwise identical — same
     7 ceiling, same 30 seconds standing. Rises half again as fast though — 13 ticks a
     block against the wall's 20. 10 chi, 1 xp, 1s cooldown)
   - Earth armor (+10 ARMOR points for 120 seconds, worn as a suit of stone drawn over
-    whatever the bender already has on. 150 chi, 15 xp, 150s cooldown)
+    whatever the channeler already has on. 150 chi, 15 xp, 150s cooldown)
 - Earth Offensive path COMPLETE:
   - Earth spike (TAPPED, not held. A single column driven up in 2 TICKS wherever the
-    bender is LOOKING — 3 blocks tall with a stalagmite tip — hurting anything within
+    channeler is LOOKING — 3 blocks tall with a stalagmite tip — hurting anything within
     1.8 blocks — the whole ring of neighbouring blocks — for 4.5 hearts as it comes
     up, the CASTER included. Stands 5 seconds, then sinks. 100 chi, 5 xp, 5s cooldown
     — raised from 1s, at which it could be laid almost continuously under a target)
@@ -3097,7 +3097,7 @@ Four commands, covered by the permission gate on the `/bend` root:
     blocks, in every direction. No damage and no displacement — half a minute of both
     effects at once is a fight already decided. The camera SHAKE is only the first 5
     seconds of that. 150 chi, 15 xp, 30s cooldown)
-  - Ravine (tears the ground open in front of the bender — 10 blocks out, 5 deep, 5
+  - Ravine (tears the ground open in front of the channeler — 10 blocks out, 5 deep, 5
     across. Permanent: nothing is put back and nothing drops. 200 chi, 20 xp, 50s
     cooldown)
   - Earth sink (Ravine's cleverer sibling: opens a pit 12 long, 6 wide and 7 deep in
@@ -3128,7 +3128,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   blocks. Fluids are left alone too: breaking them only drains whatever is sitting
   nearby, and a ravine that fills on its own when it opens into water is a far more
   interesting outcome than an empty trench.
-- **It starts a block OUT, not underfoot**, so a bender does not drop into their own
+- **It starts a block OUT, not underfoot**, so a channeler does not drop into their own
   ravine the instant they open it.
 - **The caster is spared the EFFECTS but not the SHAKE**, which is the whole character
   of the ability. `getEntities(player, box)` already excludes them from the sweep — the
@@ -3148,15 +3148,15 @@ Four commands, covered by the permission gate on the `/bend` root:
   cannot do that: it knows one chi figure per ability. So `getChiCost` is the BASE only
   — gated and taken the usual way — and the per-second extra is taken in `execute`,
   where `getLastChargeTicks` is finally known.
-- **A bender who cannot afford the whole charge gets the part they can.** `execute`
+- **A channeler who cannot afford the whole charge gets the part they can.** `execute`
   clamps the seconds to what their chi covers rather than refusing: they held the key
   in good faith, and doing nothing at all after five seconds is the worse answer.
-  - Earth dig (TOGGLE — the bender becomes a drill and goes underground, steered by
+  - Earth dig (TOGGLE — the channeler becomes a drill and goes underground, steered by
     the MOUSE like the other rides. 5 chi/sec, 1 xp/sec, no cooldown. Has to be started
     looking DOWN at solid ground; ends by itself when it SURFACES. About 7 blocks a
-    second — faster than a sprint, because it is earthbending's way of travelling)
+    second — faster than a sprint, because it is earth channeling's way of travelling)
   - Earth grab (a wall of ground rises 20 blocks out and rolls back IN to 5, hauling
-    every mob and player it washes over back to the bender's feet. Made of whatever the
+    every mob and player it washes over back to the channeler's feet. Made of whatever the
     far ground is; refuses water. No damage at all — pure displacement. 150 chi, 15 xp,
     20s cooldown)
 - **Earth grab is Tsunami inverted, and reuses its shape deliberately.** A moving BODY
@@ -3169,9 +3169,9 @@ Four commands, covered by the permission gate on the `/bend` root:
   hillside down behind it. Only AIR is replaced either way, so nothing is destroyed.
 - **The haul runs EVERY tick, not once per step.** Something caught early is carried
   the whole way in; shoving it once would leave it behind as the wave moved on.
-- Earth grab does no damage whatsoever. What the bender does with a mob suddenly
+- Earth grab does no damage whatsoever. What the channeler does with a mob suddenly
   deposited at their feet is the point of the ability.
-- **Earth dig is a third `Rides.Kind`**, which is what let it steer like Air Scooter
+- **Earth dig is a third `Rides.Kind`**, which is what let it steer like Gale Ride
   and Water Surf for almost nothing. Two hooks were added to `Kind` for it: `velocity`,
   because a drill is the ONE ride where up and down belong to the camera rather than to
   the terrain, and `beforeMove`, so it can take out the blocks it is about to occupy —
@@ -3185,7 +3185,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   begins on the surface with open sky above it, so "you have surfaced" cannot be
   allowed to end the ride until it has been underground at least once. A drill that
   never manages to bury itself is dropped after `BURROW_GRACE`.
-- **The drill has to beat running or nobody would use it.** It is earthbending's
+- **The drill has to beat running or nobody would use it.** It is earth channeling's
   travel ability, so it moves at about 7 blocks a second against a sprint's 5.6. It was
   briefly SLOWER than walking, which made it useless for the one thing it exists to do.
 - **It does NOT drop what it tunnels through.** At seven blocks a second that would be
@@ -3215,7 +3215,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   fall distance every tick the effect is held, so it needs no flag of ours and sees
   itself out.
 - **Running out of chi underground is deliberately NOT made safe.** The ride simply
-  stops and leaves the bender standing inside rock, and vanilla suffocation does the
+  stops and leaves the channeler standing inside rock, and vanilla suffocation does the
   rest. Digging deeper than you can pay to get out of is supposed to be a real risk.
 - **Starting requires BOTH a downward aim and solid ground.** Without the aim test a
   drill begun while looking at the horizon bores off sideways through a hillside;
@@ -3247,13 +3247,13 @@ Four commands, covered by the permission gate on the `/bend` root:
   `BuyUpgradePacket` and not merely greyed out in the menu — the client is only ever
   asking. The menu shows "Buy <name> first" on a locked row and refuses the click.
 - **Blocks are taken nearest-first** from a 7x7x7 box around the aimed block, sorted by
-  distance, so a dig always starts where the bender pointed and grows into a rough ball
+  distance, so a dig always starts where the channeler pointed and grows into a rough ball
   rather than taking an arbitrary corner. Anything with a negative destroy speed
   (bedrock, portal frames) is skipped, and so is anything holding a fluid.
 - **The trap holds its victim the way the RIDES do: by making them a PASSENGER.** A
   passenger's own movement input is never consulted — the vehicle decides where they
   are — so a trapped player simply cannot walk and a trapped mob cannot either, with no
-  effects to fight over and nothing for the server to correct. It reuses `BendingSeat`
+  effects to fight over and nothing for the server to correct. It reuses `ChannelingSeat`
   with `seated` false, so they stand rather than sit.
 - **That replaced a first attempt built out of Slowness VII and the shields'
   `RootedPacket`**, which needed two different mechanisms for players and mobs and left
@@ -3292,7 +3292,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   visibly the block that was picked up, with no blink.
 - **`HeldBlocks.take` ends a carry WITHOUT placing**, handing the block and its live
   display entity to the caller. It is the one method in that class that can lose a
-  block: whoever takes it owns putting it back. `BendingProjectiles.landBlock` is that
+  block: whoever takes it owns putting it back. `ChannelingProjectiles.landBlock` is that
   other half — a thrown block is set down where it stops, or popped as an item if the
   space is taken, because a throw that deleted its own block would make the ability a
   quiet way to dig holes.
@@ -3304,7 +3304,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   for it; the shot just moves its entity, re-parking it each tick so vanilla's own
   falling-block timer never lands it or drops it as an item.
 - Earth block refuses anything with a block entity, anything unbreakable, and anything
-  that is not a full cube — a bender should not be able to throw somebody's chest.
+  that is not a full cube — a channeler should not be able to throw somebody's chest.
 - **"Four kills a zombie" only holds because the shot PIERCES INVULNERABILITY FRAMES.**
   Vanilla ignores a second hit of equal size within ten ticks of the first, so six
   shards landing in quick succession would have five of them do nothing at all, and the
@@ -3316,13 +3316,13 @@ Four commands, covered by the permission gate on the `/bend` root:
   texture and tumble — a shard of rock rather than a puff with a damage number. Kept to
   a tight cluster with almost no spread so a shot reads as ONE fragment travelling
   rather than a trail of dust.
-- **Earth spike goes up at the CROSSHAIR, not at the bender's feet**, unlike the wall
+- **Earth spike goes up at the CROSSHAIR, not at the channeler's feet**, unlike the wall
   and the pillar. A spike that could only appear an arm's length away would be a
   defensive ability with a damage number on it. `Aiming.groundUnderLook` does the
   aiming, the same call Air spout and Tornado use.
 - **Earth spike hits its OWN caster, and passing `null` to `getEntities` is what makes
   that work.** The first argument to `Level.getEntities` is the entity to SKIP, so the
-  obvious `getEntities(player, box)` quietly excludes the bender from their own search
+  obvious `getEntities(player, box)` quietly excludes the channeler from their own search
   — which is right for something you throw and wrong for something you put in the
   ground. It also made the ability untestable on yourself: standing on your own spike
   produced nothing but suffocation damage from the block, and no radius change could
@@ -3345,20 +3345,20 @@ Four commands, covered by the permission gate on the `/bend` root:
 - **The tip is vanilla pointed dripstone**, UP + TIP, which survives on anything solid
   beneath it — the earth block under it qualifies, so it does not need propping.
 - **Earth armor is a registered MobEffect carrying an ATTRIBUTE MODIFIER**, not a
-  countdown on BendingData. `MobEffect.addAttributeModifier(Attributes.ARMOR, ...,
+  countdown on ChannelingData. `MobEffect.addAttributeModifier(Attributes.ARMOR, ...,
   ADD_VALUE)` means vanilla applies and removes the ten points in step with the effect
   itself — the duration, the removal, the cleanup on death and the inventory timer all
   come free, and "adds ten on TOP of existing armor" is simply what ADD_VALUE means.
-- **The stone look is a RENDER LAYER, not a change of equipment** (`BendingArmorLayer`,
+- **The stone look is a RENDER LAYER, not a change of equipment** (`ChannelingArmorLayer`,
   hung on both player renderers in `ModEntityRenderers`). That is what lets the ability
   keep its promise about existing armor: the real gear is untouched underneath and
   merely hidden, rather than being swapped out and needing to be given back.
 - **Mob effects are NOT synced to onlookers**, and this is the trap the visual had to
   work around: vanilla sends a player's effects only to that player, so a stone suit
-  driven off `hasEffect` would be visible to nobody but its wearer. `BendingArmorPacket`
+  driven off `hasEffect` would be visible to nobody but its wearer. `ChannelingArmorPacket`
   carries the state to everyone tracking them, broadcast from the player tick ONLY when
   it changes, plus `PlayerEvent.StartTracking` so anyone who walks up to (or logs in
-  near) an already-armored bender is told as well. Any future ability whose look has to
+  near) an already-armored channeler is told as well. Any future ability whose look has to
   be seen by others needs the same two halves.
 - **A respawned player REUSES its entity id**, on both sides (`PlayerList.respawn` calls
   `setId`, and the client's `handleRespawn` copies the old id onto the new LocalPlayer).
@@ -3367,12 +3367,12 @@ Four commands, covered by the permission gate on the `/bend` root:
   `armorSuitsShown` is transient, so it comes back empty and the change detector sees no
   change to report. Told explicitly on death AND on respawn instead. Anything else keyed
   on entity id across a death needs the same treatment.
-- `ClientBendingArmor` is also cleared on leaving a world, since ids start again in the
+- `ClientChannelingArmor` is also cleared on leaving a world, since ids start again in the
   next one and whoever inherited the number would otherwise turn up wearing stone.
 
 ### Drawn armor is one system, not one ability
 
-- **`BendingArmorSuit` is the whole of it**: a common-code enum where each constant
+- **`ChannelingArmorSuit` is the whole of it**: a common-code enum where each constant
   carries its texture and the question "is this entity wearing me". Earth armor's STONE
   and Metal armor's METAL are the two so far. Adding another = one constant plus two
   sheets; the packet carries an ordinal, the per-tick broadcast loops `values()`, and
@@ -3380,10 +3380,10 @@ Four commands, covered by the permission gate on the `/bend` root:
 - It replaced a per-ability pipeline (`EarthArmorPacket`, `ClientEarthArmor`,
   `EarthArmorLayer`, a `earthArmorShown` boolean). Metal armor would have been a second
   copy of all four, and Metal armor is not the last suit this mod will want.
-- **ONE layer draws every suit, and that is not just tidiness.** Nothing stops a bender
+- **ONE layer draws every suit, and that is not just tidiness.** Nothing stops a channeler
   holding Earth armor and Metal armor at once — different elements, independent
   cooldowns — and two layers would paint two sheets onto the same model and z-fight.
-  `BendingArmorSuit.best` picks one instead: later constants win, so metal covers stone.
+  `ChannelingArmorSuit.best` picks one instead: later constants win, so metal covers stone.
 - **The packet carries an ORDINAL, so constants may only ever be APPENDED.** Reordering
   them repaints everyone on a client running a different build. The receiving handler
   range-checks the index rather than trusting the wire.
@@ -3401,7 +3401,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   were tiled out of **vanilla's cobblestone**, which meant Mojang's pixels were sitting in
   the jar. Fine while nothing shipped; not fine for a public release on Modrinth.
 - Note the distinction that made this the ONLY texture needing the treatment: the mod's
-  other borrowings — `bending_metal` wearing `block/iron_block`, `bending_lava` wearing
+  other borrowings — `channeling_metal` wearing `block/iron_block`, `channeling_lava` wearing
   `block/lava_still`, the fire blocks wearing `block/fire_0`, the scrolls wearing
   `item/paper` — are model files that REFERENCE a vanilla path. They ship no art at all;
   the player's own copy of the game supplies it at runtime. Only a real PNG in
@@ -3421,13 +3421,13 @@ Four commands, covered by the permission gate on the `/bend` root:
   the default now: each `Wall` carries its own figure, supplied by
   `RaisedEarth.ticksPerLayer()`. Earth pillar overrides it to 13 against the wall's 20,
   because a wall is cover and taking its time is part of what it is, where a pillar is
-  a step and a bender who wants to be four blocks higher wants to be there now.
+  a step and a channeler who wants to be four blocks higher wants to be there now.
 - **Getting off an Earth dig throws you clear**, along the look. A drill ends by
   breaking out of the ground, and being set down to stand in the hole it just made is a
   flat note to finish on.
 - **The UPWARD kick is the figure that matters there, not the distance.** A drill bored
   straight up surfaces at the top of its own shaft, where a small hop simply drops the
-  bender back down the hole they came out of — there is nowhere else to land. Running
+  channeler back down the hole they came out of — there is nowhere else to land. Running
   vanilla's own step (`v = (v - 0.08) * 0.98`) forward, a lift of 1.0 climbs about six
   blocks and buys roughly two seconds of air, which is the real point: enough time to
   steer sideways onto solid ground. Slow Falling is already on them by then and
@@ -3447,7 +3447,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   held. `getMinimumChiToStart` is the gate; `onStart` does the spending.
 - **A wall outlives its channel by half a minute**, so `EarthWalls` owns all three of
   its lives — growing, standing, sinking — and the ability class owns almost nothing.
-  If the bender logs out or dies mid-raise the wall finishes at whatever height it
+  If the channeler logs out or dies mid-raise the wall finishes at whatever height it
   reached rather than growing forever with nobody to let go of the key.
 - **Columns with no ground are left OUT of the wall** rather than aborting it, which is
   what makes a wall thrown across a chasm shorter instead of broken.
@@ -3463,7 +3463,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   That ordering is the whole reason it exists: Tornado runs 30 seconds behind a 10
   second cooldown, so a cancel routed through the ordinary cast path would be refused
   as "on cooldown" for the first third of its life — and would charge another 250 chi
-  when it did work. Air scooter was moved onto the same hook, so "toggle" is now a real
+  when it did work. Gale Ride was moved onto the same hook, so "toggle" is now a real
   thing in the codebase rather than a coincidence of zero costs.
 - **Tornado and Air spout are ONE implementation** (`AirSpouts`), differing only in
   their numbers and in whether they have an owner. A `null` owner means a placed spout
@@ -3482,11 +3482,11 @@ Four commands, covered by the permission gate on the `/bend` root:
   replaced by water or simply taken away, so there is one implementation of "hold this
   thing's air at nothing and hurt it on vanilla's beat" rather than two. Three
   consequences worth knowing: **the LINE-OF-SIGHT rule is shared** — a drowning carries
-  its caster's UUID and ends the moment the bender can no longer see the victim, which
+  its caster's UUID and ends the moment the channeler can no longer see the victim, which
   makes breaking line of sight the counter-play to both and covers a caster who died,
   logged out or left the level in one test; a second cast replaces the first rather than stacking
   (that is Drownings' rule), and the water masterclass passive **water breathing
-  answers breathless too** — a bender who cannot run out of air cannot be smothered
+  answers breathless too** — a channeler who cannot run out of air cannot be smothered
   either. That cross-element counter is a happy accident of the reuse, but it is a
   sensible one and was kept deliberately.
 - **breathless is the faster, nastier half of the pair.** Drown takes 5s of charge to
@@ -3496,7 +3496,7 @@ Four commands, covered by the permission gate on the `/bend` root:
 - **`abilities/Aiming.java` is the shared "what am I pointing at" helper**, extracted
   when breathless needed the same target-picking Drown had. Nearest LIVING thing to the
   aim LINE rather than a raycast, so a cast does not have to be pixel-perfect on
-  something moving, and nearest-along-the-line wins so a bender hits what is in front
+  something moving, and nearest-along-the-line wins so a channeler hits what is in front
   rather than something further off that is better aligned. Anything else wanting a
   single target (Earth grab, for one) should use it rather than growing a third copy.
 - **A spout is neither an entity nor a block, so it is tracked** (`AirSpouts`, the
@@ -3509,24 +3509,24 @@ Four commands, covered by the permission gate on the `/bend` root:
   them a single hop. `fallDistance` is cleared while they are in it, so the fall that
   counts is the one from where they leave.
 - **A spout throws EVERYONE, its owner included.** It is a hazard put down in a place,
-  not a spell aimed at somebody, and one that politely stepped around the bender who
+  not a spell aimed at somebody, and one that politely stepped around the channeler who
   placed it would be a strange thing to walk into.
 - **Air spout's aim falls back to the ground rather than refusing.** The dispatcher
   counts the CLICK, not the outcome, so the shot is already spent by the time
   `onRelease` runs — aiming at open sky has to put a spout somewhere (the ground under
-  the end of the look) or it would silently cost the bender a third of the ability.
-- **`abilities/Rides.java` carries both Air scooter and Water Surf**, generalised out
-  of the old AirScooters when Water Surf was rebuilt in the scooter's image. The two
+  the end of the look) or it would silently cost the channeler a third of the ability.
+- **`abilities/Rides.java` carries both Gale Ride and Water Surf**, generalised out
+  of the old GaleRides when Water Surf was rebuilt in the gale ride's image. The two
   differ in only three things, all held on the `Kind` enum: where the surface IS (a
   block above solid ground, or the waterline), what makes the ride STOP (crossing
   water, or running out of it), and what it costs. Seating the rider, steering by the
   crosshair, billing and the half dozen ways a ride can end are written once.
-- **The seat is `BendingSeat`** (was AirScooterSeat), and it carries a SYNCHED
+- **The seat is `ChannelingSeat`** (was GaleRideSeat), and it carries a SYNCHED
   `seated` flag because `LivingEntityRenderer` asks the VEHICLE, not the passenger,
-  which pose to draw — so the answer has to exist client-side. Air scooter rides
+  which pose to draw — so the answer has to exist client-side. Gale Ride rides
   seated; Water Surf rides standing, because nobody surfs sitting down.
 - **Water Surf is a TOGGLE now, not a channel**, and is carried by a real entity like
-  the scooter. The old version laid invisible platform blocks under the bender every
+  the gale ride. The old version laid invisible platform blocks under the channeler every
   tick; the ride does the same job better, since a passenger is moved BY its vehicle
   and the server never has to correct the client at all. `SurfPlatformBlock` was its
   only user and has been deleted along with its blockstate and model.
@@ -3534,10 +3534,10 @@ Four commands, covered by the permission gate on the `/bend` root:
   granting Speed II, since the ride's pace is no longer the player's walking speed.
   Same key, same cost, so anyone who bought it keeps it.
 - **Water Sphere no longer requires being in water.** It simply finds nothing to hold
-  back on dry land and waits until there is some — which lets a bender raise the sphere
+  back on dry land and waits until there is some — which lets a channeler raise the sphere
   on the shore and walk in, rather than having to dive first and open it while already
   drowning.
-- **Air scooter is a TOGGLE, so it is a plain `Ability`, not a `ChanneledAbility`.**
+- **Gale Ride is a TOGGLE, so it is a plain `Ability`, not a `ChanneledAbility`.**
   The click dispatch (`UseAbilityPacket` / `consumeClick`) fires once per press, which
   is what a toggle wants; the hold dispatch built for Fire Breath reports key STATE and
   is the wrong shape entirely. `execute()` just flips: riding -> stop, otherwise start.
@@ -3549,35 +3549,35 @@ Four commands, covered by the permission gate on the `/bend` root:
   vehicle, so the server steers the seat without ever contradicting the client about
   where the player is — no rubber-banding — and the player's own WASD is simply not
   consulted, which is what "moves where you look, not where you press" requires.
-  `AirScooterSeat` deliberately does NOT override `getControllingPassenger`.
+  `GaleRideSeat` deliberately does NOT override `getControllingPassenger`.
 - **The seat is never saved** (`shouldBeSaved()` returns false). That is the whole
   answer to orphaned entities: a crash mid-ride leaves nothing on disk to come back as
   an invisible passenger-less thing no code remembers owning.
 - **The seat's box is exactly a player's 0.6 x 1.8, and that is load-bearing.**
   Passengers do not collide themselves, so the seat is what collides with the world on
-  the rider's behalf — without a real box a scooter rides through walls, and with a
+  the rider's behalf — without a real box a gale ride rides through walls, and with a
   SHORTER box it happily carries the rider into a one-block gap and suffocates them
   against the ceiling.
 - **A surface is "solid with space above it".** That definition is what stops the
-  scooter walking up sheer walls: every block of a five-block wall has another block on
+  gale ride walking up sheer walls: every block of a five-block wall has another block on
   top of it, so none qualifies, the search falls through to the ground the wall stands
   on, and the seat bumps into the wall the way it should. Ground is read both underfoot
   and `LOOK_AHEAD_TICKS` ahead, which is what turns "stops dead at a step" into "rides
   up over it".
-- **Every route out of a ride goes through `AirScooters.stop`/`forgetPlayer`** — key
+- **Every route out of a ride goes through `GaleRides.stop`/`forgetPlayer`** — key
   press, chi running out, shifting off the seat (vanilla lets a passenger dismount and
   that is treated as a normal way to end, not an error), death, disconnect, dimension
   change, level unload. There is no other way to end one, so none of them can leave a
   player stuck seated or a seat orphaned.
-- **Casting any other ability dismounts the scooter first** (`AbilityHandler`
-  `dismountScooter`, called from both entry points). Chosen over refusing the cast:
-  bending while seated on a server-steered entity is a lot of surface for odd
+- **Casting any other ability dismounts the gale ride first** (`AbilityHandler`
+  `dismountGaleRide`, called from both entry points). Chosen over refusing the cast:
+  channeling while seated on a server-steered entity is a lot of surface for odd
   interactions (rooting channels that cannot root a passenger, flight fighting the
   seat), and blocking abilities outright risks a player who feels stuck and cannot work
   out why nothing fires. On the HOLD entry point it only fires when a held ability is
-  STARTING — a key RELEASE must never dismount, or the scooter's own key would turn the
+  STARTING — a key RELEASE must never dismount, or the gale ride's own key would turn the
   toggle off the instant it was pressed.
-- Air scooter refuses to start if the player is already a passenger, rather than
+- Gale Ride refuses to start if the player is already a passenger, rather than
   stealing them out of a boat or off a horse.
 - **Airpush and Air pull share their geometry on purpose**, so knowing one teaches the
   other. The push scaling is the REVERSE of the pull's, though: a pull has to reach
@@ -3589,7 +3589,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   vanilla one. Any future ability that both damages and moves things needs the same
   ordering.
 - **Hovering a full block has a headroom cost worth knowing.** HOVER is the RIDER'S
-  FEET, and the seat is a player's 1.8 tall on top of that, so a scooter needs about
+  FEET, and the seat is a player's 1.8 tall on top of that, so a gale ride needs about
   2.8 blocks of clearance to pass — an ordinary two-high doorway is too low to ride
   through. That follows from the height, not from a bug, and the fix if it ever grates
   is to hover lower, NOT to shrink the seat (which is what stops the rider being
@@ -3600,7 +3600,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   Refused at the start too, or toggling on at the water's edge would cut out a tick
   later and read as the key not working.
 - **`getXpPerSecond()` is a `double`, and XP is spread per tick like chi.** Nothing
-  needs the fraction any more (Air scooter was rebuilt as a toggle at a whole 1/sec and
+  needs the fraction any more (Gale Ride was rebuilt as a toggle at a whole 1/sec and
   bills itself), but it is kept: a sub-1 rate is
   not expressible as an int, so the dispatcher now differences a running total against
   the CHANNEL's tick count (`xpForTick`) exactly the way `chiCostForTick` does — one XP
@@ -3640,7 +3640,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   measure of how big the thing is, so a splinter pops and a cannon round bursts without
   needing a second Style or a separate size field. Water was left on its fixed figures
   rather than being retuned for the sake of it.
-- **`WaterProjectiles` is now `abilities/BendingProjectiles`** — moved out of the water
+- **`WaterProjectiles` is now `abilities/ChannelingProjectiles`** — moved out of the water
   package and made element-agnostic like `HeldBlocks`, since Air splinters, Air cannon
   and wind tunnel all need it. Nothing in it knows what it is carrying.
 - **A shot is described by a `Spec` record**, declared once per ability as a constant,
@@ -3675,14 +3675,14 @@ Four commands, covered by the permission gate on the `/bend` root:
   `IS_FALL` — so Fire Shield and Water Shield are untouched and still only override
   `grantsInvulnerability()`. `BYPASSES_INVULNERABILITY` (the void, `/kill`) is still
   handled by the dispatcher and no ability gets a say in it.
-- **`getChiPerSecond()` now takes the player's `BendingData`**, along with the two
+- **`getChiPerSecond()` now takes the player's `ChannelingData`**, along with the two
   figures derived from it (`getMaxChiPerTick`, `getMinimumChiToStart`), because a
   channel's rate can depend on what the player owns: Air Aura costs 5 chi/sec, and 10
   once Buffeting Wind is bought. Every other channel just ignores the argument. Done
   as a signature change rather than an overload with a default, so there is only ever
   one answer to "what does this cost" and no pair of methods that can disagree.
-- **`rootsPlayer()` now takes the player's `BendingData`**, because rooting can be
-  conditional: Air Aura pins the bender until Buffeting Wind is bought and then lets
+- **`rootsPlayer()` now takes the player's `ChannelingData`**, because rooting can be
+  conditional: Air Aura pins the channeler until Buffeting Wind is bought and then lets
   them move. The two shields just ignore the argument.
 - **Air Aura's upgrade TRADES the hole in the defence for mobility rather than only
   adding to it.** A defence that stopped everything AND let you walk AND cost 5 chi a
@@ -3698,7 +3698,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   Actually deflecting projectiles would mean catching them as entities in `onTick`,
   which is a separate job from cancelling their damage.
 - Air Aura is deliberately cheap (5 chi/sec against the shields' 25) and has no
-  duration cap, so a 500-chi bender holds the base version for about 100 seconds — chi
+  duration cap, so a 500-chi channeler holds the base version for about 100 seconds — chi
   regen is re-delayed every tick by the channel, so it drains at the full rate
   throughout and never refills while up. The doubled rate is what stops the upgraded
   version being a free walking immunity: 10/sec halves that to ~50 seconds at level 0,
@@ -3725,7 +3725,7 @@ Four commands, covered by the permission gate on the `/bend` root:
   to convert into damage whichever tick notices the landing. The event cancel stays
   as the second guard, because it is also what suppresses the landing thud and dust.
 - **The window closes on "has actually left the ground", not on a grace period.**
-  `BendingData.airJumpLeftGround` is set the first tick the server sees the player
+  `ChannelingData.airJumpLeftGround` is set the first tick the server sees the player
   airborne, and only then can touching down close the window. A timer-based grace was
   guessing at how long the client takes to apply the launch; this waits for it. A jump
   that never gets airborne at all (cast under a low ceiling) is dropped after
@@ -3734,12 +3734,12 @@ Four commands, covered by the permission gate on the `/bend` root:
   all, the protection expires by itself rather than lasting the session. The flags are
   transient, so a relog clears them regardless.
 - Air jump can be cast in MID-AIR, which chains: nothing checks for ground. Chi is the
-  only limit (100 a jump against `500 + level*100`), and it is very much an airbender
+  only limit (100 a jump against `500 + level*100`), and it is very much an air channeler
   thing to do — but it is a deliberate choice, not an oversight, and one `canStart`
   returning `player.onGround()` would close it.
 - **Disorientation is the mod's first real MobEffect** (`ModEffects` +
   `DisorientationEffect`, a `DeferredRegister<MobEffect>` on `Registries.MOB_EFFECT`
-  registered from the Atlamod constructor). Nothing in vanilla reverses a player's
+  registered from the ElementalPaths constructor). Nothing in vanilla reverses a player's
   controls, so it could not be a repurposed vanilla effect — and registering it
   properly buys the whole status-effect UI for free: inventory icon, timer, particles,
   and automatic syncing to the affected player's client.
@@ -3757,7 +3757,7 @@ Four commands, covered by the permission gate on the `/bend` root:
 - **Mobs receive Disorientation but are unaffected by it** — they have no keys to
   reverse. Air pull applies it to everything it catches anyway, so the effect shows on
   them and future logic can key off it.
-- A registered MobEffect needs `assets/atlamod/textures/mob_effect/<name>.png` (18x18)
+- A registered MobEffect needs `assets/elemental_paths/textures/mob_effect/<name>.png` (18x18)
   or the inventory shows the magenta checkerboard — same trap as the element icons.
 - **FIRE IS COMPLETE — all 16 abilities across all 4 paths.**
 - **WATER IS COMPLETE — all 12 abilities across all 4 paths.**

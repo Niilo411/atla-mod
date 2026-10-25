@@ -67,7 +67,7 @@ public final class SpiritTextures {
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("usage: java tools/SpiritTextures.java <minecraft-resources.jar> "
-                    + "<src/main/resources/assets/atlamod/textures>");
+                    + "<src/main/resources/assets/elemental_paths/textures>");
             System.err.println("the jar is under build/moddev/artifacts/, named "
                     + "neoforge-<version>-client-extra-aka-minecraft-resources.jar");
             System.exit(2);

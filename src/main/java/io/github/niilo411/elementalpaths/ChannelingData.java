@@ -1,0 +1,872 @@
+package io.github.niilo411.elementalpaths;
+
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ChannelingData {
+
+    /**
+     * How many deaths a Paragon gets before the title passes on.
+     *
+     * Declared first because both the CODEC and the field initialiser below use it,
+     * and Java forbids referring to a static field by simple name from anything
+     * textually above its declaration.
+     */
+    public static final int PARAGON_LIVES = 3;
+
+    private String mainElement = "";
+    private String activeElement = "";
+    private boolean hasChosenElement = false;
+    private List<String> unlockedElements = new ArrayList<>();
+    private int xp = 0;
+    private int level = 0;
+    private int currentChi = 500;
+    private List<String> unlockedAbilities = new ArrayList<>();
+
+    // --- PARAGON ---
+    // Whether this player is currently the Paragon, and how many of their three
+    // lives are left. Persisted, because the Paragon has to survive a restart just
+    // as much as an unlocked element does.
+    private boolean paragon = false;
+    private int paragonLives = PARAGON_LIVES;
+
+    /**
+     * The elements this player had BEFORE the Paragon gave them all four.
+     *
+     * The Paragon unlocks every element, and losing it has to give back exactly what
+     * was there rather than a guess. Falling back to "keep only the main element"
+     * would quietly destroy anything they had earned or been granted beforehand,
+     * which is a real loss from what is supposed to be a reversible flag.
+     */
+    private List<String> preParagonElements = new ArrayList<>();
+
+    // THE FIX: Use explicit "EMPTY" text to stop Minecraft from deleting empty slots!
+    private List<String> equippedAbilities = new ArrayList<>(List.of("EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY", "EMPTY"));
+
+    private transient boolean isMeditating = false;
+    private transient int meditateTickTimer = 0;
+    private transient boolean isFireLeaping = false;
+    // Which channeled ability (if any) the player is currently holding down.
+    // Generalised from the old single isBreathingFire boolean so more than one
+    // channeled ability can exist without each needing its own flag.
+    private transient String activeChanneledAbility = "";
+
+    public String getActiveChanneledAbility() {
+        return activeChanneledAbility == null ? "" : activeChanneledAbility;
+    }
+
+    public void setActiveChanneledAbility(String ability) {
+        this.activeChanneledAbility = ability == null ? "" : ability;
+    }
+
+    public boolean isChanneling() {
+        return !getActiveChanneledAbility().isEmpty();
+    }
+
+    // How many ticks the current channel has been running, for abilities that
+    // cap their duration. Reset by AbilityHandler when a channel starts.
+    private transient int channelTicks = 0;
+
+    public int getChannelTicks() {
+        return channelTicks;
+    }
+
+    public void setChannelTicks(int ticks) {
+        this.channelTicks = ticks;
+    }
+
+    // --- CHARGED ABILITIES (hold to wind up, fires itself when full) ---
+    private transient String activeChargingAbility = "";
+    private transient int chargeTicks = 0;
+
+    public String getActiveChargingAbility() {
+        return activeChargingAbility == null ? "" : activeChargingAbility;
+    }
+
+    public void setActiveChargingAbility(String ability) {
+        this.activeChargingAbility = ability == null ? "" : ability;
+    }
+
+    public boolean isCharging() {
+        return !getActiveChargingAbility().isEmpty();
+    }
+
+    public int getChargeTicks() {
+        return chargeTicks;
+    }
+
+    public void setChargeTicks(int ticks) {
+        this.chargeTicks = ticks;
+    }
+
+    /**
+     * How far the last charge got, in ticks, recorded just before the cast runs.
+     * Abilities that scale with charge read this — the live counter is cleared
+     * before casting so the key release can't fire them a second time.
+     */
+    private transient int lastChargeTicks = 0;
+
+    public int getLastChargeTicks() { return lastChargeTicks; }
+    public void setLastChargeTicks(int ticks) { this.lastChargeTicks = Math.max(0, ticks); }
+
+    // --- FIRE RAIN ---
+    // Ticks left of an active downpour. Cast once and left running, so it needs a
+    // countdown rather than the channel or charge machinery.
+    private transient int fireRainTicks = 0;
+
+    public int getFireRainTicks() { return fireRainTicks; }
+    public void setFireRainTicks(int ticks) { this.fireRainTicks = Math.max(0, ticks); }
+
+    // --- AIR JUMP ---
+    // Ticks left of the window in which the channeler is protected from fall damage.
+    // A countdown rather than a plain boolean for two reasons: the flag has to
+    // survive the few ticks between the server applying the launch velocity and the
+    // client reporting that it has left the ground, and if a landing is somehow
+    // never seen, the protection expires on its own instead of lasting forever.
+    private transient int airJumpTicks = 0;
+
+    /**
+     * Whether the jump has actually got the player off the ground yet. The server
+     * applies the launch velocity, but the CLIENT is what moves the player and
+     * reports back, so for the first few ticks the server still sees them standing
+     * where they were — and a window that closed on "touching the ground" would
+     * close on the launch itself before the jump had begun.
+     */
+    private transient boolean airJumpLeftGround = false;
+
+    public int getAirJumpTicks() { return airJumpTicks; }
+    public void setAirJumpTicks(int ticks) { this.airJumpTicks = Math.max(0, ticks); }
+
+    public boolean hasAirJumpLeftGround() { return airJumpLeftGround; }
+    public void setAirJumpLeftGround(boolean left) { this.airJumpLeftGround = left; }
+
+    // --- FLIGHT (passive) ---
+    // Whether the Flight passive is the thing currently holding the player's flight
+    // flags open. Those flags are PERSISTED in player NBT, so something has to
+    // remember that we were the ones who set them — otherwise unequipping the passive
+    // mid-air would leave permanent creative flight behind.
+    private transient boolean passiveFlightGranted = false;
+
+    public boolean isPassiveFlightGranted() { return passiveFlightGranted; }
+    public void setPassiveFlightGranted(boolean granted) { this.passiveFlightGranted = granted; }
+
+    // --- CHANNELING ARMOR (visual sync) ---
+    // Which suits onlookers have been told this player is wearing, as a bitmask over
+    // ChannelingArmorSuit's ordinals. Mob effects are only synced to their OWN owner, so
+    // the look has to be broadcast by hand; this remembers what was last sent so it is
+    // only sent on a change.
+    //
+    // Transient, which is exactly why the death and respawn handlers say so
+    // EXPLICITLY: a respawned player reuses its entity id, so the client's set would
+    // otherwise keep the suit while this came back as 0 and reported no change.
+    private transient int armorSuitsShown = 0;
+
+    public boolean isArmorSuitShown(io.github.niilo411.elementalpaths.ChannelingArmorSuit suit) {
+        return (armorSuitsShown & (1 << suit.ordinal())) != 0;
+    }
+
+    public void setArmorSuitShown(io.github.niilo411.elementalpaths.ChannelingArmorSuit suit, boolean shown) {
+        if (shown) {
+            armorSuitsShown |= (1 << suit.ordinal());
+        } else {
+            armorSuitsShown &= ~(1 << suit.ordinal());
+        }
+    }
+
+    public void clearArmorSuitsShown() { this.armorSuitsShown = 0; }
+
+    private boolean isFireWhipping = false;
+
+    public boolean isFireWhipping() {
+        return isFireWhipping;
+    }
+
+    public void setFireWhipping(boolean isFireWhipping) {
+        this.isFireWhipping = isFireWhipping;
+    }
+
+    /**
+     * Everything saved about a channeler but the shrine fields.
+     *
+     * A MapCodec rather than a Codec, and split off from the shrine group below, because a
+     * RecordCodecBuilder group holds AT MOST SIXTEEN fields and this is exactly sixteen.
+     * The two halves are paired back together in {@link #CODEC}, which writes both into the
+     * same compound — so the save format is flat and adding a field here later means
+     * moving one across rather than finding somewhere new to put it.
+     */
+    private static final MapCodec<ChannelingData> CORE = RecordCodecBuilder.mapCodec(instance -> instance.group(
+            Codec.STRING.optionalFieldOf("mainElement", "").forGetter(ChannelingData::getMainElement),
+            Codec.STRING.optionalFieldOf("activeElement", "").forGetter(ChannelingData::getActiveElement),
+            Codec.BOOL.optionalFieldOf("hasChosenElement", false).forGetter(ChannelingData::hasChosenElement),
+            Codec.STRING.listOf().optionalFieldOf("unlockedElements", new ArrayList<>()).forGetter(ChannelingData::getUnlockedElements),
+            Codec.INT.optionalFieldOf("xp", 0).forGetter(ChannelingData::getXp),
+            Codec.INT.optionalFieldOf("level", 0).forGetter(ChannelingData::getLevel),
+            Codec.INT.optionalFieldOf("currentChi", 500).forGetter(ChannelingData::getCurrentChi),
+            Codec.STRING.listOf().optionalFieldOf("unlockedAbilities", new ArrayList<>()).forGetter(ChannelingData::getUnlockedAbilities),
+            Codec.STRING.listOf().optionalFieldOf("equippedAbilities", new ArrayList<>()).forGetter(ChannelingData::getEquippedAbilities),
+            Codec.STRING.listOf().optionalFieldOf("equippedPassives", new ArrayList<>()).forGetter(ChannelingData::getEquippedPassives),
+            Codec.STRING.listOf().optionalFieldOf("unlockedUpgrades", new ArrayList<>()).forGetter(ChannelingData::getUnlockedUpgrades),
+            Codec.BOOL.optionalFieldOf("paragon", false).forGetter(ChannelingData::isParagon),
+            Codec.INT.optionalFieldOf("paragonLives", PARAGON_LIVES).forGetter(ChannelingData::getParagonLives),
+            Codec.STRING.listOf().optionalFieldOf("preParagonElements", new ArrayList<>()).forGetter(ChannelingData::getPreParagonElements),
+            Codec.INT.optionalFieldOf("bloodXp", 0).forGetter(ChannelingData::getBloodXp),
+            Codec.INT.optionalFieldOf("bloodLevel", 0).forGetter(ChannelingData::getBloodLevel)
+    ).apply(instance, (main, active, chosen, unlocked, xp, level, chi, abils, equipped, passives, upgrades,
+                       isParagon, lives, preElements, bloodXp, bloodLevel) -> {
+        ChannelingData data = new ChannelingData();
+        data.mainElement = main != null ? main : "";
+        data.activeElement = active != null ? active : "";
+        data.hasChosenElement = chosen;
+        data.unlockedElements = unlocked != null ? new ArrayList<>(unlocked) : new ArrayList<>();
+        data.xp = xp;
+        data.level = level;
+        data.currentChi = chi;
+        data.unlockedAbilities = abils != null ? new ArrayList<>(abils) : new ArrayList<>();
+
+        // Bulletproof assignment
+        data.setAllEquippedAbilities(equipped);
+        data.setAllEquippedPassives(passives);
+        data.setAllUnlockedUpgrades(upgrades);
+
+        data.paragon = isParagon;
+        data.paragonLives = lives;
+        data.setPreParagonElements(preElements);
+
+        data.bloodXp = bloodXp;
+        data.bloodLevel = bloodLevel;
+
+        return data;
+    }));
+
+    /**
+     * The spirit shrine fields, in a group of their own.
+     *
+     * Not a preference: see {@link #CORE}. They are the newest fields, so they are the ones
+     * that moved out.
+     */
+    private record ShrinePower(int bonusMaxChi, List<Long> used) {
+    }
+
+    private static final MapCodec<ShrinePower> SHRINES = RecordCodecBuilder.mapCodec(instance -> instance.group(
+            Codec.INT.optionalFieldOf("bonusMaxChi", 0).forGetter(ShrinePower::bonusMaxChi),
+            Codec.LONG.listOf().optionalFieldOf("usedShrines", new ArrayList<>()).forGetter(ShrinePower::used)
+    ).apply(instance, ShrinePower::new));
+
+    public static final Codec<ChannelingData> CODEC = Codec.mapPair(CORE, SHRINES)
+            .xmap(pair -> {
+                ChannelingData data = pair.getFirst();
+                data.setBonusMaxChi(pair.getSecond().bonusMaxChi());
+                data.setAllUsedShrines(pair.getSecond().used());
+                return data;
+            }, data -> Pair.of(data, new ShrinePower(
+                    data.getBonusMaxChi(), new ArrayList<>(data.getUsedShrines()))))
+            .codec();
+
+    // --- ELEMENT GETTERS/SETTERS ---
+    public String getMainElement() { return mainElement == null ? "" : mainElement; }
+    public void setMainElement(String element) {
+        this.mainElement = element == null ? "" : element;
+        if (!this.unlockedElements.contains(this.mainElement) && !this.mainElement.isEmpty()) {
+            this.unlockedElements.add(this.mainElement);
+        }
+        if (this.activeElement == null || this.activeElement.isEmpty()) {
+            this.activeElement = this.mainElement;
+        }
+        this.hasChosenElement = true;
+    }
+
+    public String getActiveElement() { return activeElement == null ? "" : activeElement; }
+    public void setActiveElement(String element) { this.activeElement = element == null ? "" : element; }
+
+    public boolean hasChosenElement() { return hasChosenElement; }
+    public void setHasChosenElement(boolean chosen) { this.hasChosenElement = chosen; }
+
+    public List<String> getUnlockedElements() {
+        if (unlockedElements == null) unlockedElements = new ArrayList<>();
+        return unlockedElements;
+    }
+
+    // --- STAT GETTERS/SETTERS ---
+    public int getXp() { return xp; }
+    public void setXp(int xp) { this.xp = xp; }
+    public int getLevel() { return level; }
+    public void setLevel(int level) { this.level = level; }
+    public int getCurrentChi() { return currentChi; }
+    public void setCurrentChi(int currentChi) { this.currentChi = currentChi; }
+    /**
+     * Spends chi and restarts the regen delay. Every ability goes through here, so
+     * the delay applies to all of them without each having to remember it — including
+     * channels, which re-arm it every tick and so only start regenerating once the
+     * channel has been off for the full delay.
+     */
+    public void consumeChi(int amount) {
+        if (amount <= 0) return;
+        this.currentChi = Math.max(0, this.currentChi - amount);
+        this.chiRegenDelay = chiRegenDelayTicks();
+    }
+
+    /**
+     * The ceiling on chi: the level's share plus whatever the spirit shrines have added.
+     *
+     * The shrine bonus is a flat addend rather than a multiplier deliberately — it has to
+     * be worth the same at level 1 as at level 20, or the reward for crossing the Spirit
+     * World would be worth least to exactly the player who has just arrived there.
+     */
+    public int getMaxChi() {
+        return PathsConfig.baseMaxChi() + (this.level * PathsConfig.chiPerLevel()) + this.bonusMaxChi;
+    }
+
+    // --- SPIRIT SHRINES ---
+    // Permanent max chi, drawn one shrine at a time from the Spirit Realm's floating
+    // islands. Both fields are SAVED: a shrine is a place a player went once, and
+    // forgetting either of them would either take the reward away or hand it back.
+
+    /** What one shrine is worth, and the step the chi bar's colour moves by. A setting. */
+    public static int shrineChi() {
+        return PathsConfig.shrineChi();
+    }
+
+    private int bonusMaxChi = 0;
+
+    /**
+     * The shrines this player has already drawn from, as packed block positions.
+     *
+     * A POSITION IS THE IDENTIFIER, which works because shrines never move and their
+     * placement is a pure function of the island they stand on — see
+     * {@link io.github.niilo411.elementalpaths.spirit.island.SpiritShrines}. Nothing is written on the
+     * shrine itself, so a second player still finds it untouched.
+     *
+     * Not a Set, because the codec writes a list either way and the list is a handful of
+     * entries long; {@link #recordShrine} keeps it free of duplicates.
+     */
+    private List<Long> usedShrines = new ArrayList<>();
+
+    public int getBonusMaxChi() { return bonusMaxChi; }
+    public void setBonusMaxChi(int bonus) { this.bonusMaxChi = Math.max(0, bonus); }
+
+    public List<Long> getUsedShrines() {
+        if (usedShrines == null) usedShrines = new ArrayList<>();
+        return usedShrines;
+    }
+
+    public void setAllUsedShrines(List<Long> shrines) {
+        this.usedShrines = new ArrayList<>();
+        if (shrines == null) return;
+
+        for (Long shrine : shrines) {
+            if (shrine != null && !this.usedShrines.contains(shrine)) this.usedShrines.add(shrine);
+        }
+    }
+
+    public boolean hasUsedShrine(long shrine) { return getUsedShrines().contains(shrine); }
+
+    /**
+     * Remembers a shrine and banks what it is worth. False if it was already drawn from.
+     *
+     * The two happen together and only here, which is what keeps the bonus and the list in
+     * step — and that matters, because {@link #getShrinesUsed} reads the count back out of
+     * the bonus rather than out of the list.
+     */
+    public boolean recordShrine(long shrine) {
+        if (hasUsedShrine(shrine)) return false;
+
+        getUsedShrines().add(shrine);
+        this.bonusMaxChi += shrineChi();
+        return true;
+    }
+
+    /**
+     * How many shrines this player has drawn from.
+     *
+     * DERIVED FROM THE BONUS, not from the list, and that is what lets the client answer it
+     * at all: the list of positions is server-side knowledge and never crosses the wire,
+     * where the bonus has to anyway because the HUD draws the chi bar against the maximum.
+     * One number on the wire, one truth on both sides, and the chi bar's colour provably
+     * changes on exactly the ticks the maximum does.
+     *
+     * THE DIVISOR IS A SETTING, so two things follow. A shrine worth 0 would divide by
+     * zero, which is guarded here rather than in the config so nothing else has to
+     * remember; and changing what a shrine is worth on a world where some have already
+     * been used changes what this reports, since the count is derived rather than stored.
+     * That only moves the chi bar's COLOUR — no chi is lost either way.
+     */
+    public int getShrinesUsed() {
+        int step = shrineChi();
+        return step <= 0 ? 0 : bonusMaxChi / step;
+    }
+
+    // --- CHI REGEN DELAY ---
+    // Spending chi holds off passive regen briefly, so regen can't be used to pay
+    // for an ability as fast as the ability costs.
+
+    /** Ticks of quiet required after spending chi before regen resumes. A setting. */
+    public static int chiRegenDelayTicks() { return PathsConfig.chiRegenDelay(); }
+
+    private transient int chiRegenDelay = 0;
+
+    public int getChiRegenDelay() { return chiRegenDelay; }
+    public void setChiRegenDelay(int ticks) { this.chiRegenDelay = Math.max(0, ticks); }
+
+    /**
+     * The fraction of a chi point last second's regen could not hand over, in THOUSANDTHS.
+     *
+     * WHY A CARRY EXISTS AT ALL: regen is a whole number of chi per second, and Spirit
+     * armor's bonus is a fraction of it — 46.5% a piece. At a base of 6/sec, which is what
+     * a level 1 channeler has, one piece is 8.79 and two are 11.58; truncating each second
+     * would lose most of a chi every time and the set would never reach the 35 second fill
+     * it promises. Keeping the remainder makes the long-run rate exact.
+     *
+     * THOUSANDTHS rather than hundredths because the bonus is quoted in tenths of a
+     * percent, which is what it takes to hit a whole number of seconds — see
+     * {@link io.github.niilo411.elementalpaths.SpiritArmor#regenPerPieceTenths()}.
+     *
+     * Transient: at most 999 thousandths of one chi point, which is not worth saving.
+     */
+    private transient int chiRegenCarry = 0;
+
+    public int getChiRegenCarry() { return chiRegenCarry; }
+    public void setChiRegenCarry(int thousandths) { this.chiRegenCarry = Math.max(0, thousandths); }
+
+    // --- ABILITY FLAGS ---
+    public boolean isMeditating() { return isMeditating; }
+    public void setMeditating(boolean isMeditating) { this.isMeditating = isMeditating; }
+    public int getMeditateTickTimer() { return meditateTickTimer; }
+    public void setMeditateTickTimer(int timer) { this.meditateTickTimer = timer; }
+    public boolean isFireLeaping() { return isFireLeaping; }
+    public void setFireLeaping(boolean isFireLeaping) { this.isFireLeaping = isFireLeaping; }
+    // Stores EVERY ability's cooldown in one neat list!
+    private java.util.Map<String, Integer> cooldowns = new java.util.HashMap<>();
+
+    public boolean isOnCooldown(String ability) {
+        return cooldowns.getOrDefault(ability.toLowerCase(), 0) > 0;
+    }
+
+    /** Ticks left on an ability's cooldown, 0 if it's ready. */
+    public int getCooldownRemaining(String ability) {
+        return Math.max(0, cooldowns.getOrDefault(ability.toLowerCase(), 0));
+    }
+
+    public void setCooldown(String ability, int ticks) {
+        cooldowns.put(ability.toLowerCase(), ticks);
+    }
+
+    /**
+     * Counts every running cooldown down by one. Called once per player per tick.
+     *
+     * NO DEFENSIVE COPY, and none is needed. This used to build a fresh HashSet of every
+     * key on every tick for every player, which was a real cost: the map only ever grew,
+     * so a player who had used forty abilities was allocating a forty-element set twenty
+     * times a second forever. The copy was guarding against a concurrent modification
+     * that cannot happen — the loop only ever writes keys that are already present, and
+     * replacing an existing key's value does not structurally modify a HashMap.
+     *
+     * EXPIRED ENTRIES ARE DROPPED rather than left sitting at zero, which is what keeps
+     * the map from growing without bound. Safe because both readers go through
+     * {@code getOrDefault(key, 0)}, so an absent key and a key at zero are the same
+     * answer — and it means that once nothing is on cooldown this method is a single
+     * isEmpty check.
+     */
+    public void tickCooldowns() {
+        if (cooldowns.isEmpty()) return;
+
+        java.util.Iterator<java.util.Map.Entry<String, Integer>> entries =
+                cooldowns.entrySet().iterator();
+
+        while (entries.hasNext()) {
+            java.util.Map.Entry<String, Integer> entry = entries.next();
+
+            int left = entry.getValue() - 1;
+            if (left <= 0) {
+                entries.remove();
+            } else {
+                entry.setValue(left);
+            }
+        }
+    }
+
+    // --- UNLOCKED ABILITIES ---
+    public List<String> getUnlockedAbilities() {
+        if (unlockedAbilities == null) unlockedAbilities = new ArrayList<>();
+        return unlockedAbilities;
+    }
+
+    public void unlockAbility(String abilityName) {
+        if (abilityName != null && !getUnlockedAbilities().contains(abilityName)) {
+            this.unlockedAbilities.add(abilityName);
+        }
+    }
+
+    // --- EQUIPPED ABILITIES (BULLETPROOF) ---
+    public List<String> getEquippedAbilities() {
+        if (equippedAbilities == null) equippedAbilities = new ArrayList<>();
+        while (equippedAbilities.size() < 8) equippedAbilities.add("EMPTY");
+        while (equippedAbilities.size() > 8) equippedAbilities.remove(equippedAbilities.size() - 1);
+        return equippedAbilities;
+    }
+
+    public void setAllEquippedAbilities(List<String> newAbilities) {
+        this.equippedAbilities = new ArrayList<>();
+        if (newAbilities != null) {
+            for (int i = 0; i < 8; i++) {
+                if (i < newAbilities.size()) {
+                    String ab = newAbilities.get(i);
+                    this.equippedAbilities.add((ab == null || ab.trim().isEmpty()) ? "EMPTY" : ab);
+                } else {
+                    this.equippedAbilities.add("EMPTY");
+                }
+            }
+        }
+        while (this.equippedAbilities.size() < 8) this.equippedAbilities.add("EMPTY");
+        while (this.equippedAbilities.size() > 8) this.equippedAbilities.remove(this.equippedAbilities.size() - 1);
+    }
+
+    public void setEquippedAbility(int slot, String abilityName) {
+        getEquippedAbilities();
+        if (slot >= 0 && slot < 8) {
+            this.equippedAbilities.set(slot, (abilityName == null || abilityName.trim().isEmpty()) ? "EMPTY" : abilityName);
+        }
+    }
+
+    public String getEquippedAbility(int slot) {
+        getEquippedAbilities();
+        if (slot >= 0 && slot < 8) {
+            String ab = this.equippedAbilities.get(slot);
+            return "EMPTY".equals(ab) ? "" : ab; // Translates back to empty for the UI!
+        }
+        return "";
+    }
+
+    // --- EQUIPPED PASSIVES ---
+    // Four slots. Passives have no keybind: being in a slot IS the activation, and
+    // whatever the passive affects asks whether it's equipped. Same "EMPTY" sentinel
+    // as the ability slots, so Minecraft can't quietly drop blank entries.
+    public static final int PASSIVE_SLOTS = 4;
+
+    private List<String> equippedPassives = new ArrayList<>(List.of("EMPTY", "EMPTY", "EMPTY", "EMPTY"));
+
+    public List<String> getEquippedPassives() {
+        if (equippedPassives == null) equippedPassives = new ArrayList<>();
+        while (equippedPassives.size() < PASSIVE_SLOTS) equippedPassives.add("EMPTY");
+        while (equippedPassives.size() > PASSIVE_SLOTS) equippedPassives.remove(equippedPassives.size() - 1);
+        return equippedPassives;
+    }
+
+    public void setAllEquippedPassives(List<String> newPassives) {
+        this.equippedPassives = new ArrayList<>();
+        if (newPassives != null) {
+            for (String passive : newPassives) {
+                this.equippedPassives.add((passive == null || passive.trim().isEmpty()) ? "EMPTY" : passive);
+            }
+        }
+        while (this.equippedPassives.size() < PASSIVE_SLOTS) this.equippedPassives.add("EMPTY");
+        while (this.equippedPassives.size() > PASSIVE_SLOTS) this.equippedPassives.remove(this.equippedPassives.size() - 1);
+    }
+
+    public void setEquippedPassive(int slot, String passive) {
+        if (slot < 0 || slot >= PASSIVE_SLOTS) return;
+        getEquippedPassives().set(slot, (passive == null || passive.trim().isEmpty()) ? "EMPTY" : passive);
+    }
+
+    public String getEquippedPassive(int slot) {
+        if (slot < 0 || slot >= PASSIVE_SLOTS) return "";
+        String passive = getEquippedPassives().get(slot);
+        return "EMPTY".equals(passive) ? "" : passive;
+    }
+
+    /**
+     * Whether a named passive is sitting in any slot, i.e. whether it's doing its job.
+     *
+     * THE ONE PLACE A DISABLED PASSIVE IS STOPPED, and it has to be here rather than at the
+     * dispatcher. A passive is never cast — being in a slot IS its activation — so it never
+     * goes through {@code AbilityHandler} at all, and there is no moment of use to refuse.
+     * What every passive in the mod DOES have in common is that whatever it affects asks
+     * this method, so switching one off here switches it off everywhere at once, including
+     * in passives written later.
+     *
+     * It stays in its SLOT while disabled rather than being cleared out of it. Turning an
+     * ability off is a rule about what may be used, not a reason to throw away an
+     * arrangement the player chose — so enabling it again simply makes it work, with
+     * nothing to set up a second time.
+     */
+    public boolean hasPassiveEquipped(String passiveKey) {
+        if (passivesSuppressed || passiveKey == null || passiveKey.isEmpty()) return false;
+
+        // The slots are scanned BEFORE the settings are asked. This runs a dozen times a
+        // tick for every player, and nearly always for a passive they are not wearing —
+        // so the answer is usually settled by four string compares, and the disabled
+        // list (which lowercases the name to look it up) is only consulted for a passive
+        // that is actually in a slot.
+        for (String equipped : getEquippedPassives()) {
+            if (passiveKey.equalsIgnoreCase(equipped)) return PathsConfig.abilityEnabled(passiveKey);
+        }
+        return false;
+    }
+
+    // --- ABILITY UPGRADES ---
+    // Purchased improvements to individual abilities, keyed by AbilityUpgrade.key.
+    // Persisted and synced, since the abilities that read them run on the server but
+    // the menu that sells them runs on the client.
+    private List<String> unlockedUpgrades = new ArrayList<>();
+
+    public List<String> getUnlockedUpgrades() {
+        if (unlockedUpgrades == null) unlockedUpgrades = new ArrayList<>();
+        return unlockedUpgrades;
+    }
+
+    public void setAllUnlockedUpgrades(List<String> upgrades) {
+        this.unlockedUpgrades = new ArrayList<>();
+        if (upgrades != null) {
+            for (String upgrade : upgrades) {
+                if (upgrade != null && !upgrade.trim().isEmpty()) this.unlockedUpgrades.add(upgrade);
+            }
+        }
+    }
+
+    public void unlockUpgrade(String upgradeKey) {
+        if (upgradeKey == null || upgradeKey.isEmpty()) return;
+        if (!getUnlockedUpgrades().contains(upgradeKey)) getUnlockedUpgrades().add(upgradeKey);
+    }
+
+    /** Whether this improvement has been bought. */
+    public boolean hasUpgrade(String upgradeKey) {
+        return upgradeKey != null && getUnlockedUpgrades().contains(upgradeKey);
+    }
+    private String activeTwoPhaseAbility = "";
+
+    public String getActiveTwoPhaseAbility() {
+        return activeTwoPhaseAbility;
+    }
+
+    public void setActiveTwoPhaseAbility(String ability) {
+        this.activeTwoPhaseAbility = ability;
+    }
+
+    // Ticks left on an armed two-phase ability that has a time limit (Water stream).
+    // Zero when whatever is armed waits indefinitely.
+    private transient int twoPhaseTicks = 0;
+
+    public int getTwoPhaseTicks() { return twoPhaseTicks; }
+    public void setTwoPhaseTicks(int ticks) { this.twoPhaseTicks = Math.max(0, ticks); }
+
+    // --- BASS BOUNCE ---
+    // Ticks left of the hop before the slam is given up on, and whether the channeler has
+    // actually got off the ground yet. Exactly the pair Air jump keeps, for exactly
+    // the same reason: the server applies the launch but the CLIENT moves the player,
+    // so a landing test without the second flag would fire on the launch itself.
+    private transient int bassBounceTicks = 0;
+    private transient boolean bassBounceLeftGround = false;
+
+    public int getBassBounceTicks() { return bassBounceTicks; }
+    public void setBassBounceTicks(int ticks) { this.bassBounceTicks = Math.max(0, ticks); }
+
+    public boolean hasBassBounceLeftGround() { return bassBounceLeftGround; }
+    public void setBassBounceLeftGround(boolean left) { this.bassBounceLeftGround = left; }
+
+    // --- PASSIVES SWITCHED OFF BY WHERE YOU ARE ---
+    // True while this player is somewhere passives do not work, which at present means
+    // the Spirit Realm.
+    //
+    // A FLAG RATHER THAN A LEVEL CHECK INSIDE hasPassiveEquipped, because that method has
+    // no player and no level — it is asked of the DATA, by thirteen different passives, and
+    // giving it a level would mean threading one through every one of those call sites.
+    // The flag is set once a tick from whichever side is ticking, which keeps the single
+    // choke point that makes "switch every passive off at once" a one-line change.
+    //
+    // SET ON BOTH SIDES. The server decides what a passive DOES; the client draws the menu
+    // and the blood level readout, and a client that thought a passive was still running
+    // would disagree with the server about both.
+    private transient boolean passivesSuppressed = false;
+
+    public boolean arePassivesSuppressed() { return passivesSuppressed; }
+    public void setPassivesSuppressed(boolean suppressed) { this.passivesSuppressed = suppressed; }
+
+    // --- WHAT IS BEING CAST RIGHT NOW ---
+    // The element of the ability the dispatcher is currently running, set immediately
+    // before its effect and cleared immediately after.
+    //
+    // EXISTS FOR THE DAMAGE HANDLER, which is where a world event's damage multiplier has
+    // to be applied and is the one place that cannot work out which element caused a blow.
+    // Damage arrives as a source and an attacker, and almost every element in this mod
+    // hits through indirectMagic — so "who did this" is answerable and "what kind of
+    // channeling was it" is not. The dispatcher knows, for exactly as long as the effect is
+    // running, so it says.
+    //
+    // A STRING RATHER THAN A FLAG PER EVENT, so an element added later needs nothing here.
+    // Transient, and cleared in a finally: an ability that threw would otherwise leave
+    // every later blow this player landed wearing the element of the cast that failed.
+    private transient String castingElement = "";
+
+    public String getCastingElement() {
+        return castingElement == null ? "" : castingElement;
+    }
+
+    public void setCastingElement(String element) {
+        this.castingElement = element == null ? "" : element;
+    }
+
+    // --- FIRE ROCKET ---
+    // Whether the rocket is lit. Transient for the same reason every other toggle billed
+    // by the second is: nobody should log back in to an ability quietly draining chi they
+    // did not choose to spend — and the flight flags it opens are PERSISTED, so the login
+    // and respawn safety nets in ServerEvents close those whatever this says.
+    private transient boolean fireRocketing = false;
+
+    public boolean isFireRocketing() { return fireRocketing; }
+    public void setFireRocketing(boolean rocketing) { this.fireRocketing = rocketing; }
+
+    // --- COMPRESSED PUNCHES ---
+    // Whether the toggle is up. Transient, so a relog switches it off — which is the
+    // right answer for something billed by the second: nobody should come back to an
+    // ability quietly draining chi they did not choose to spend.
+    private transient boolean punchingCompressed = false;
+
+    /** How long it has been up, so it can switch itself off at the thirty second cap. */
+    private transient int compressedPunchTicks = 0;
+
+    public boolean isPunchingCompressed() { return punchingCompressed; }
+    public void setPunchingCompressed(boolean punching) { this.punchingCompressed = punching; }
+
+    public int getCompressedPunchTicks() { return compressedPunchTicks; }
+    public void setCompressedPunchTicks(int ticks) { this.compressedPunchTicks = Math.max(0, ticks); }
+
+    // --- BLOODCHANNELING ---
+    // A SECOND experience track, entirely separate from the main one.
+    //
+    // Blood Channeling is the only element with its own level, and it has to be its own
+    // number rather than a share of the ordinary one: Blood strength decides who may
+    // channel whom by comparing the two players' blood levels, and a figure that also
+    // went up from fire channeling would make that comparison meaningless.
+    //
+    // Persisted, like the main xp and level, since it is earned over a long time.
+    private int bloodXp = 0;
+    private int bloodLevel = 0;
+
+    public int getBloodXp() { return bloodXp; }
+    public void setBloodXp(int xp) { this.bloodXp = Math.max(0, xp); }
+
+    public int getBloodLevel() { return bloodLevel; }
+    public void setBloodLevel(int level) { this.bloodLevel = Math.max(0, level); }
+
+    // --- COMBUSTION SCROLL ---
+    // Ticks left in which explosions cannot touch this player at all.
+    //
+    // Only the Combustion Channeling Scroll sets it. The four sticks it puts down are real
+    // primed TNT and are meant to frighten everything nearby, but blowing up the person
+    // who just earned the element is a poor reward — so they are spared, and only them.
+    //
+    // Transient: the window is a few seconds and a relog through it is not worth
+    // persisting.
+    private transient int blastImmuneTicks = 0;
+
+    public int getBlastImmuneTicks() { return blastImmuneTicks; }
+    public void setBlastImmuneTicks(int ticks) { this.blastImmuneTicks = Math.max(0, ticks); }
+
+    // --- GRAVITY SCROLL ---
+    // Ticks left in which fall damage cannot touch this player at all.
+    //
+    // Only the Gravity Channeling Scroll sets it, as part of the same "levitate for 5s,
+    // then land safely" unlock confirmation Air jump grants for its own hop —
+    // reusing airJumpTicks would have been wrong, since that field also carries
+    // launch-tracking semantics (hasAirJumpLeftGround) this has no use for.
+    //
+    // Transient: a relog clears it, and ten seconds of fall immunity is not worth
+    // persisting.
+    private transient int gravityFallImmuneTicks = 0;
+
+    public int getGravityFallImmuneTicks() { return gravityFallImmuneTicks; }
+    public void setGravityFallImmuneTicks(int ticks) { this.gravityFallImmuneTicks = Math.max(0, ticks); }
+
+    // --- CHANNELING LOCKOUT ---
+    // Ticks left during which this player cannot channel at all. Deafen is the only
+    // thing that sets it.
+    //
+    // A counter on the data rather than another MobEffect, because it runs for a
+    // DIFFERENT length of time than the deafness it comes with (10 seconds against
+    // 25) — one effect could not carry both, and two effects for one ability would be
+    // two icons for a single thing happening.
+    //
+    // Transient: a relog clears it. Ten seconds of lockout is not worth persisting,
+    // and a player who logged out unable to channel and came back the same way would
+    // reasonably think the mod had broken.
+    private transient int channelingLockedTicks = 0;
+
+    public int getChannelingLockedTicks() { return channelingLockedTicks; }
+    public void setChannelingLockedTicks(int ticks) { this.channelingLockedTicks = Math.max(0, ticks); }
+    public boolean isChannelingLocked() { return channelingLockedTicks > 0; }
+
+    // --- CHI BLOCKED ---
+    // How long this player's chi is shut off for.
+    //
+    // A SECOND COUNTER RATHER THAN REUSING THE LOCKOUT ABOVE, although both stop a channeler
+    // casting. Deafen's lockout does exactly that and nothing else; being chi blocked ALSO
+    // stops chi regenerating, which is the half that actually matters — a channeler who
+    // cannot cast for ten seconds is inconvenienced, one whose pool is frozen while they
+    // cannot cast comes out of it no better off than they went in. Folding the two into
+    // one counter would mean either Deafen silently froze regen too, or chi blocking
+    // silently stopped freezing it; they also run for different lengths from different
+    // elements, so one number could only ever be wrong for one of them.
+    //
+    // Transient, like the lockout: it is a few seconds of state, and a player who logs out
+    // mid-block is not worth persisting a countdown for.
+    private transient int chiBlockedTicks = 0;
+
+    public int getChiBlockedTicks() { return chiBlockedTicks; }
+    public void setChiBlockedTicks(int ticks) { this.chiBlockedTicks = Math.max(0, ticks); }
+    public boolean isChiBlocked() { return chiBlockedTicks > 0; }
+
+    // --- BOLT DEFLECTION ---
+    // How hard the bolt this player CAUGHT will hit when they throw it back.
+    //
+    // Transient, and it has to be remembered somewhere between the catch and the
+    // left click that looses it — the shot that was absorbed is gone by then, so its
+    // strength cannot be asked for again. A redirected bolt hits for whatever it was
+    // going to hit the catcher for, which is what makes redirecting a strong bolt
+    // worth more than redirecting a weak one.
+    private transient float caughtLightning = 0.0F;
+
+    public float getCaughtLightning() { return caughtLightning; }
+    public void setCaughtLightning(float damage) { this.caughtLightning = Math.max(0.0F, damage); }
+
+    // Left clicks remaining on an armed two-phase ability (Water Bullets fires three).
+    private transient int twoPhaseShots = 0;
+
+    public int getTwoPhaseShots() { return twoPhaseShots; }
+    public void setTwoPhaseShots(int shots) { this.twoPhaseShots = Math.max(0, shots); }
+
+    // --- PARAGON ACCESSORS ---
+
+    public boolean isParagon() { return paragon; }
+    public void setParagon(boolean paragon) { this.paragon = paragon; }
+
+    public int getParagonLives() { return paragonLives; }
+    public void setParagonLives(int lives) { this.paragonLives = Math.max(0, lives); }
+
+    public List<String> getPreParagonElements() {
+        if (preParagonElements == null) preParagonElements = new ArrayList<>();
+        return preParagonElements;
+    }
+
+    public void setPreParagonElements(List<String> elements) {
+        this.preParagonElements = new ArrayList<>();
+        if (elements != null) {
+            for (String element : elements) {
+                if (element != null && !element.trim().isEmpty()) this.preParagonElements.add(element);
+            }
+        }
+    }
+
+    /**
+     * Whether the Paragon's emergency buffs are currently applied.
+     *
+     * Transient on purpose: it exists only so the buffs are taken back off by the
+     * thing that put them on, and a relog simply re-derives it from the health.
+     */
+    private transient boolean paragonBuffed = false;
+
+    public boolean isParagonBuffed() { return paragonBuffed; }
+    public void setParagonBuffed(boolean buffed) { this.paragonBuffed = buffed; }
+}

@@ -1,0 +1,16 @@
+{
+  "values": [
+    "elemental_paths:spirit_plains",
+    "elemental_paths:spirit_desert",
+    "elemental_paths:spirit_snowy",
+    "elemental_paths:spirit_forest",
+    "elemental_paths:spirit_nether_wastes",
+    "elemental_paths:spirit_crimson_forest",
+    "elemental_paths:spirit_warped_forest",
+    "elemental_paths:spirit_soul_sand_valley",
+    "elemental_paths:spirit_end",
+    "elemental_paths:spirit_crimson",
+    "elemental_paths:spirit_warped",
+    "elemental_paths:spirit_wasteland"
+  ]
+}

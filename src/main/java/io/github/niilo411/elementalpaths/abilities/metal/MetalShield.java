@@ -1,0 +1,110 @@
+package io.github.niilo411.elementalpaths.abilities.metal;
+
+import io.github.niilo411.elementalpaths.ChannelingData;
+import io.github.niilo411.elementalpaths.abilities.Ability;
+import io.github.niilo411.elementalpaths.abilities.TwoPhaseAbility;
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * Left / Metal. A wall of real iron two blocks in front, following the crosshair
+ * wherever the channeler looks or walks — and a left click sends it flying.
+ *
+ * Sound wall's heavier twin, and priced identically at the design's request. The
+ * difference is what it is made of: sound is particles that shove things back, this is
+ * REAL unbreakable blocks that collide the way any wall does.
+ *
+ * Both a TOGGLE and a TWO-PHASE, which is a pairing nothing else in the mod uses. The
+ * slot key raises and lowers it; the left click throws it. Arming happens at cast, so
+ * the click is available for as long as the shield is up.
+ */
+public class MetalShield implements TwoPhaseAbility {
+
+    /** Registry key. */
+    public static final String KEY = "metal shield";
+
+    /** Same as Sound wall, as the design asks. */
+    public static final int CHI_PER_SECOND = 10;
+    public static final int CHI_TO_START = 100;
+    public static final int XP_PER_SECOND = 1;
+
+    @Override
+    public String getName() {
+        return "Metal shield";
+    }
+
+    /** Nothing up front: billed by the second from the player tick. */
+    @Override
+    public int getChiCost(ChannelingData data) {
+        return 0;
+    }
+
+    @Override
+    public int getXpReward() {
+        return 0;
+    }
+
+    /** Two seconds before it can go back up, however it came down. */
+    public static final int COOLDOWN_TICKS = 40;
+
+    /**
+     * Two seconds, so raising it again is not instant.
+     *
+     * It had none at all, which made a shield that had just been thrown or dropped
+     * something a channeler could put straight back up on the next tick — at no cost,
+     * since raising it spends nothing up front and it is billed by the second. The
+     * two seconds is what makes putting it down a decision.
+     *
+     * Stamped from THREE places rather than one, because this ability is a toggle and
+     * a two-phase at once and the dispatcher's cast path stamps neither: the throw is
+     * covered by the two-phase release, and being pressed off or running out of chi are
+     * both covered by MetalShields.drop. Switching it off is still never REFUSED —
+     * isActive is checked above the cooldown gate — so the wait only ever applies to
+     * putting it back up.
+     */
+    @Override
+    public int getCooldownTicks() {
+        return COOLDOWN_TICKS;
+    }
+
+    /** Up already: the next press takes it down. */
+    @Override
+    public boolean isActive(ServerPlayer player, ChannelingData data) {
+        return MetalShields.has(player);
+    }
+
+    @Override
+    public void deactivate(ServerPlayer player, ChannelingData data) {
+        MetalShields.drop(player);
+    }
+
+    /** A gate, not a cost: nothing is deducted for meeting it. */
+    @Override
+    public boolean canStart(ServerPlayer player, ChannelingData data) {
+        return data.getCurrentChi() >= CHI_TO_START;
+    }
+
+    /** Held for as long as the shield stands. */
+    @Override
+    public int getArmedDurationTicks() {
+        return 0;
+    }
+
+    /**
+     * Nothing is drawn: the shield is REAL blocks and is already perfectly visible.
+     * Particles on top of it would only make the thing that is actually there harder
+     * to see — the same call Ice Bomb makes.
+     */
+    @Override
+    public void onArmedTick(ServerPlayer player, ChannelingData data) {
+    }
+
+    @Override
+    public void onRelease(ServerPlayer player, ChannelingData data) {
+        MetalShields.hurl(player);
+    }
+
+    @Override
+    public void execute(ServerPlayer player, ChannelingData data) {
+        MetalShields.raise(player);
+    }
+}

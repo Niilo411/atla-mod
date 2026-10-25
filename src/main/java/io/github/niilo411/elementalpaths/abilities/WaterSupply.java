@@ -1,0 +1,116 @@
+package io.github.niilo411.elementalpaths.abilities;
+
+import io.github.niilo411.elementalpaths.ElementalPaths;
+import io.github.niilo411.elementalpaths.WaterCanteenItem;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+
+/**
+ * Where a water channeler's water comes from.
+ *
+ * Standing near open water, channeling is free. Away from it, every ability drinks a
+ * unit from a canteen — and with no canteen and no river, there is nothing to channel
+ * and the cast is refused.
+ *
+ * The Cold water passive adds a third source between those two: ice or snow the
+ * channeler is standing directly on, which is free like open water but has to be
+ * underfoot rather than merely within fifteen blocks.
+ */
+public final class WaterSupply {
+
+    /** How far open water can be and still be usable directly. A setting; 15 by default. */
+    public static int searchRadius() {
+        return io.github.niilo411.elementalpaths.PathsConfig.waterReach();
+    }
+
+    private WaterSupply() {
+    }
+
+    /**
+     * Takes the water an ability needs, or explains why it cannot.
+     *
+     * Called before chi is spent, so a refused cast costs the player nothing.
+     *
+     * @return true if the ability may proceed
+     */
+    public static boolean tryConsume(ServerPlayer player) {
+        if (hasWaterNearby(player)) {
+            return true;
+        }
+
+        // Cold water: ice and snow underfoot count as a source, and cost nothing, the
+        // same way open water does. Checked BEFORE the canteen so a channeler stood on a
+        // frozen lake does not quietly drain one while surrounded by channelable ground.
+        if (io.github.niilo411.elementalpaths.abilities.water.ColdWater.standingOnSource(player,
+                player.getData(io.github.niilo411.elementalpaths.ModAttachments.CHANNELING_DATA))) {
+            return true;
+        }
+
+        ItemStack canteen = findUsableCanteen(player);
+        if (canteen.isEmpty()) {
+            player.displayClientMessage(Component.literal(
+                    "§bNo water nearby, and no water in your canteen!"), true);
+            return false;
+        }
+
+        WaterCanteenItem.drink(canteen);
+        return true;
+    }
+
+    /** Whether there is open water within reach to channel directly. */
+    public static boolean hasWaterNearby(ServerPlayer player) {
+        Level level = player.level();
+        BlockPos centre = player.blockPosition();
+
+        // Searched as expanding shells rather than a flat triple loop, so standing at
+        // the edge of a lake — the common case — bails out almost immediately instead
+        // of walking the whole 31-cube every time an ability is cast.
+        for (int radius = 0, reach = searchRadius(); radius <= reach; radius++) {
+            if (shellHasWater(level, centre, radius)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Checks only the surface of the cube at this radius; inner ones came earlier. */
+    private static boolean shellHasWater(Level level, BlockPos centre, int radius) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    boolean onShell = Math.abs(dx) == radius
+                            || Math.abs(dy) == radius
+                            || Math.abs(dz) == radius;
+                    if (!onShell) continue;
+
+                    BlockPos pos = centre.offset(dx, dy, dz);
+                    if (level.getFluidState(pos).is(FluidTags.WATER)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** The first canteen in the player's inventory with anything left in it. */
+    private static ItemStack findUsableCanteen(ServerPlayer player) {
+        for (ItemStack stack : player.getInventory().items) {
+            if (stack.is(ElementalPaths.WATER_CANTEEN.get()) && !WaterCanteenItem.isEmpty(stack)) {
+                return stack;
+            }
+        }
+
+        // Off-hand counts too, since that is where a canteen naturally lives.
+        ItemStack offhand = player.getOffhandItem();
+        if (offhand.is(ElementalPaths.WATER_CANTEEN.get()) && !WaterCanteenItem.isEmpty(offhand)) {
+            return offhand;
+        }
+
+        return ItemStack.EMPTY;
+    }
+}

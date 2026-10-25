@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "H H",
+    "H H"
+  ],
+  "key": {
+    "H": { "item": "elemental_paths:spirit_shard" }
+  },
+  "result": {
+    "id": "elemental_paths:spirit_boots",
+    "count": 1
+  }
+}

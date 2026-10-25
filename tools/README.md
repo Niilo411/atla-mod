@@ -6,13 +6,13 @@ Throwaway generators. Not part of the mod, not on the build path — run by hand
 ## GenArmor.java
 
 Generates the four armor-layer sheets under
-`src/main/resources/assets/atlamod/textures/models/armor/`:
+`src/main/resources/assets/elemental_paths/textures/models/armor/`:
 
 - `stone_layer_1.png`, `stone_layer_2.png` — Earth armor
 - `metal_layer_1.png`, `metal_layer_2.png` — Metal armor
 
 ```
-java tools/GenArmor.java src/main/resources/assets/atlamod/textures/models/armor
+java tools/GenArmor.java src/main/resources/assets/elemental_paths/textures/models/armor
 ```
 
 Everything is procedural and **seeded**, so the output is byte-for-byte reproducible —
@@ -28,7 +28,7 @@ and down an arm in unrelated places.
 ## SpiritTextures.java
 
 Recolours vanilla textures into the spirit ore, shard and armor textures under
-`src/main/resources/assets/atlamod/textures/`:
+`src/main/resources/assets/elemental_paths/textures/`:
 
 - `block/spirit_ore.png` — from emerald ore
 - `item/spirit_shard.png` — from the amethyst shard
@@ -36,7 +36,7 @@ Recolours vanilla textures into the spirit ore, shard and armor textures under
 - `models/armor/spirit_armor_layer_{1,2}.png` — from chainmail's armor sheets
 
 ```
-java tools/SpiritTextures.java build/moddev/artifacts/neoforge-21.1.248-client-extra-aka-minecraft-resources.jar src/main/resources/assets/atlamod/textures
+java tools/SpiritTextures.java build/moddev/artifacts/neoforge-21.1.248-client-extra-aka-minecraft-resources.jar src/main/resources/assets/elemental_paths/textures
 ```
 
 Reads straight out of the vanilla jar, so there is no half-extracted copy of Mojang's
@@ -62,11 +62,11 @@ Deterministic — re-running it over the same jar reproduces the shipped files b
 
 ## GenChiIcon.java
 
-Draws the **No bending** emblem — a black and white taijitu — to
-`src/main/resources/assets/atlamod/textures/gui/elements/nobending_icon.png`.
+Draws the **No channeling** emblem — a black and white taijitu — to
+`src/main/resources/assets/elemental_paths/textures/gui/elements/nochanneling_icon.png`.
 
 ```
-java tools/GenChiIcon.java src/main/resources/assets/atlamod/textures/gui/elements
+java tools/GenChiIcon.java src/main/resources/assets/elemental_paths/textures/gui/elements
 ```
 
 256x256 to match every other element emblem, and this project's own pixels like the armor
@@ -82,10 +82,10 @@ the rim comes out grey where white meets transparency.
 ## GenComet.java
 
 Draws Sozin's Comet to
-`src/main/resources/assets/atlamod/textures/environment/sozins_comet.png`.
+`src/main/resources/assets/elemental_paths/textures/environment/sozins_comet.png`.
 
 ```
-java tools/GenComet.java src/main/resources/assets/atlamod/textures/environment
+java tools/GenComet.java src/main/resources/assets/elemental_paths/textures/environment
 ```
 
 128x128, and **drawn for ADDITIVE blending** — that is the thing to know before editing

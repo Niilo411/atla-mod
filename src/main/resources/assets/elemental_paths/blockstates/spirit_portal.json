@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "axis=x,island=false": { "model": "elemental_paths:block/spirit_portal_ns" },
+    "axis=z,island=false": { "model": "elemental_paths:block/spirit_portal_ew" },
+    "axis=x,island=true": { "model": "elemental_paths:block/spirit_portal_ns" },
+    "axis=z,island=true": { "model": "elemental_paths:block/spirit_portal_ew" }
+  }
+}

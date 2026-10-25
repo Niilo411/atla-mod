@@ -1,0 +1,531 @@
+package io.github.niilo411.elementalpaths.spirit.island;
+
+import io.github.niilo411.elementalpaths.PathsConfig;
+
+/**
+ * Where the Spirit Realm's islands are, how big they are and what they are made of.
+ *
+ * THE SINGLE SOURCE OF TRUTH, and it has to be: two completely separate parts of the
+ * game ask these questions and must never disagree. {@link SpiritIslandFeature} asks so
+ * it can place blocks, and {@link io.github.niilo411.elementalpaths.spirit.SpiritBiomeSource} asks so
+ * it can say which biome a position is in. If those two drifted apart you would get a
+ * nether-looking island reporting an end biome — wrong fog, wrong sky, wrong everything —
+ * and the mismatch would be invisible in the code because the two run at different times
+ * in different parts of world generation.
+ *
+ * Everything here is a pure function of a position, and no chunk needs to have been
+ * generated for a question about it to be answerable. Results ARE memoised per thread —
+ * see {@link Cache} — but only as a speed-up: a cached answer is the same answer, because
+ * the inputs are a cell's coordinates and a constant.
+ *
+ * THE SEED IS A CONSTANT, not the world seed, and that is a deliberate trade. A
+ * BiomeSource is never handed the world seed — it is constructed from its codec and asked
+ * about positions, and there is no point at which the seed reaches it. Using a constant is
+ * what lets the biome source and the feature agree at all. The cost is that every world's
+ * Spirit Realm has the same island layout; the alternative was the two disagreeing, which
+ * is far worse.
+ */
+public final class SpiritIslands {
+
+    /**
+     * How far apart islands sit: one per cell of this many blocks.
+     *
+     * CONFIGURABLE, and the default of 260 is what this used to be hard-coded to — down
+     * from the original 320, so there are about half again as many islands in the same
+     * space. It could not go as low as the islands grew: they are now up to 250 across,
+     * and packing those into a 230 cell would have every one of them merged into its
+     * neighbours and no void left between them.
+     *
+     * ASKED FRESH EVERY TIME rather than read into a field here, because the answer can
+     * change while the game is running. {@link PathsConfig} holds the value in a plain
+     * volatile int, so this is a field read and nothing more.
+     */
+    public static int cell() {
+        return PathsConfig.islandSpacing();
+    }
+
+    /** The narrowest and widest an island may be, measured across. */
+    public static final int MIN_DIAMETER = 130;
+    public static final int MAX_DIAMETER = 250;
+
+    /** The band islands float in. Well clear of the temple at y=96. */
+    public static final int MIN_Y = 40;
+    public static final int MAX_Y = 140;
+
+    /** How deep an island's underside hangs below its surface at the thickest point. */
+    public static final int MAX_THICKNESS = 34;
+
+    /**
+     * How far an island's centre is kept from its cell's edge.
+     *
+     * Small enough to leave real jitter — without it the grid would be visible as a grid —
+     * and large enough that two neighbouring islands are usually clear of one another.
+     * USUALLY, not always: at this density two large islands facing each other across a
+     * cell boundary can touch. That is allowed and is safe, because {@link #coveringOrNull}
+     * gives every column to exactly one island, so they butt up against each other rather
+     * than interleaving.
+     */
+    private static final int MARGIN = 85;
+
+    /**
+     * The margin actually used, which cannot eat the whole cell.
+     *
+     * NECESSARY ONCE THE CELL BECAME CONFIGURABLE. The jitter a centre is given is drawn
+     * from {@code cell - 2 * margin}, and at the smallest cell the config allows (140) a
+     * flat margin of 85 makes that NEGATIVE — which is not a tight island but an outright
+     * crash, since {@link #pick} floor-mods by it. Capping the margin at a third of the
+     * cell leaves at least a third of it to jitter within at every size.
+     *
+     * At the default 260 this is {@code min(85, 86)} and so exactly the old 85, which is
+     * what keeps existing worlds' islands in the places they are already in.
+     */
+    private static int marginFor(int cell) {
+        return Math.min(MARGIN, cell / 3);
+    }
+
+    /** See the class note: deliberately fixed rather than the world seed. */
+    private static final long GRID_SEED = 0x5B1217A7L;
+
+    private SpiritIslands() {
+    }
+
+    /** One island, entirely derived from its cell. */
+    public record Island(int centreX, int centreZ, int centreY, int radius, IslandStyle style, long seed) {
+
+        /**
+         * How far the rim is from the centre in this direction.
+         *
+         * Noise on the world POSITION rather than on the angle, which matters: an
+         * angle-based wobble pinches to nothing at the centre and gives a flower shape,
+         * where this gives an irregular coastline at every scale. The rim lands between
+         * 0.85 and 1.15 times the nominal radius.
+         */
+        public double edgeAt(int x, int z) {
+            double wobble = noise(seed ^ 0x5EEDL, x, z, 24.0);
+            return radius * (0.85 + 0.30 * wobble);
+        }
+
+        /**
+         * Whether this column is inside the island proper.
+         *
+         * The two shortcuts are exact, not approximations: {@link #edgeAt} always lands
+         * between 0.85 and 1.15 times the radius, so anything outside the larger circle
+         * is certainly out and anything inside the smaller one is certainly in. Only the
+         * band between them needs the noise computed.
+         *
+         * Worth the care because of how often this runs. The biome source asks about
+         * every quart of every chunk, and each question walks nine cells and four islands
+         * in each — so the noise would otherwise be evaluated some fifty thousand times
+         * per chunk, almost always to reject something far away.
+         */
+        public boolean covers(int x, int z) {
+            double outer = radius * 1.15;
+
+            // A SQUARE REJECT BEFORE THE ROUND ONE, and it is worth the two extra lines.
+            // "No" is far and away the commonest answer here: coveringOrNull asks this of
+            // up to thirty-six islands for every column it is given, and all but one or
+            // two of them are a long way off — so the cheap test has to come first or
+            // every one of those rejections pays for a square root it never needed.
+            // Measured at 2x on the biome source's own access pattern.
+            //
+            // PROVABLY the same answer rather than an approximation, which matters because
+            // this decides world generation: a hypotenuse is never shorter than either of
+            // its sides, so anything this rejects the circle below would have rejected
+            // too. Verified over 8 million random and deliberately-on-the-boundary probes
+            // with no disagreement.
+            if (Math.abs(x - centreX) > outer) return false;
+            if (Math.abs(z - centreZ) > outer) return false;
+
+            double distance = distanceTo(x, z);
+
+            if (distance > outer) return false;
+            if (distance <= radius * 0.85) return true;
+            return distance <= edgeAt(x, z);
+        }
+
+        public double distanceTo(int x, int z) {
+            double dx = x - centreX;
+            double dz = z - centreZ;
+            return Math.sqrt(dx * dx + dz * dz);
+        }
+    }
+
+    /**
+     * How many smaller islands orbit each main one.
+     *
+     * They exist to break up the void: a lone island with a couple of hundred blocks of
+     * nothing on every side is a long way to fall and a long way to look at. Stepping
+     * stones around it make the dimension feel like somewhere you can cross.
+     *
+     * Configurable, and 3 is what this was fixed at before.
+     */
+    public static int satellites() {
+        return PathsConfig.satellites();
+    }
+
+    /** How far out a satellite sits, as a multiple of its parent's radius. */
+    private static final double ORBIT_MIN = 1.25;
+    private static final double ORBIT_RANGE = 0.45;
+
+    /** How big a satellite is, as a fraction of its parent's radius. */
+    private static final double SATELLITE_MIN = 0.22;
+    private static final double SATELLITE_RANGE = 0.18;
+
+    /** The island belonging to one grid cell. Always the same answer for the same cell. */
+    public static Island in(int cellX, int cellZ) {
+        return island(cellX, cellZ, 0);
+    }
+
+    /**
+     * One of a cell's islands: index 0 is the main one, 1 and up are its satellites.
+     *
+     * A satellite inherits its parent's STYLE deliberately — it is meant to read as a
+     * piece that broke off the island beside it, not as an unrelated island that happens
+     * to be nearby. Its height is only nudged from its parent's, for the same reason.
+     *
+     * Derived by HASHING rather than from a {@link java.util.Random}, and that is a
+     * performance decision rather than a style one. The biome source asks this about
+     * every quart of every chunk — roughly fifteen hundred times per chunk, each checking
+     * nine cells and four islands in each — so a fresh Random here would be tens of
+     * thousands of allocations per chunk generated. The hash is pure arithmetic.
+     */
+    public static Island island(int cellX, int cellZ, int index) {
+        long seed = mix(GRID_SEED, cellX, cellZ);
+
+        int cell = cell();
+        int margin = marginFor(cell);
+
+        int centreX = cellX * cell + margin + pick(seed, 1, cell - margin * 2);
+        int centreZ = cellZ * cell + margin + pick(seed, 2, cell - margin * 2);
+
+        int diameter = MIN_DIAMETER + pick(seed, 3, MAX_DIAMETER - MIN_DIAMETER + 1);
+        int centreY = MIN_Y + pick(seed, 4, MAX_Y - MIN_Y + 1);
+
+        IslandStyle style = styleFor(seed);
+        int radius = diameter / 2;
+
+        if (index == 0) return new Island(centreX, centreZ, centreY, radius, style, seed);
+
+        long satelliteSeed = seed ^ (index * 0x9E3779B97F4A7C15L);
+
+        double angle = pick(satelliteSeed, 6, 3600) / 3600.0 * Math.PI * 2.0;
+        double orbit = radius * (ORBIT_MIN + pick(satelliteSeed, 7, 100) / 100.0 * ORBIT_RANGE);
+
+        int satelliteRadius = Math.max(12,
+                (int) (radius * (SATELLITE_MIN + pick(satelliteSeed, 8, 100) / 100.0 * SATELLITE_RANGE)));
+
+        return new Island(
+                centreX + (int) Math.round(Math.cos(angle) * orbit),
+                centreZ + (int) Math.round(Math.sin(angle) * orbit),
+                centreY - 12 + pick(satelliteSeed, 9, 25),
+                satelliteRadius, style, satelliteSeed);
+    }
+
+    /**
+     * What an island is made of: its FAMILY first, then a variant within that family.
+     *
+     * Two draws rather than one, and the order is what keeps the dimension balanced. A
+     * single draw across all twelve styles would make the four overworld variants a third
+     * of every island and drop the end islands from a sixth to a twelfth — adding looks to
+     * a family would quietly make that family commoner. Picking the family first keeps
+     * each kind at one in six however many ways it can look.
+     *
+     * Salt 5 was the old single draw and is kept for the family, so islands that were
+     * already nether islands stay nether islands. Their variant is a new draw on salt 10.
+     *
+     * THE FAMILY DRAW IS WEIGHTED, so a player can make a kind of island commoner, rarer
+     * or absent. The weights reach the same answer as the old flat draw whenever they are
+     * all equal, which is not luck and is worth keeping: with six families each at 1 the
+     * total is 6, the draw is {@code pick(seed, 5, 6)} exactly as before, and walking the
+     * running total hands back the index that equals the number drawn. So the shipped
+     * configuration generates the identical dimension it always did, and a world only
+     * changes if somebody deliberately changes it.
+     */
+    private static IslandStyle styleFor(long seed) {
+        IslandStyle[] variants = familyFor(seed).variants();
+
+        return variants[pick(seed, 10, variants.length)];
+    }
+
+    /**
+     * Which family an island belongs to, drawn against the configured weights.
+     *
+     * The walk always finds somebody: the draw is bounded by the total, and the running
+     * total reaches the total by the last family — so the last family carrying any weight
+     * at all catches everything that got past the ones before it. The total is never zero,
+     * which {@link PathsConfig} guarantees rather than this method checking for.
+     */
+    private static IslandFamily familyFor(long seed) {
+        int drawn = pick(seed, 5, PathsConfig.familyWeightTotal());
+        int running = 0;
+
+        IslandFamily[] families = IslandFamily.values();
+        for (IslandFamily candidate : families) {
+            running += PathsConfig.familyWeight(candidate.ordinal());
+
+            if (drawn < running) return candidate;
+        }
+
+        // Unreachable while the total is the sum of the weights, and a sane answer rather
+        // than a throw if that ever stops being true.
+        return families[0];
+    }
+
+    /**
+     * One value in 0..bound-1, stable for a given seed and salt.
+     *
+     * Package-private rather than private so {@link SpiritShrines} can draw from the same
+     * stream: a shrine is a fact about an island, decided from the island's own seed, and a
+     * second hash of its own would be a second way to ask the same question.
+     */
+    static int pick(long seed, int salt, int bound) {
+        long h = seed ^ (salt * 0x9E3779B97F4A7C15L);
+
+        h ^= (h >>> 30);
+        h *= 0xBF58476D1CE4E5B9L;
+        h ^= (h >>> 27);
+        h *= 0x94D049BB133111EBL;
+        h ^= (h >>> 31);
+
+        return (int) Math.floorMod(h, (long) bound);
+    }
+
+    /**
+     * The island whose ground covers this column, or null for open void.
+     *
+     * THE ONE RULE both the blocks and the biomes obey. Where two islands overlap this
+     * hands the column to exactly one of them — the first in cell order — so the biome a
+     * position reports and the blocks actually standing there can never disagree.
+     */
+    public static Island coveringOrNull(int x, int z) {
+        if (nearTemple(x, z)) return null;
+
+        int cell = cell();
+        int cellX = Math.floorDiv(x, cell);
+        int cellZ = Math.floorDiv(z, cell);
+
+        Cache cache = CACHE.get();
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                for (Island island : cache.islandsIn(cellX + dx, cellZ + dz)) {
+                    if (island.covers(x, z)) return island;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * How many cells each thread remembers. A power of two, so the slot is a mask.
+     *
+     * Nine would cover one chunk's queries exactly. This is far larger because the slots
+     * are hashed rather than assigned: at sixty-four, two of the nine cells in a
+     * neighbourhood typically landed in the same slot and evicted each other on every
+     * single query. Two hundred and fifty-six makes that rare, and costs a few kilobytes
+     * per worker thread.
+     */
+    private static final int CACHE_SLOTS = 256;
+
+    /**
+     * A per-thread memory of which islands live in which cell.
+     *
+     * THE POINT: the biome source asks {@link #coveringOrNull} about every quart of every
+     * chunk — roughly fifteen hundred times — and each of those walked nine cells and
+     * built all four islands in each from scratch. That is some fifty-five thousand
+     * island constructions per chunk, every one of them recomputing the same nine cells,
+     * each costing a dozen hashes, a little trigonometry and an allocation. The answers
+     * are now worked out nine times per chunk instead.
+     *
+     * IT NEEDS INVALIDATING IN EXACTLY ONE CASE, and only since the island rules became
+     * configurable. An island is still a pure function of its cell, a constant seed and
+     * the settings — see the class note on why the seed is fixed — so an entry can only
+     * ever go stale by the SETTINGS changing underneath it, which happens when a world
+     * loads or when somebody saves the settings screen. {@link PathsConfig#generation()}
+     * counts those, and a thread whose cache was filled under an older count throws the
+     * lot away rather than trying to work out which cells moved. That is a handful of
+     * cells refilled after a settings change and nothing at all in the ordinary case,
+     * where the count is compared and matches.
+     *
+     * Without it a cache filled before the change would keep handing back islands of the
+     * old size, in the old places, with the old number of satellites — so chunks generated
+     * either side of the change would disagree about where the ground is, on the SAME
+     * settings, which is a far worse fault than the seam a settings change inherently makes.
+     *
+     * THREAD LOCAL rather than shared, because chunk generation runs on several worker
+     * threads at once. A shared map would need locking or a concurrent structure on a path
+     * this hot; giving each thread its own small array costs a few kilobytes and no
+     * synchronisation at all. Direct-mapped and overwritten on collision, so it is bounded
+     * whatever a thread visits.
+     */
+    private static final class Cache {
+
+        private final long[] keys = new long[CACHE_SLOTS];
+        private final Island[][] values = new Island[CACHE_SLOTS][];
+
+        /** The settings these entries were worked out under. See the class note. */
+        private long generation = PathsConfig.generation();
+
+        Island[] islandsIn(int cellX, int cellZ) {
+            long now = PathsConfig.generation();
+            if (now != generation) {
+                java.util.Arrays.fill(values, null);
+                generation = now;
+            }
+
+            long key = ((long) cellX << 32) | (cellZ & 0xFFFFFFFFL);
+
+            // Avalanched before masking. The raw mix is an XOR of two products, whose LOW
+            // bits barely move between neighbouring cells — and neighbouring cells are
+            // exactly what gets asked for, so taking them straight would put the whole
+            // nine-cell neighbourhood in a handful of slots and thrash.
+            long h = mix(0L, cellX, cellZ);
+            h ^= (h >>> 33);
+            h *= 0xFF51AFD7ED558CCDL;
+            h ^= (h >>> 33);
+
+            int slot = (int) (h & (CACHE_SLOTS - 1));
+
+            // The null test is not redundant: an empty slot's key is zero, which is also
+            // the key of cell (0, 0) — the one the temple sits in.
+            if (values[slot] != null && keys[slot] == key) return values[slot];
+
+            int satellites = satellites();
+
+            Island[] built = new Island[satellites + 1];
+            for (int index = 0; index <= satellites; index++) {
+                built[index] = island(cellX, cellZ, index);
+            }
+
+            keys[slot] = key;
+            values[slot] = built;
+            return built;
+        }
+    }
+
+    private static final ThreadLocal<Cache> CACHE = ThreadLocal.withInitial(Cache::new);
+
+    /**
+     * Every island belonging to one cell: the main one and its satellites.
+     *
+     * The same array {@link #coveringOrNull} walks, handed out so {@link SpiritShrines} can
+     * ask each island whether it carries a shrine without rebuilding any of them. Goes
+     * through the cache for that reason — a chunk asks this of twenty-five cells, and
+     * building a hundred islands per chunk from scratch is exactly what the cache exists
+     * to avoid.
+     *
+     * The array is the cache's own and MUST NOT be written to.
+     */
+    public static Island[] allIn(int cellX, int cellZ) {
+        return CACHE.get().islandsIn(cellX, cellZ);
+    }
+
+    /**
+     * How much open void is kept clear around the temple at the world origin.
+     *
+     * Necessary rather than optional. Islands are up to 250 across and their centres can
+     * sit as close as 85 blocks to the origin, which means the cell at the origin can
+     * reach the origin itself — so without this the Spirit Realm's one fixed landmark
+     * would generate buried inside an island, with its doorway walled up and its portal
+     * in the rock.
+     */
+    private static final int TEMPLE_CLEARANCE = 44;
+
+    /** Whether this column is inside the clear space kept around the temple. */
+    private static boolean nearTemple(int x, int z) {
+        return x * x + z * z <= TEMPLE_CLEARANCE * TEMPLE_CLEARANCE;
+    }
+
+    /** Returned by {@link #surfaceAt} where there is no island at all. */
+    public static final int NO_GROUND = Integer.MIN_VALUE;
+
+    /**
+     * The Y of the island surface at this column, or {@link #NO_GROUND} for open void.
+     *
+     * Needed because the Spirit Realm's TERRAIN IS A FEATURE, not noise. Asking the chunk
+     * generator how high the ground is there gets the honest answer "there is none" — the
+     * noise produces nothing and the islands are stamped in afterwards. So anything that
+     * has to know where the ground is before the chunk is built, which is every structure
+     * deciding whether it can stand somewhere, has to ask this instead.
+     *
+     * {@link SpiritIslandFeature} asks the same method when it actually lays the blocks,
+     * so the height a structure plans around and the height it finds are the same number
+     * by construction.
+     */
+    public static int surfaceAt(int x, int z) {
+        Island island = coveringOrNull(x, z);
+        if (island == null) return NO_GROUND;
+
+        return surfaceOf(island, x, z);
+    }
+
+    /** The surface height of a known island at a column inside it. */
+    public static int surfaceOf(Island island, int x, int z) {
+        double inward = 1.0 - (island.distanceTo(x, z) / island.edgeAt(x, z));
+        IslandStyle style = island.style();
+
+        // Sqrt so the middle is a broad plateau rather than a sharp peak, then the style's
+        // own relief on top of it — which is the whole difference between crimson's
+        // mountains and the wasteland's flats.
+        return island.centreY()
+                + (int) Math.round(style.relief() * noise(island.seed(), x, z, style.reliefScale()))
+                + (int) Math.round(4 * Math.sqrt(Math.max(0.0, inward)));
+    }
+
+    /**
+     * Smooth 2D value noise in 0..1, with no setup and no allocation.
+     *
+     * Vanilla's PerlinNoise would do this better, but it has to be built from a
+     * RandomSource and held somewhere, and everything here is static and shared by every
+     * world at once — so there is nowhere correct to keep one. Seeded per island at the
+     * call site instead, which is what makes islands differ from one another rather than
+     * all wearing the same noise field.
+     */
+    static double noise(long seed, double x, double z, double scale) {
+        double sx = x / scale;
+        double sz = z / scale;
+
+        int x0 = (int) Math.floor(sx);
+        int z0 = (int) Math.floor(sz);
+
+        double fx = smooth(sx - x0);
+        double fz = smooth(sz - z0);
+
+        double n00 = lattice(seed, x0, z0);
+        double n10 = lattice(seed, x0 + 1, z0);
+        double n01 = lattice(seed, x0, z0 + 1);
+        double n11 = lattice(seed, x0 + 1, z0 + 1);
+
+        double top = n00 + fx * (n10 - n00);
+        double bottom = n01 + fx * (n11 - n01);
+
+        return top + fz * (bottom - top);
+    }
+
+    /** Smoothstep, so the interpolation has no visible creases on the lattice lines. */
+    private static double smooth(double t) {
+        return t * t * (3.0 - 2.0 * t);
+    }
+
+    /** One lattice point's value in 0..1, from a hash rather than a stored table. */
+    private static double lattice(long seed, int x, int z) {
+        long h = mix(seed, x, z);
+
+        h ^= (h >>> 33);
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= (h >>> 33);
+
+        return ((h >>> 11) & 0x1FFFFF) / (double) 0x1FFFFF;
+    }
+
+    /**
+     * A stable seed for a pair of coordinates.
+     *
+     * Deliberately not a sum or Objects.hash: both collide badly on a grid, and
+     * neighbouring cells sharing a seed would mean neighbouring islands being identical.
+     * These are the multipliers vanilla uses for the same job.
+     */
+    static long mix(long base, int a, int b) {
+        return base ^ (a * 341873128712L) ^ (b * 132897987541L);
+    }
+}

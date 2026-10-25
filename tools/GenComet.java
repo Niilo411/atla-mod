@@ -22,7 +22,7 @@ import java.io.IOException;
  * the head is a handful of pixels across and the rest of the sheet is the tail thinning
  * away to nothing, so on the sky it reads as a bright speck with a streak behind it.
  *
- *   java tools/GenComet.java src/main/resources/assets/atlamod/textures/environment
+ *   java tools/GenComet.java src/main/resources/assets/elemental_paths/textures/environment
  */
 public final class GenComet {
 
@@ -49,7 +49,7 @@ public final class GenComet {
 
     public static void main(String[] args) throws IOException {
         File out = new File(args.length > 0 ? args[0]
-                : "src/main/resources/assets/atlamod/textures/environment");
+                : "src/main/resources/assets/elemental_paths/textures/environment");
         out.mkdirs();
 
         BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);

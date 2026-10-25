@@ -1,0 +1,7 @@
+{
+  "type": "elemental_paths:spirit_temple",
+  "biomes": "#elemental_paths:has_spirit_temple",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "spawn_overrides": {}
+}

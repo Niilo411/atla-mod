@@ -1,0 +1,7 @@
+{
+  "type": "elemental_paths:spirit_shrine",
+  "biomes": "#elemental_paths:has_spirit_shrine",
+  "step": "surface_structures",
+  "terrain_adaptation": "none",
+  "spawn_overrides": {}
+}

@@ -1,0 +1,84 @@
+package io.github.niilo411.elementalpaths.abilities.air;
+
+import io.github.niilo411.elementalpaths.ChannelingData;
+import io.github.niilo411.elementalpaths.abilities.Ability;
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * Balanced / Air. A ball of air under the rider, carrying them where they look at a
+ * run, half a block off the ground.
+ *
+ * A TOGGLE, not a held ability, and that is why it is a plain {@link Ability} rather
+ * than a ChanneledAbility: press to get on, press again to get off. The click
+ * dispatch (UseAbilityPacket) fires once per press, which is exactly what a toggle
+ * wants, where the hold dispatch built for Fire Breath reports key state instead.
+ *
+ * Almost nothing lives in this class. The ride owns an entity and has to be taken
+ * down safely from half a dozen different directions, so it lives in
+ * {@link io.github.niilo411.elementalpaths.abilities.Rides} alongside the other per-player managers — and the running cost
+ * is charged there too, since the dispatcher only knows how to bill held abilities
+ * and this is not one.
+ */
+public class GaleRide implements Ability {
+
+    /** Doubles how fast the gale ride travels. Read by Rides when steering. */
+    public static final String SLIPSTREAM = "gale_ride_slipstream";
+    private static final int SLIPSTREAM_COST = 10;
+
+    @Override
+    public String getName() {
+        return "Gale Ride";
+    }
+
+    @Override
+    public java.util.List<io.github.niilo411.elementalpaths.abilities.AbilityUpgrade> getUpgrades() {
+        return java.util.List.of(new io.github.niilo411.elementalpaths.abilities.AbilityUpgrade(
+                SLIPSTREAM,
+                "Slipstream",
+                "The gale ride carries you twice as fast",
+                SLIPSTREAM_COST));
+    }
+
+    /**
+     * Free to get on and off. The 5 chi a second is charged by Rides while the
+     * ride runs; billing anything here would be a toll on the keypress instead.
+     */
+    @Override
+    public int getChiCost(ChannelingData data) {
+        return 0;
+    }
+
+    /** Earned per second while riding, not for pressing the key. */
+    @Override
+    public int getXpReward() {
+        return 0;
+    }
+
+    /**
+     * None. A cooldown on a toggle punishes getting OFF, which is the one thing a
+     * player should always be able to do immediately.
+     */
+    @Override
+    public int getCooldownTicks() {
+        return 0;
+    }
+
+    /** Riding already: the next press gets off. */
+    @Override
+    public boolean isActive(ServerPlayer player, ChannelingData data) {
+        return io.github.niilo411.elementalpaths.abilities.Rides.isRiding(
+                player, io.github.niilo411.elementalpaths.abilities.Rides.Kind.GALE_RIDE);
+    }
+
+    @Override
+    public void deactivate(ServerPlayer player, ChannelingData data) {
+        io.github.niilo411.elementalpaths.abilities.Rides.stop(player);
+    }
+
+    /** Press on. Getting off goes through deactivate, not through here. */
+    @Override
+    public void execute(ServerPlayer player, ChannelingData data) {
+        io.github.niilo411.elementalpaths.abilities.Rides.start(
+                player, io.github.niilo411.elementalpaths.abilities.Rides.Kind.GALE_RIDE, SLIPSTREAM);
+    }
+}

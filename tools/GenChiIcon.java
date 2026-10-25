@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * Draws the No bending emblem: a black and white chi symbol.
+ * Draws the No channeling emblem: a black and white chi symbol.
  *
  * PROGRAMMER ART ON PURPOSE, like the armor sheets GenArmor makes, and for the same
  * reason — it is this project's own pixels rather than anyone else's. Everything here is
@@ -25,7 +25,7 @@ import java.io.IOException;
  * pixel and averaging is both shorter than setting up rendering hints and exactly
  * reproducible across JDKs, which the hint-driven path is not.
  *
- *   java tools/GenChiIcon.java src/main/resources/assets/atlamod/textures/gui/elements
+ *   java tools/GenChiIcon.java src/main/resources/assets/elemental_paths/textures/gui/elements
  */
 public final class GenChiIcon {
 
@@ -41,7 +41,7 @@ public final class GenChiIcon {
 
     public static void main(String[] args) throws IOException {
         File out = new File(args.length > 0 ? args[0]
-                : "src/main/resources/assets/atlamod/textures/gui/elements");
+                : "src/main/resources/assets/elemental_paths/textures/gui/elements");
         out.mkdirs();
 
         BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
@@ -52,7 +52,7 @@ public final class GenChiIcon {
             }
         }
 
-        File file = new File(out, "nobending_icon.png");
+        File file = new File(out, "nochanneling_icon.png");
         ImageIO.write(image, "png", file);
 
         System.out.println("wrote " + file.getPath() + "  " + SIZE + "x" + SIZE);

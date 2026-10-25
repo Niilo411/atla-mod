@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "blue=false,stacked=false": { "model": "elemental_paths:block/channeling_fire" },
+    "blue=false,stacked=true":  { "model": "elemental_paths:block/channeling_fire" },
+    "blue=true,stacked=false":  { "model": "elemental_paths:block/channeling_fire_blue" },
+    "blue=true,stacked=true":   { "model": "elemental_paths:block/channeling_fire_blue" }
+  }
+}

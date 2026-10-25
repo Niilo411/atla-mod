@@ -1,0 +1,907 @@
+package io.github.niilo411.elementalpaths;
+
+import io.github.niilo411.elementalpaths.abilities.Ability;
+import io.github.niilo411.elementalpaths.abilities.AbilityRegistry;
+import io.github.niilo411.elementalpaths.abilities.AbilitySupport;
+import io.github.niilo411.elementalpaths.abilities.AbilityTuning;
+import io.github.niilo411.elementalpaths.abilities.ChanneledAbility;
+import io.github.niilo411.elementalpaths.abilities.ChargedAbility;
+import io.github.niilo411.elementalpaths.abilities.PassiveAbility;
+import io.github.niilo411.elementalpaths.abilities.TwoPhaseAbility;
+import net.minecraft.network.chat.Component;
+import io.github.niilo411.elementalpaths.network.ChargeStatusPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.neoforged.neoforge.network.PacketDistributor;
+
+/**
+ * Thin dispatcher. It owns the rules that apply to EVERY ability — cooldown gating,
+ * chi cost, XP reward, arming/releasing two-phase abilities, channeling lifecycle,
+ * and syncing back to the client — then hands off to the ability's own logic.
+ *
+ * Ability effects themselves live in io.github.niilo411.elementalpaths.abilities.*; adding one
+ * should never require touching this file.
+ */
+public class AbilityHandler {
+
+    // ==========================================
+    //  PHASE 1: instant cast (slot key pressed)
+    // ==========================================
+    /**
+     * How long an ability's cooldown actually is for this player.
+     *
+     * Sound boosting takes a quarter off every AIR and SOUND cooldown. Applied here
+     * rather than by the abilities because cooldowns are stamped in five different
+     * places, none of which an ability class touches — asking each one to shorten its
+     * own would be a rule the next ability added would quietly break.
+     */
+    private static int cooldownFor(ServerPlayer player, ChannelingData data, Ability ability) {
+        int base = AbilityTuning.cooldownTicks(ability);
+        if (base <= 0) return base;
+
+        if (boostable(ability)) {
+            base = io.github.niilo411.elementalpaths.abilities.sound.Sound.shorten(data, base);
+        }
+        return scaled(base, io.github.niilo411.elementalpaths.events.WorldEvents
+                .cooldownMultiplier(player.level(), ability.getName()));
+    }
+
+    /** The same quarter off an ability's charge time. */
+    private static int chargeTicksFor(ServerPlayer player, ChannelingData data, ChargedAbility ability) {
+        int base = ability.getChargeTicks();
+        if (base <= 0) return base;
+
+        if (boostable(ability)) {
+            base = io.github.niilo411.elementalpaths.abilities.sound.Sound.shorten(data, base);
+        }
+        return scaled(base, io.github.niilo411.elementalpaths.events.WorldEvents
+                .chargeMultiplier(player.level(), ability.getName()));
+    }
+
+    /**
+     * What an ability costs to cast right now, after any world event.
+     *
+     * THE ONE PLACE THE COST IS DECIDED, which matters because three separate things ask
+     * for it — the chi check before a cast, the message that names the figure when it is
+     * refused, and the spend itself. Left as three calls to getChiCost, a comet would have
+     * made an ability cost less but still be refused at the old price.
+     */
+    public static int chiCostFor(ServerPlayer player, ChannelingData data, Ability ability) {
+        return scaled(AbilityTuning.castChiCost(ability, data), io.github.niilo411.elementalpaths.events.WorldEvents
+                .chiMultiplier(player.level(), ability.getName()));
+    }
+
+    /**
+     * A figure times a multiplier, never dropping to zero.
+     *
+     * A cooldown or a charge rounded away would be a genuine change of shape rather than
+     * a discount — a two-phase ability with no charge is not the same ability cheaply. A
+     * chi cost of zero is the same problem in reverse: free is not what "a quarter of the
+     * price" means, and it would let an empty pool cast anything. Anything that was
+     * already zero stays zero, since {@code Math.max} is only reached by a positive base.
+     */
+    private static int scaled(int base, float multiplier) {
+        if (base <= 0 || multiplier == 1.0F) return base;
+
+        return Math.max(1, Math.round(base * multiplier));
+    }
+
+    /**
+     * Runs an ability's effect with its ELEMENT recorded on the caster.
+     *
+     * The damage handler is where a world event's damage multiplier has to be applied,
+     * and it is the one place that cannot tell which element caused a blow — damage
+     * arrives as a source and an attacker, and nearly every element here hits through
+     * indirectMagic. The dispatcher knows, for exactly as long as the effect is running.
+     *
+     * CLEARED IN A FINALLY, which is the whole reason this is a method rather than two
+     * lines at each of the three call sites: an ability that threw would otherwise leave
+     * every later blow that player landed wearing the element of the cast that failed.
+     */
+    private static void runWithElement(ChannelingData data, Ability ability, Runnable effect) {
+        data.setCastingElement(
+                io.github.niilo411.elementalpaths.abilities.ElementPaths.elementOf(ability.getName()));
+        try {
+            effect.run();
+        } finally {
+            data.setCastingElement("");
+        }
+    }
+
+    /**
+     * Refuses a cast outright because the player is in the Spirit Realm, and says so.
+     *
+     * Told rather than silent, for the reason every other refusal in this dispatcher is:
+     * "nothing happened" is indistinguishable from a broken keybind, and the reason here
+     * is something the player can act on by leaving.
+     */
+    private static boolean refusedInSpiritRealm(ServerPlayer player, Ability ability) {
+        if (!io.github.niilo411.elementalpaths.spirit.SpiritRealm.isSpiritRealm(player.level())) return false;
+
+        // A KICK IS NOT CHANNELING, and neither is striking somebody's chi points. The rule
+        // is that channeling is silent here, not that nobody may move — and a non-channeler
+        // refused both of their abilities would have nothing whatsoever to do in the
+        // Spirit Realm, which is the one place the mod most wants people to go.
+        if (io.github.niilo411.elementalpaths.abilities.ElementPaths.isNoChanneling(
+                io.github.niilo411.elementalpaths.abilities.ElementPaths.elementOf(ability.getName()))) {
+            return false;
+        }
+
+        player.displayClientMessage(Component.literal(
+                "§bChanneling is silent in the Spirit Realm."), true);
+        return true;
+    }
+
+    /**
+     * Refuses an ability the settings have switched off, and says so.
+     *
+     * TOLD RATHER THAN SILENT, like every other refusal here: a key that does nothing at
+     * all is indistinguishable from a broken keybind, and "this one is switched off" is
+     * something the player can act on by asking whoever runs the server.
+     *
+     * A TOGGLE ALREADY RUNNING IS LET THROUGH, and that exemption is load-bearing rather
+     * than polite. Tornado, Gale Ride, Combustion Beam, Metal shield and the rest are
+     * switched off by pressing their own key, which reaches the dispatcher through this
+     * same door — so refusing it outright would leave anybody who had one up when it was
+     * disabled riding, shielded or draining chi with no way to stop. Disabling an ability
+     * must never be able to trap somebody inside it. Only STARTING one is refused.
+     *
+     * The equip and unlock packets refuse it too, so this is the last of four doors rather
+     * than the only one; it is here because it is the one a keybind actually opens, and
+     * because a slot bound before the ability was disabled still points at it.
+     */
+    private static boolean refusedDisabled(ServerPlayer player, ChannelingData data, Ability ability) {
+        if (io.github.niilo411.elementalpaths.PathsConfig.abilityEnabled(ability.getName())) return false;
+        if (ability.isActive(player, data)) return false;
+
+        player.displayClientMessage(Component.literal(
+                "§c" + ability.getName() + " is disabled in this world's settings."), true);
+        return true;
+    }
+
+    /**
+     * Refuses a cast because the player's chi points have been struck.
+     *
+     * A SEPARATE REFUSAL FROM DEAFEN'S LOCKOUT although the sentence is nearly the same,
+     * because the two are different things that happen to share one symptom: Deafen is a
+     * sound ability shouting somebody's ears out, and this is their chi physically shut
+     * off. They run for different lengths, arrive from different elements, and only this
+     * one also freezes regeneration — so a player reading "you cannot channel right now"
+     * would have no idea which of the two had happened to them or how long it lasts.
+     */
+    /**
+     * Refuses fire channeling while the sun is out.
+     *
+     * THE DAY OF BLACK SUN'S WHOLE POINT, and a refusal rather than a multiplier because
+     * no multiplier says "not at all" — one small enough to try would leave abilities
+     * casting for nothing, which reads as the mod being broken rather than as an eclipse.
+     *
+     * Overworld only, and switchable off in the settings, where turning it off leaves the
+     * event's multipliers in force: that is how it goes from "fire channeling is gone" to
+     * "fire channeling is worse" without a second setting deciding which.
+     */
+    private static boolean refusedByBlackSun(ServerPlayer player, Ability ability) {
+        if (!io.github.niilo411.elementalpaths.events.WorldEvents
+                .fireChannelingSuppressed(player.level(), ability.getName())) {
+            return false;
+        }
+
+        player.displayClientMessage(Component.literal(
+                "§8The sun is dark. There is no fire in you."), true);
+        return true;
+    }
+
+    private static boolean refusedChiBlocked(ServerPlayer player, ChannelingData data) {
+        if (!data.isChiBlocked()) return false;
+
+        player.displayClientMessage(Component.literal(
+                "§cYour chi is blocked! (" + ((data.getChiBlockedTicks() + 19) / 20) + "s)"), true);
+        return true;
+    }
+
+    /** Whether Sound boosting reaches this ability: air and sound abilities only. */
+    private static boolean boostable(Ability ability) {
+        String element = io.github.niilo411.elementalpaths.abilities.ElementPaths.elementOf(ability.getName());
+        return "air".equals(element) || "sound".equals(element);
+    }
+
+    public static void executeAbility(ServerPlayer player, ChannelingData data, String abilityName) {
+        Ability ability = AbilityRegistry.get(abilityName);
+        if (ability == null) return;
+
+        // Switched off in this world's settings. Above everything else because it is the
+        // most fundamental refusal of the lot — the others say this cast cannot happen
+        // NOW, where this says the ability is not part of this world at all — and because
+        // it is one set lookup, cheaper than anything under it.
+        if (refusedDisabled(player, data, ability)) return;
+
+        // Nothing channels in the Spirit Realm. Checked above everything else, because it
+        // is a fact about WHERE the player is rather than about the ability or what
+        // they can afford — there is no cast here that could succeed.
+        if (refusedInSpiritRealm(player, ability)) return;
+
+        // Deafen locks its victims out of channeling entirely for a few seconds. Checked
+        // at the very top, before anything is spent or stamped.
+        if (data.isChannelingLocked()) {
+            player.displayClientMessage(Component.literal(
+                    "§cYou cannot channel right now! (" + ((data.getChannelingLockedTicks() + 19) / 20) + "s)"), true);
+            return;
+        }
+
+        // Chi blocked — beside the lockout above because it is the same shape of refusal:
+        // a fact about the player rather than about the ability, checked before anything
+        // is spent or stamped. It stops the no-channeling abilities too, deliberately: a
+        // chi blocker whose own points have been struck is as stopped as anyone else.
+        if (refusedChiBlocked(player, data)) return;
+        if (refusedByBlackSun(player, ability)) return;
+
+        // Held shapes do NOT start here — they come in through executeAbilityHold().
+        // The client can't tell the shapes apart, so it fires UseAbilityPacket AND
+        // AbilityHoldPacket on the same key press. Without this guard the cast path
+        // would run the ability immediately, defeating a charge-up entirely, and for
+        // a channel would stamp its cooldown while doing nothing visible — leaving
+        // the ability looking dead and permanently cooling.
+        // Passives are never cast at all: being equipped is the whole activation.
+        if (ability instanceof ChanneledAbility || ability instanceof ChargedAbility
+                || ability instanceof PassiveAbility) return;
+
+        dismountRide(player, ability);
+        performCast(player, data, ability);
+    }
+
+    /**
+     * Casting anything else gets you off whatever you are riding first — Gale Ride
+     * or Water Surf.
+     *
+     * Chosen over refusing the cast: channeling from a ride would mean channeling while sat
+     * on a moving entity the server is steering, which is a lot of surface for odd
+     * interactions (rooting channels that cannot root a passenger, flight abilities
+     * fighting the seat), while blocking abilities outright risks a player who feels
+     * stuck and cannot work out why nothing fires. Stepping off is unambiguous, and
+     * the ride is free to get back onto.
+     */
+    private static void dismountRide(ServerPlayer player, Ability ability) {
+        if (ability instanceof io.github.niilo411.elementalpaths.abilities.air.GaleRide
+                || ability instanceof io.github.niilo411.elementalpaths.abilities.water.WaterSurf
+                || ability instanceof io.github.niilo411.elementalpaths.abilities.earth.EarthDig) return;
+        io.github.niilo411.elementalpaths.abilities.Rides.stop(player);
+    }
+
+    /**
+     * The shared cast: cooldown gate, precondition, chi, XP, effect, cooldown, sync.
+     *
+     * Split out from executeAbility so a charge that finishes winding up lands on
+     * exactly the same path an instant cast does, rather than a parallel copy that
+     * could drift from it.
+     */
+    private static void performCast(ServerPlayer player, ChannelingData data, Ability ability) {
+        // Switching a toggle off is not a cast, and is handled before ANY of the
+        // gates below. A toggle that outlasts its own cooldown — Tornado runs 30
+        // seconds behind a 10 second one — would otherwise be uncancellable for as
+        // long as the cooldown had left to run, and nobody should pay chi to stop
+        // doing something.
+        if (ability.isActive(player, data)) {
+            ability.deactivate(player, data);
+            AbilitySupport.syncData(player, data);
+            return;
+        }
+
+        if (AbilityTuning.cooldownTicks(ability) > 0 && data.isOnCooldown(ability.getKey())) {
+            // WITH the seconds left, the same as the charge and channel paths already
+            // showed. Without them a long cooldown is indistinguishable from a broken
+            // one: Earth sink says nothing for two minutes and then quietly works, and
+            // the only honest reading of that from the outside is "it never comes back".
+            int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
+            player.displayClientMessage(Component.literal(
+                    "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
+            return;
+        }
+
+        // Per-ability precondition runs before chi is spent, so a blocked cast is free.
+        if (!ability.canStart(player, data)) return;
+
+        // Water has to be found before chi is spent, so a channeler caught dry loses
+        // nothing for trying.
+        if (ability.requiresWater()
+                && !io.github.niilo411.elementalpaths.abilities.WaterSupply.tryConsume(player)) {
+            return;
+        }
+
+        if (!AbilitySupport.consumeChiAndGiveXp(player, data, chiCostFor(player, data, ability), AbilityTuning.xpReward(ability))) {
+            return;
+        }
+
+        io.github.niilo411.elementalpaths.spirit.SpiritPortals.recordUse(player, ability.getKey());
+
+        // Two-phase abilities arm here and fire on the next left click.
+        if (ability instanceof TwoPhaseAbility twoPhase) {
+            data.setActiveTwoPhaseAbility(ability.getKey());
+            data.setTwoPhaseTicks(twoPhase.getArmedDurationTicks());
+            data.setTwoPhaseShots(twoPhase.getShots());
+        }
+
+        runWithElement(data, ability, () -> ability.execute(player, data));
+
+        // Two-phase cooldowns start on release instead — see TwoPhaseAbility.
+        if (AbilityTuning.cooldownTicks(ability) > 0 && !(ability instanceof TwoPhaseAbility)) {
+            data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
+        }
+
+        AbilitySupport.syncData(player, data);
+    }
+
+    /**
+     * Arms a two-phase ability WITHOUT casting it.
+     *
+     * The ordinary route into the armed state is performCast, which also gates on
+     * cooldown and spends chi. Bolt Deflection needs the state without either:
+     * catching a bolt somebody else threw is not a cast the catcher paid for, and it
+     * happens when the bolt arrives rather than when a key is pressed.
+     */
+    public static void armTwoPhase(ServerPlayer player, ChannelingData data, TwoPhaseAbility ability) {
+        data.setActiveTwoPhaseAbility(ability.getKey());
+        data.setTwoPhaseTicks(ability.getArmedDurationTicks());
+        data.setTwoPhaseShots(ability.getShots());
+
+        AbilitySupport.syncData(player, data);
+        syncChargeStatus(player, data);
+    }
+
+    /**
+     * Throws away an armed two-phase ability without firing it.
+     *
+     * The inverse of {@link #armTwoPhase}. Bullets is the user: twenty shots is a long
+     * time to be committed to one ability, so pressing its key again puts them down.
+     * The chi is NOT refunded — it was spent summoning them, and that already happened.
+     */
+    public static void clearArmedTwoPhase(ServerPlayer player, ChannelingData data) {
+        if (data.getActiveTwoPhaseAbility().isEmpty()) return;
+
+        data.setActiveTwoPhaseAbility("");
+        data.setTwoPhaseTicks(0);
+        data.setTwoPhaseShots(0);
+
+        AbilitySupport.syncData(player, data);
+        syncChargeStatus(player, data);
+    }
+
+    /**
+     * Ends whatever channel is running, exactly as releasing the key would — cooldown,
+     * rooting and onStop included.
+     *
+     * Public so an ability can end its own channel in response to something that
+     * happened in the world rather than to the key coming up. Every exit route going
+     * through stopChannel is what keeps the cooldown uniform.
+     */
+    public static void endChannel(ServerPlayer player, ChannelingData data) {
+        String key = data.getActiveChanneledAbility();
+        if (key.isEmpty()) return;
+
+        if (AbilityRegistry.get(key) instanceof ChanneledAbility channeled) {
+            stopChannel(player, data, channeled);
+        } else {
+            // Unknown ability recorded — clear the stuck flag rather than leaving the
+            // player permanently mid-channel.
+            data.setActiveChanneledAbility("");
+            data.setChannelTicks(0);
+        }
+    }
+
+    // ==========================================
+    //  PHASE 2: release an armed two-phase ability (left click)
+    // ==========================================
+    public static void executeLeftClickPhase(ServerPlayer player, ChannelingData data) {
+        String armedKey = data.getActiveTwoPhaseAbility();
+        if (armedKey.isEmpty()) return;
+
+        Ability ability = AbilityRegistry.get(armedKey);
+        if (!(ability instanceof TwoPhaseAbility twoPhase)) {
+            // Unknown ability recorded — clear the stuck flag.
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
+            return;
+        }
+
+        runWithElement(data, ability, () -> twoPhase.onRelease(player, data));
+
+        // An ability may be good for several clicks (Water Bullets fires three). The
+        // slot stays armed until they are all spent, so a partly used one is still
+        // held rather than thrown away by its first shot.
+        int shotsLeft = data.getTwoPhaseShots() - 1;
+        data.setTwoPhaseShots(shotsLeft);
+
+        if (shotsLeft <= 0) {
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
+
+            // The cooldown waits for the last shot, not the first.
+            if (AbilityTuning.cooldownTicks(ability) > 0) {
+                data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
+            }
+        }
+
+        AbilitySupport.syncData(player, data);
+        syncChargeStatus(player, data);
+    }
+
+    // ==========================================
+    //  PHASE 3: held abilities — channels and charges (slot key held)
+    // ==========================================
+    public static void executeAbilityHold(ServerPlayer player, ChannelingData data, String abilityName, boolean isHeld) {
+        // Nothing channels in the Spirit Realm — but only a PRESS is refused, for exactly
+        // the reason the channeling lockout below gives. A channel still running as its
+        // caster is carried into the Spirit Realm has to be able to be let go of.
+        // Looked up ONCE, at the top, because three of the guards below need it now that
+        // the Spirit Realm refusal asks which element the ability belongs to.
+        Ability ability = AbilityRegistry.get(abilityName);
+
+        if (isHeld && ability != null && refusedInSpiritRealm(player, ability)) return;
+
+        // Only a PRESS is refused while locked out. A key RELEASE has to get through,
+        // or a channel that was already running when the lockout landed could never be
+        // let go of and would drain chi until it ran dry.
+        if (isHeld && data.isChannelingLocked()) {
+            player.displayClientMessage(Component.literal(
+                    "§cYou cannot channel right now! (" + ((data.getChannelingLockedTicks() + 19) / 20) + "s)"), true);
+            return;
+        }
+
+        // Only a PRESS again, for the reason above it: a channel already running when the
+        // chi block landed has to be able to be let go of.
+        if (isHeld && refusedChiBlocked(player, data)) return;
+        if (isHeld && ability != null && refusedByBlackSun(player, ability)) return;
+
+        // Switched off in this world's settings — and, like the two guards above, only a
+        // PRESS is refused. A channel or a charge that was already running when the
+        // ability was disabled has to be able to be let go of, or it would drain chi
+        // until it ran dry with the key doing nothing.
+        if (isHeld && ability != null && refusedDisabled(player, data, ability)) return;
+
+        // Only when a held ability is STARTING. A key release must never dismount —
+        // it arrives for every ability the player lets go of, including the gale ride's
+        // own key, which would turn the toggle back off the instant it was pressed.
+        if (isHeld && ability != null) {
+            dismountRide(player, ability);
+        }
+
+        if (ability instanceof ChanneledAbility channeled) {
+            if (isHeld) {
+                startChannel(player, data, channeled);
+            } else {
+                stopChannel(player, data, channeled);
+            }
+            return;
+        }
+
+        if (ability instanceof ChargedAbility charged) {
+            if (isHeld) {
+                startCharge(player, data, charged);
+            } else {
+                cancelCharge(player, data, charged);
+            }
+        }
+    }
+
+    private static void startCharge(ServerPlayer player, ChannelingData data, ChargedAbility ability) {
+        // A toggle that is already ON goes off immediately, and this is checked at the
+        // very TOP — before the held-ability guard, the cooldown and the chi check —
+        // exactly as performCast does it. Switching something off must never be
+        // refused, must never be charged for, and must never make the player sit
+        // through the wind-up again: Lightning ball costs a second to send out, but
+        // calling it back should be instant.
+        if (ability.isActive(player, data)) {
+            ability.deactivate(player, data);
+            AbilitySupport.syncData(player, data);
+            return;
+        }
+
+        // One held ability at a time, of either shape.
+        if (data.isCharging() || data.isChanneling()) return;
+
+        if (AbilityTuning.cooldownTicks(ability) > 0 && data.isOnCooldown(ability.getKey())) {
+            int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
+            player.displayClientMessage(Component.literal(
+                    "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
+            return;
+        }
+
+        if (!ability.canStart(player, data)) return;
+
+        // Chi is only CHECKED here — it is spent when the cast actually lands, so
+        // winding up and letting go early costs the player nothing.
+        if (data.getCurrentChi() < chiCostFor(player, data, ability)) {
+            player.displayClientMessage(Component.literal(
+                    "§cNot enough Chi! (Requires " + chiCostFor(player, data, ability) + ")"), true);
+            return;
+        }
+
+        io.github.niilo411.elementalpaths.spirit.SpiritPortals.recordUse(player, ability.getKey());
+
+        data.setActiveChargingAbility(ability.getKey());
+        data.setChargeTicks(0);
+        ability.onChargeStart(player, data);
+        syncChargeStatus(player, data);
+        AbilitySupport.syncData(player, data);
+    }
+
+    /** Key released before the charge finished: drop it, spend nothing. */
+    /**
+     * Key released. Normally that throws the charge away, but an ability that fires
+     * on release goes off at whatever strength it reached.
+     */
+    private static void cancelCharge(ServerPlayer player, ChannelingData data, ChargedAbility ability) {
+        // A charge that already fired cleared itself, so the eventual key release
+        // lands here and finds nothing — which is what stops it double-firing.
+        if (!data.getActiveChargingAbility().equals(ability.getKey())) return;
+
+        int charged = data.getChargeTicks();
+
+        data.setActiveChargingAbility("");
+        data.setChargeTicks(0);
+
+        if (ability.firesOnRelease() && charged >= ability.getMinimumChargeTicks()) {
+            data.setLastChargeTicks(charged);
+            performCast(player, data, ability);
+            syncChargeStatus(player, data);
+            return;
+        }
+
+        ability.onChargeCancel(player, data);
+        syncChargeStatus(player, data);
+        AbilitySupport.syncData(player, data);
+    }
+
+    /**
+     * Called every tick from ServerEvents while a charge is winding up. Fires the
+     * ability through the ordinary cast path the moment it is full.
+     */
+    public static void tickCharging(ServerPlayer player, ChannelingData data) {
+        Ability ability = AbilityRegistry.get(data.getActiveChargingAbility());
+        if (!(ability instanceof ChargedAbility charged)) {
+            // Unknown ability recorded — clear the stuck flag.
+            data.setActiveChargingAbility("");
+            data.setChargeTicks(0);
+            return;
+        }
+
+        int held = data.getChargeTicks() + 1;
+        data.setChargeTicks(held);
+
+        if (held < chargeTicksFor(player, data, charged)) {
+            charged.onChargeTick(player, data, held);
+            // Every other tick is smooth enough for the meter without flooding packets.
+            if (held % 2 == 0) syncChargeStatus(player, data);
+            return;
+        }
+
+        // Full. Clear the charge BEFORE casting, so the key release that follows
+        // finds nothing to cancel and the ability can't fire twice.
+        data.setActiveChargingAbility("");
+        data.setChargeTicks(0);
+        data.setLastChargeTicks(held);
+        performCast(player, data, charged);
+        syncChargeStatus(player, data);
+    }
+
+    private static void startChannel(ServerPlayer player, ChannelingData data, ChanneledAbility ability) {
+        // One held ability at a time, of either shape.
+        if (data.isChanneling() || data.isCharging()) return;
+
+        if (AbilityTuning.cooldownTicks(ability) > 0 && data.isOnCooldown(ability.getKey())) {
+            int secondsLeft = (data.getCooldownRemaining(ability.getKey()) + 19) / 20;
+            player.displayClientMessage(Component.literal(
+                    "§c" + ability.getName() + " is on cooldown! (" + secondsLeft + "s)"), true);
+            return;
+        }
+
+        // Per-ability precondition, the same one performCast checks and in the same
+        // place. This was missing until Earth wall needed it, which meant Water Surf
+        // and Water Sphere's "you must be in water" tests had never actually run —
+        // only Water Heal appeared to work, and that was its canContinue stopping the
+        // channel a tick after it started rather than the refusal doing its job.
+        if (!ability.canStart(player, data)) return;
+
+        // A gate, not a cost: nothing is deducted for meeting it, and the channel
+        // keeps running below this figure once it is up.
+        int requiredChi = ability.getMinimumChiToStart(data);
+        if (data.getCurrentChi() < requiredChi) {
+            player.displayClientMessage(Component.literal(
+                    "§cNot enough Chi! (Requires " + requiredChi + ")"), true);
+            return;
+        }
+
+        // Water once per activation, not per tick: a channel is one use of the
+        // ability, and draining a canteen unit every tick would empty it in a second.
+        if (ability.requiresWater()
+                && !io.github.niilo411.elementalpaths.abilities.WaterSupply.tryConsume(player)) {
+            return;
+        }
+
+        io.github.niilo411.elementalpaths.spirit.SpiritPortals.recordUse(player, ability.getKey());
+
+        data.setActiveChanneledAbility(ability.getKey());
+        data.setChannelTicks(0);
+        ability.onStart(player, data);
+        setRooted(player, ability.rootsPlayer(data));
+        AbilitySupport.syncData(player, data);
+    }
+
+    /**
+     * Ends a channel. Every route out of a channel comes through here — releasing the
+     * key, running dry on chi, or hitting the duration cap — so the cooldown applies
+     * uniformly and can't be dodged by picking a particular way to stop.
+     */
+    private static void stopChannel(ServerPlayer player, ChannelingData data, ChanneledAbility ability) {
+        // Ignore a key-release for an ability that isn't the one currently channeling.
+        // This is also what stops an auto-stopped channel from taking a second cooldown
+        // when the player eventually lets go of the key.
+        if (!data.getActiveChanneledAbility().equals(ability.getKey())) return;
+
+        data.setActiveChanneledAbility("");
+        data.setChannelTicks(0);
+
+        if (AbilityTuning.cooldownTicks(ability) > 0) {
+            data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
+        }
+
+        setRooted(player, false);
+        ability.onStop(player, data);
+        AbilitySupport.syncData(player, data);
+    }
+
+    /**
+     * Called every tick from ServerEvents while any channel is active.
+     * Handles the duration cap, drain, XP and sync cadence so channeled abilities
+     * only implement their effect.
+     */
+    public static void tickChanneled(ServerPlayer player, ChannelingData data) {
+        Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
+        if (!(ability instanceof ChanneledAbility channeled)) {
+            // Unknown ability recorded (e.g. removed from the registry) — clear the stuck flag.
+            data.setActiveChanneledAbility("");
+            data.setChannelTicks(0);
+            return;
+        }
+
+        // Duration cap is checked BEFORE the effect runs, so a 200-tick cap yields
+        // exactly 200 ticks of effect and stops on the 201st.
+        int maxDuration = channeled.getMaxDurationTicks();
+        if (maxDuration > 0 && data.getChannelTicks() >= maxDuration) {
+            stopChannel(player, data, channeled);
+            return;
+        }
+
+        // A condition the channel depends on can lapse while the key is still held.
+        if (!channeled.canContinue(player, data)) {
+            stopChannel(player, data, channeled);
+            return;
+        }
+
+        int chiThisTick = chiCostForTick(channeled, data, player.tickCount);
+        if (data.getCurrentChi() < chiThisTick) {
+            stopChannel(player, data, channeled);
+            return;
+        }
+
+        data.consumeChi(chiThisTick);
+
+        AbilitySupport.grantXp(data, xpForTick(channeled, data));
+
+        if (channeled.rootsPlayer(data)) holdStill(player);
+
+        // The wind-up is a quiet opening stretch, not a pause: chi is already gone by
+        // this point and the duration cap is already counting, so holding the key
+        // through it is a real commitment rather than a free run-up.
+        if (channeled.isReady(data)) {
+            runWithElement(data, ability, () -> channeled.onTick(player, data));
+        } else {
+            channeled.onWindupTick(player, data, data.getChannelTicks() + 1);
+        }
+
+        data.setChannelTicks(data.getChannelTicks() + 1);
+
+        // Sync every 4 ticks instead of every tick — keeps the Chi bar responsive
+        // without flooding packets.
+        if (player.tickCount % 4 == 0) {
+            AbilitySupport.syncData(player, data);
+        }
+    }
+
+    /**
+     * How much chi this particular tick of a channel costs.
+     *
+     * Rates are authored per second but spent per tick, and 20 rarely divides the
+     * rate evenly (25/sec is 1.25/tick). Rounding each tick would drift, so this
+     * differences a running total instead: any 20 consecutive ticks sum to exactly
+     * getChiPerSecond(), while individual ticks alternate (25/sec spends 1 chi on
+     * fifteen ticks and 2 chi on five). The chi bar still drains smoothly.
+     */
+    private static int chiCostForTick(ChanneledAbility ability, ChannelingData data, int tick) {
+        long rate = AbilityTuning.chiPerSecond(ability, data);
+        long t = Math.max(0, tick);
+        return (int) ((rate * (t + 1)) / 20L - (rate * t) / 20L);
+    }
+
+    /**
+     * How much XP this particular tick of a channel earns.
+     *
+     * The same differencing trick as chi, and for the same reason: rates are authored
+     * per second but paid per tick. It runs off the CHANNEL's own tick count rather
+     * than the player's, which is what lets a rate below 1 work at all — Gale Ride
+     * earns 0.5 a second, meaning one XP on the 40th tick of the channel and nothing
+     * on the 39 before it. A rate of 2 still totals 2 over any second; it is simply
+     * trickled through the second now instead of landing in a lump.
+     */
+    private static int xpForTick(ChanneledAbility ability, ChannelingData data) {
+        double rate = AbilityTuning.xpPerSecond(ability);
+        if (rate <= 0.0) return 0;
+
+        long t = Math.max(0, data.getChannelTicks());
+        return (int) (Math.floor(rate * (t + 1) / 20.0) - Math.floor(rate * t / 20.0));
+    }
+
+    /**
+     * Whether the player's active channel should block this particular damage.
+     * Consulted by the LivingIncomingDamageEvent handler in ServerEvents.
+     *
+     * Kept here rather than in ServerEvents so the answer stays driven by the
+     * registry: any future channel (Earth Armor) gets this for free by overriding
+     * grantsInvulnerability, or ChanneledAbility#blocks when it needs to be choosier
+     * about what it stops.
+     */
+    public static boolean blocksDamage(ChannelingData data, DamageSource source) {
+        if (!data.isChanneling()) return false;
+
+        Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
+        if (!(ability instanceof ChanneledAbility channeled)) return false;
+
+        // The one thing no shield gets a say in. BYPASSES_INVULNERABILITY is the void
+        // and /kill, which should still work on a player holding anything at all.
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
+
+        // Everything else is the ability's own call. The default still lets fall
+        // damage through, so the two full shields are unchanged.
+        return channeled.blocks(data, source);
+    }
+
+    /**
+     * How much the player's active channel divides this particular damage by, for a
+     * shield that reduces rather than blocks outright (Repel Shield). 1.0 — no
+     * reduction — for anyone not channeling, whatever they're channeling if it
+     * isn't a ChanneledAbility, and anything blocksDamage already cancelled: a
+     * reduction only matters for damage that is actually going to land.
+     */
+    public static double damageReductionFor(ChannelingData data, DamageSource source) {
+        if (!data.isChanneling()) return 1.0;
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return 1.0;
+
+        Ability ability = AbilityRegistry.get(data.getActiveChanneledAbility());
+        if (!(ability instanceof ChanneledAbility channeled)) return 1.0;
+
+        return Math.max(1.0, channeled.damageReductionFactor(data));
+    }
+
+    /**
+     * Pushes the current charge/armed state to the player's HUD.
+     *
+     * Reads the state rather than being told it, so callers only have to say "this
+     * changed" and can't disagree with each other about what to display.
+     */
+    private static void syncChargeStatus(ServerPlayer player, ChannelingData data) {
+        String charging = data.getActiveChargingAbility();
+        if (!charging.isEmpty()) {
+            Ability ability = AbilityRegistry.get(charging);
+            // The SHORTENED total, so the meter fills against the charge the player is
+            // actually serving rather than the ability's unboosted figure.
+            int total = (ability instanceof ChargedAbility charged) ? chargeTicksFor(player, data, charged) : 0;
+            String label = ability != null ? ability.getName() : charging;
+
+            PacketDistributor.sendToPlayer(player,
+                    new ChargeStatusPacket(label, data.getChargeTicks(), total, false));
+            return;
+        }
+
+        String armed = data.getActiveTwoPhaseAbility();
+        if (!armed.isEmpty()) {
+            Ability ability = AbilityRegistry.get(armed);
+            String label = ability != null ? ability.getName() : armed;
+
+            // A window shows time draining; several shots show shots remaining; a
+            // single-shot ability just shows ready.
+            int window = (ability instanceof TwoPhaseAbility twoPhase)
+                    ? twoPhase.getArmedDurationTicks() : 0;
+            int shots = (ability instanceof TwoPhaseAbility twoPhase2)
+                    ? twoPhase2.getShots() : 1;
+
+            if (window > 0) {
+                PacketDistributor.sendToPlayer(player,
+                        new ChargeStatusPacket(label, data.getTwoPhaseTicks(), window, true));
+            } else if (shots > 1) {
+                PacketDistributor.sendToPlayer(player,
+                        new ChargeStatusPacket(label + " x" + data.getTwoPhaseShots(),
+                                data.getTwoPhaseShots(), shots, true));
+            } else {
+                PacketDistributor.sendToPlayer(player, new ChargeStatusPacket(label, 1, 1, true));
+            }
+            return;
+        }
+
+        PacketDistributor.sendToPlayer(player, new ChargeStatusPacket("", 0, 0, false));
+    }
+
+    /**
+     * Tells the client whether an ability is holding the player still.
+     *
+     * Public because rooting is no longer a channel-only affair: Bass waves is a
+     * TOGGLE that pins the channeler, and it needs the same two halves every rooted
+     * channel does — this, and holdStill on the server every tick. Server-side alone
+     * leaves the client still trying to walk and being corrected, which rubber-bands
+     * rather than holding still.
+     */
+    public static void setRooted(ServerPlayer player, boolean rooted) {
+        PacketDistributor.sendToPlayer(player, new io.github.niilo411.elementalpaths.network.RootedPacket(rooted));
+    }
+
+    /**
+     * Pins the player where they stand while a rooting channel runs.
+     *
+     * Horizontal motion is zeroed but downward motion is left alone, so a shield does
+     * not also make the player hover — being rooted should not mean being suspended
+     * in mid-air if the ground is taken out from under them.
+     */
+    public static void holdStill(ServerPlayer player) {
+        net.minecraft.world.phys.Vec3 motion = player.getDeltaMovement();
+        player.setDeltaMovement(0.0, Math.min(0.0, motion.y), 0.0);
+        // Players ignore server-side velocity unless it is explicitly pushed to them.
+        player.hurtMarked = true;
+    }
+
+    /**
+     * Drives an armed two-phase ability each tick: lets it draw whatever it is
+     * holding, and runs down the window for those that have one.
+     *
+     * Expiry applies the cooldown, because the chi was already spent when the ability
+     * was armed — fumbling the window costs the cast, which is the whole reason a
+     * window exists.
+     */
+    public static void tickArmedTwoPhase(ServerPlayer player, ChannelingData data) {
+        String armedKey = data.getActiveTwoPhaseAbility();
+        if (armedKey.isEmpty()) return;
+
+        Ability ability = AbilityRegistry.get(armedKey);
+        if (!(ability instanceof TwoPhaseAbility twoPhase)) {
+            // Unknown ability recorded — clear the stuck flag.
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
+            return;
+        }
+
+        twoPhase.onArmedTick(player, data);
+
+        if (twoPhase.getArmedDurationTicks() <= 0) return; // waits indefinitely
+
+        int left = data.getTwoPhaseTicks() - 1;
+        data.setTwoPhaseTicks(left);
+
+        // Kept in step with the HUD meter, which drains as the window closes.
+        if (left % 2 == 0) syncChargeStatus(player, data);
+
+        if (left <= 0) {
+            data.setActiveTwoPhaseAbility("");
+            data.setTwoPhaseTicks(0);
+            data.setTwoPhaseShots(0);
+
+            if (AbilityTuning.cooldownTicks(ability) > 0) {
+                data.setCooldown(ability.getKey(), cooldownFor(player, data, ability));
+            }
+
+            twoPhase.onArmedExpire(player, data);
+            AbilitySupport.syncData(player, data);
+            syncChargeStatus(player, data);
+        }
+    }
+}
