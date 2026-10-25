@@ -173,7 +173,7 @@ public class AbilityHandler {
     /**
      * Refuses fire channeling while the sun is out.
      *
-     * THE DAY OF BLACK SUN'S WHOLE POINT, and a refusal rather than a multiplier because
+     * THE DAY OF THE HOLLOW SUN'S WHOLE POINT, and a refusal rather than a multiplier because
      * no multiplier says "not at all" — one small enough to try would leave abilities
      * casting for nothing, which reads as the mod being broken rather than as an eclipse.
      *
@@ -181,7 +181,7 @@ public class AbilityHandler {
      * event's multipliers in force: that is how it goes from "fire channeling is gone" to
      * "fire channeling is worse" without a second setting deciding which.
      */
-    private static boolean refusedByBlackSun(ServerPlayer player, Ability ability) {
+    private static boolean refusedByHollowSun(ServerPlayer player, Ability ability) {
         if (!io.github.niilo411.elementalpaths.events.WorldEvents
                 .fireChannelingSuppressed(player.level(), ability.getName())) {
             return false;
@@ -234,7 +234,7 @@ public class AbilityHandler {
         // is spent or stamped. It stops the no-channeling abilities too, deliberately: a
         // chi blocker whose own points have been struck is as stopped as anyone else.
         if (refusedChiBlocked(player, data)) return;
-        if (refusedByBlackSun(player, ability)) return;
+        if (refusedByHollowSun(player, ability)) return;
 
         // Held shapes do NOT start here — they come in through executeAbilityHold().
         // The client can't tell the shapes apart, so it fires UseAbilityPacket AND
@@ -452,7 +452,7 @@ public class AbilityHandler {
         // Only a PRESS again, for the reason above it: a channel already running when the
         // chi block landed has to be able to be let go of.
         if (isHeld && refusedChiBlocked(player, data)) return;
-        if (isHeld && ability != null && refusedByBlackSun(player, ability)) return;
+        if (isHeld && ability != null && refusedByHollowSun(player, ability)) return;
 
         // Switched off in this world's settings — and, like the two guards above, only a
         // PRESS is refused. A channel or a charge that was already running when the

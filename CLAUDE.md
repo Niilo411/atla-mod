@@ -2039,8 +2039,8 @@ much; nothing else knows an event exists.
 | | How often | How long | What it touches |
 |---|---|---|---|
 | **Blood Moon** | night of every 3rd day | dusk to dawn, ~9 min | water channeling, lifted |
-| **Sozin's Comet** | every 6th day | midnight to midnight, 20 min | fire channeling, lifted hard |
-| **Day of Black Sun** | every 12th day | 6 min across noon | fire channeling, gone |
+| **Ember Comet** | every 6th day | midnight to midnight, 20 min | fire channeling, lifted hard |
+| **Day of the Hollow Sun** | every 12th day | 6 min across noon | fire channeling, gone |
 
 - **DERIVED FROM THE CLOCK, NEVER COUNTED DOWN**, which is the one structural decision
   here and the same one the low-gravity tide makes. Every player asks the same clock, so
@@ -2099,7 +2099,7 @@ damage handler.
 - **Sub-elements are deliberately NOT swept up.** A blood moon lifts water channeling, not
   ice channeling or blood channeling however closely related — an event that quietly buffed three
   trees would be three times the change anybody reading the config expected.
-- **The black sun's suppression is a REFUSAL, not a multiplier**, because no multiplier
+- **The hollow sun's suppression is a REFUSAL, not a multiplier**, because no multiplier
   says "not at all" and one small enough to try would leave abilities casting for nothing.
   Overworld only: the sun is what is being eclipsed. Turning it off in the config leaves
   the multipliers in force, which is how the event goes from "fire channeling is gone" to
@@ -2137,7 +2137,7 @@ keying on `IS_FIRE` because fire is the exception.
   look identical underwater, in a cave, and on a hilltop at sunset.
 - **A slight screen wash on top**, drawn first by `ModHudOverlay` so the readouts stay
   legible through it. The fog only shows at distance, so indoors an event would otherwise
-  be invisible — and the black sun in particular should be noticeable from inside a house.
+  be invisible — and the hollow sun in particular should be noticeable from inside a house.
   The eclipse's wash is far heavier than the other two, because "the sun went out" is the
   whole event, and it follows a sine so the sun dims and returns rather than switching.
 ### The comet is an OBJECT, not a tint
@@ -2187,7 +2187,7 @@ shape lives entirely in their BRIGHTNESS, and it is the ADDITIVE blend vanilla d
 with that makes their dark parts invisible.
 
 So ordinary alpha blending cannot recolour them, and both first attempts proved it: a red
-moon alpha-blended over the white one painted a red **square**, and the first black sun
+moon alpha-blended over the white one painted a red **square**, and the first hollow sun
 was a hard black **rectangle** hanging in the sky. Anything that changes one of them has
 to work in brightness too.
 

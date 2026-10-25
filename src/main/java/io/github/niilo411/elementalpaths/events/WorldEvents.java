@@ -7,8 +7,8 @@ import net.minecraft.world.level.Level;
 /**
  * The three things the sky does to channeling.
  *
- * A blood moon that lifts water channeling, Sozin's comet that lifts fire, and the day of
- * black sun that takes fire away entirely — every three, six and twelve days by
+ * A blood moon that lifts water channeling, the Ember Comet that lifts fire, and the day of the
+ * hollow sun that takes fire away entirely — every three, six and twelve days by
  * default, all three configurable in PathsConfig's worldEvents section.
  *
  * DERIVED FROM THE LEVEL'S CLOCK, NEVER COUNTED DOWN, which is the one structural
@@ -38,7 +38,7 @@ public final class WorldEvents {
     private static final int NIGHT_FROM = 13000;
 
     /**
-     * The black sun is six real minutes, centred on noon.
+     * The hollow sun is six real minutes, centred on noon.
      *
      * Six minutes is 7200 ticks, which is a little under a third of a twenty minute day —
      * so it reaches from 2400 to 9600 with midday at its middle. An eclipse that did not
@@ -53,8 +53,8 @@ public final class WorldEvents {
     /** The three events, in the order they were added. */
     public enum Event {
         BLOOD_MOON("Blood Moon", "water"),
-        SOZINS_COMET("Sozin's Comet", "fire"),
-        BLACK_SUN("Day of Black Sun", "fire");
+        EMBER_COMET("Ember Comet", "fire"),
+        HOLLOW_SUN("Day of the Hollow Sun", "fire");
 
         private final String title;
         private final String element;
@@ -109,15 +109,15 @@ public final class WorldEvents {
      * occupies a whole day, so where that day starts is the entire question.
      */
     private static int epoch(Event event) {
-        return event == Event.SOZINS_COMET ? MIDNIGHT : 0;
+        return event == Event.EMBER_COMET ? MIDNIGHT : 0;
     }
 
     /** How far into its own day an event begins. */
     private static int startWithin(Event event) {
         return switch (event) {
             case BLOOD_MOON -> NIGHT_FROM;
-            case SOZINS_COMET -> 0;
-            case BLACK_SUN -> NOON - ECLIPSE_LENGTH / 2;
+            case EMBER_COMET -> 0;
+            case HOLLOW_SUN -> NOON - ECLIPSE_LENGTH / 2;
         };
     }
 
@@ -144,7 +144,7 @@ public final class WorldEvents {
      * sunrise, and the comet's days begin at MIDNIGHT — so the eighteen thousand ticks
      * between a world being made and its first midnight fall in the comet's day -1. A bare
      * {@code floorMod} maps -1 to the LAST day of the cycle, which is exactly the comet's
-     * day, and every brand new world opened under Sozin's Comet. The other two events never
+     * day, and every brand new world opened under the Ember Comet. The other two events never
      * see a negative day because their calendar starts at sunrise with the world, but
      * asking here keeps all three honest if an epoch ever moves.
      */
@@ -192,7 +192,7 @@ public final class WorldEvents {
      * middle of the six minutes it is total.
      */
     public static float eclipseDepth(Level level) {
-        float through = progress(level, Event.BLACK_SUN);
+        float through = progress(level, Event.HOLLOW_SUN);
         if (through <= 0.0F) return 0.0F;
 
         return (float) Math.sin(through * Math.PI);
@@ -214,8 +214,8 @@ public final class WorldEvents {
     private static int period(Event event) {
         return switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonPeriodDays();
-            case SOZINS_COMET -> PathsConfig.cometPeriodDays();
-            case BLACK_SUN -> PathsConfig.blackSunPeriodDays();
+            case EMBER_COMET -> PathsConfig.cometPeriodDays();
+            case HOLLOW_SUN -> PathsConfig.hollowSunPeriodDays();
         };
     }
 
@@ -233,8 +233,8 @@ public final class WorldEvents {
     public static int length(Event event) {
         return switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonDurationTicks();
-            case SOZINS_COMET -> PathsConfig.cometDurationTicks();
-            case BLACK_SUN -> PathsConfig.blackSunDurationTicks();
+            case EMBER_COMET -> PathsConfig.cometDurationTicks();
+            case HOLLOW_SUN -> PathsConfig.hollowSunDurationTicks();
         };
     }
 
@@ -285,8 +285,8 @@ public final class WorldEvents {
     private static boolean enabled(Event event) {
         return switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonEnabled();
-            case SOZINS_COMET -> PathsConfig.cometEnabled();
-            case BLACK_SUN -> PathsConfig.blackSunEnabled();
+            case EMBER_COMET -> PathsConfig.cometEnabled();
+            case HOLLOW_SUN -> PathsConfig.hollowSunEnabled();
         };
     }
 
@@ -332,8 +332,8 @@ public final class WorldEvents {
     public static float cooldownMultiplier(Level level, String abilityName) {
         return multiplier(level, abilityName, event -> switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonCooldown();
-            case SOZINS_COMET -> PathsConfig.cometCooldown();
-            case BLACK_SUN -> PathsConfig.blackSunCooldown();
+            case EMBER_COMET -> PathsConfig.cometCooldown();
+            case HOLLOW_SUN -> PathsConfig.hollowSunCooldown();
         });
     }
 
@@ -341,8 +341,8 @@ public final class WorldEvents {
     public static float chargeMultiplier(Level level, String abilityName) {
         return multiplier(level, abilityName, event -> switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonCharge();
-            case SOZINS_COMET -> PathsConfig.cometCharge();
-            case BLACK_SUN -> PathsConfig.blackSunCharge();
+            case EMBER_COMET -> PathsConfig.cometCharge();
+            case HOLLOW_SUN -> PathsConfig.hollowSunCharge();
         });
     }
 
@@ -350,8 +350,8 @@ public final class WorldEvents {
     public static float chiMultiplier(Level level, String abilityName) {
         return multiplier(level, abilityName, event -> switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonChi();
-            case SOZINS_COMET -> PathsConfig.cometChi();
-            case BLACK_SUN -> PathsConfig.blackSunChi();
+            case EMBER_COMET -> PathsConfig.cometChi();
+            case HOLLOW_SUN -> PathsConfig.hollowSunChi();
         });
     }
 
@@ -367,15 +367,15 @@ public final class WorldEvents {
     public static float damageMultiplier(Level level, String element) {
         return forElement(level, element, event -> switch (event) {
             case BLOOD_MOON -> PathsConfig.bloodMoonDamage();
-            case SOZINS_COMET -> PathsConfig.cometDamage();
-            case BLACK_SUN -> PathsConfig.blackSunDamage();
+            case EMBER_COMET -> PathsConfig.cometDamage();
+            case HOLLOW_SUN -> PathsConfig.hollowSunDamage();
         });
     }
 
     /**
      * Whether fire channeling is shut off entirely right now.
      *
-     * THE BLACK SUN'S WHOLE POINT, and a separate question from the multipliers because
+     * THE HOLLOW SUN'S WHOLE POINT, and a separate question from the multipliers because
      * it is a different KIND of answer — no multiplier expresses "you cannot do this at
      * all", and one small enough to try would leave abilities casting for nothing.
      *
@@ -388,10 +388,10 @@ public final class WorldEvents {
      * decide which.
      */
     public static boolean fireChannelingSuppressed(Level level, String abilityName) {
-        if (!PathsConfig.blackSunDisablesFire()) return false;
+        if (!PathsConfig.hollowSunDisablesFire()) return false;
         if (level == null || !level.dimension().equals(Level.OVERWORLD)) return false;
-        if (!isActive(level, Event.BLACK_SUN)) return false;
+        if (!isActive(level, Event.HOLLOW_SUN)) return false;
 
-        return reaches(Event.BLACK_SUN, abilityName);
+        return reaches(Event.HOLLOW_SUN, abilityName);
     }
 }

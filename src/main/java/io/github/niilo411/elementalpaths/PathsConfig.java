@@ -277,14 +277,14 @@ public final class PathsConfig {
     public static final ModConfigSpec.IntValue COMET_CHI;
     public static final ModConfigSpec.IntValue COMET_DAMAGE;
 
-    public static final ModConfigSpec.BooleanValue BLACK_SUN_ENABLED;
-    public static final ModConfigSpec.BooleanValue BLACK_SUN_DISABLES_FIRE;
-    public static final ModConfigSpec.IntValue BLACK_SUN_PERIOD_DAYS;
-    public static final ModConfigSpec.IntValue BLACK_SUN_DURATION_TICKS;
-    public static final ModConfigSpec.IntValue BLACK_SUN_COOLDOWN;
-    public static final ModConfigSpec.IntValue BLACK_SUN_CHARGE;
-    public static final ModConfigSpec.IntValue BLACK_SUN_CHI;
-    public static final ModConfigSpec.IntValue BLACK_SUN_DAMAGE;
+    public static final ModConfigSpec.BooleanValue HOLLOW_SUN_ENABLED;
+    public static final ModConfigSpec.BooleanValue HOLLOW_SUN_DISABLES_FIRE;
+    public static final ModConfigSpec.IntValue HOLLOW_SUN_PERIOD_DAYS;
+    public static final ModConfigSpec.IntValue HOLLOW_SUN_DURATION_TICKS;
+    public static final ModConfigSpec.IntValue HOLLOW_SUN_COOLDOWN;
+    public static final ModConfigSpec.IntValue HOLLOW_SUN_CHARGE;
+    public static final ModConfigSpec.IntValue HOLLOW_SUN_CHI;
+    public static final ModConfigSpec.IntValue HOLLOW_SUN_DAMAGE;
 
     public static final ModConfigSpec.BooleanValue SPIRIT_TIDE_ENABLED;
     public static final ModConfigSpec.IntValue SPIRIT_TIDE_PERIOD_MINUTES;
@@ -339,9 +339,9 @@ public final class PathsConfig {
                 .defineInRange("damagePercent", 150, 1, 1000);
         BUILDER.pop();
 
-        BUILDER.comment("SOZIN'S COMET. The whole of every sixth day, overhead day and night:",
+        BUILDER.comment("EMBER COMET. The whole of every sixth day, overhead day and night:",
                         "fire channeling at its height.")
-                .push("sozinsComet");
+                .push("emberComet");
         COMET_ENABLED = BUILDER.define("enabled", true);
         COMET_PERIOD_DAYS = BUILDER
                 .comment("How many days apart the comet falls. 6 is the shipped figure.")
@@ -366,39 +366,39 @@ public final class PathsConfig {
                 .defineInRange("damagePercent", 200, 1, 1000);
         BUILDER.pop();
 
-        BUILDER.comment("DAY OF BLACK SUN. Six minutes across noon on every twelfth day:",
+        BUILDER.comment("DAY OF THE HOLLOW SUN. Six minutes across noon on every twelfth day:",
                         "the moon crosses the sun and fire channeling goes out.",
                         "TO SOFTEN IT rather than switch it off, set disablesFireChanneling to false",
                         "and leave the multipliers as a debuff - the event still happens, the sky",
                         "still darkens, and fire channeling is merely worse instead of gone.",
                         "TO REMOVE IT entirely, set enabled to false.")
-                .push("dayOfBlackSun");
-        BLACK_SUN_ENABLED = BUILDER.define("enabled", true);
-        BLACK_SUN_PERIOD_DAYS = BUILDER
+                .push("dayOfTheHollowSun");
+        HOLLOW_SUN_ENABLED = BUILDER.define("enabled", true);
+        HOLLOW_SUN_PERIOD_DAYS = BUILDER
                 .comment("How many days apart the eclipse falls. 12 is the shipped figure.")
                 .defineInRange("periodDays", 12, 1, 1000);
-        BLACK_SUN_DURATION_TICKS = BUILDER
+        HOLLOW_SUN_DURATION_TICKS = BUILDER
                 .comment("How long the eclipse lasts, in ticks, centred on noon (20 ticks =",
                         "1 second). 7200 is the shipped figure - six real minutes.")
                 .defineInRange("durationTicks", 7200, 20, 24000);
-        BLACK_SUN_DISABLES_FIRE = BUILDER
+        HOLLOW_SUN_DISABLES_FIRE = BUILDER
                 .comment("Whether fire channeling is refused outright in the OVERWORLD for the",
                         "whole six minutes. True is the shipped behaviour. When false, only the",
                         "multipliers below apply.")
                 .define("disablesFireChanneling", true);
-        BLACK_SUN_COOLDOWN = BUILDER
+        HOLLOW_SUN_COOLDOWN = BUILDER
                 .comment("Fire Channeling cooldowns, as a percentage of normal.",
                         "Only used when disablesFireChanneling is false.")
                 .defineInRange("cooldownPercent", 200, 1, 1000);
-        BLACK_SUN_CHARGE = BUILDER
+        HOLLOW_SUN_CHARGE = BUILDER
                 .comment("Fire Channeling charge and wind-up times, as a percentage of normal.",
                         "Only used when disablesFireChanneling is false.")
                 .defineInRange("chargePercent", 200, 1, 1000);
-        BLACK_SUN_CHI = BUILDER
+        HOLLOW_SUN_CHI = BUILDER
                 .comment("Fire Channeling chi costs, as a percentage of normal.",
                         "Only used when disablesFireChanneling is false.")
                 .defineInRange("chiPercent", 200, 1, 1000);
-        BLACK_SUN_DAMAGE = BUILDER
+        HOLLOW_SUN_DAMAGE = BUILDER
                 .comment("Fire Channeling damage, as a percentage of normal.",
                         "Only used when disablesFireChanneling is false.")
                 .defineInRange("damagePercent", 50, 1, 1000);
@@ -581,14 +581,14 @@ public final class PathsConfig {
     private static volatile int cometChi = 25;
     private static volatile int cometDamage = 200;
 
-    private static volatile boolean blackSunEnabled = true;
-    private static volatile boolean blackSunDisablesFire = true;
-    private static volatile int blackSunPeriodDays = 12;
-    private static volatile int blackSunDurationTicks = 7200;
-    private static volatile int blackSunCooldown = 200;
-    private static volatile int blackSunCharge = 200;
-    private static volatile int blackSunChi = 200;
-    private static volatile int blackSunDamage = 50;
+    private static volatile boolean hollowSunEnabled = true;
+    private static volatile boolean hollowSunDisablesFire = true;
+    private static volatile int hollowSunPeriodDays = 12;
+    private static volatile int hollowSunDurationTicks = 7200;
+    private static volatile int hollowSunCooldown = 200;
+    private static volatile int hollowSunCharge = 200;
+    private static volatile int hollowSunChi = 200;
+    private static volatile int hollowSunDamage = 50;
 
     private static volatile boolean spiritTideEnabled = true;
     private static volatile int spiritTidePeriodMinutes = 10;
@@ -760,14 +760,14 @@ public final class PathsConfig {
     public static int cometChi() { return cometChi; }
     public static int cometDamage() { return cometDamage; }
 
-    public static boolean blackSunEnabled() { return blackSunEnabled; }
-    public static boolean blackSunDisablesFire() { return blackSunDisablesFire; }
-    public static int blackSunPeriodDays() { return blackSunPeriodDays; }
-    public static int blackSunDurationTicks() { return blackSunDurationTicks; }
-    public static int blackSunCooldown() { return blackSunCooldown; }
-    public static int blackSunCharge() { return blackSunCharge; }
-    public static int blackSunChi() { return blackSunChi; }
-    public static int blackSunDamage() { return blackSunDamage; }
+    public static boolean hollowSunEnabled() { return hollowSunEnabled; }
+    public static boolean hollowSunDisablesFire() { return hollowSunDisablesFire; }
+    public static int hollowSunPeriodDays() { return hollowSunPeriodDays; }
+    public static int hollowSunDurationTicks() { return hollowSunDurationTicks; }
+    public static int hollowSunCooldown() { return hollowSunCooldown; }
+    public static int hollowSunCharge() { return hollowSunCharge; }
+    public static int hollowSunChi() { return hollowSunChi; }
+    public static int hollowSunDamage() { return hollowSunDamage; }
 
     public static boolean spiritTideEnabled() { return spiritTideEnabled; }
     public static int spiritTidePeriodMinutes() { return spiritTidePeriodMinutes; }
@@ -876,14 +876,14 @@ public final class PathsConfig {
         cometChi = 25;
         cometDamage = 200;
 
-        blackSunEnabled = true;
-        blackSunDisablesFire = true;
-        blackSunPeriodDays = 12;
-        blackSunDurationTicks = 7200;
-        blackSunCooldown = 200;
-        blackSunCharge = 200;
-        blackSunChi = 200;
-        blackSunDamage = 50;
+        hollowSunEnabled = true;
+        hollowSunDisablesFire = true;
+        hollowSunPeriodDays = 12;
+        hollowSunDurationTicks = 7200;
+        hollowSunCooldown = 200;
+        hollowSunCharge = 200;
+        hollowSunChi = 200;
+        hollowSunDamage = 50;
 
         spiritTideEnabled = true;
         spiritTidePeriodMinutes = 10;
@@ -978,14 +978,14 @@ public final class PathsConfig {
         cometChi = COMET_CHI.get();
         cometDamage = COMET_DAMAGE.get();
 
-        blackSunEnabled = BLACK_SUN_ENABLED.get();
-        blackSunDisablesFire = BLACK_SUN_DISABLES_FIRE.get();
-        blackSunPeriodDays = BLACK_SUN_PERIOD_DAYS.get();
-        blackSunDurationTicks = BLACK_SUN_DURATION_TICKS.get();
-        blackSunCooldown = BLACK_SUN_COOLDOWN.get();
-        blackSunCharge = BLACK_SUN_CHARGE.get();
-        blackSunChi = BLACK_SUN_CHI.get();
-        blackSunDamage = BLACK_SUN_DAMAGE.get();
+        hollowSunEnabled = HOLLOW_SUN_ENABLED.get();
+        hollowSunDisablesFire = HOLLOW_SUN_DISABLES_FIRE.get();
+        hollowSunPeriodDays = HOLLOW_SUN_PERIOD_DAYS.get();
+        hollowSunDurationTicks = HOLLOW_SUN_DURATION_TICKS.get();
+        hollowSunCooldown = HOLLOW_SUN_COOLDOWN.get();
+        hollowSunCharge = HOLLOW_SUN_CHARGE.get();
+        hollowSunChi = HOLLOW_SUN_CHI.get();
+        hollowSunDamage = HOLLOW_SUN_DAMAGE.get();
 
         spiritTideEnabled = SPIRIT_TIDE_ENABLED.get();
         spiritTidePeriodMinutes = SPIRIT_TIDE_PERIOD_MINUTES.get();

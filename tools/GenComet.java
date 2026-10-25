@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * Draws Sozin's Comet: a hot head with a tail streaking off it.
+ * Draws the Ember Comet: a hot head with a tail streaking off it.
  *
  * PROGRAMMER ART, like the chi emblem and the armor sheets, and for the same reason — it
  * is this project's own pixels. Everything is a distance test against a point or a line,
@@ -60,7 +60,7 @@ public final class GenComet {
             }
         }
 
-        File file = new File(out, "sozins_comet.png");
+        File file = new File(out, "ember_comet.png");
         ImageIO.write(image, "png", file);
 
         System.out.println("wrote " + file.getPath() + "  " + SIZE + "x" + SIZE);

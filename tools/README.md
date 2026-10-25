@@ -81,8 +81,8 @@ the rim comes out grey where white meets transparency.
 
 ## GenComet.java
 
-Draws Sozin's Comet to
-`src/main/resources/assets/elemental_paths/textures/environment/sozins_comet.png`.
+Draws the Ember Comet to
+`src/main/resources/assets/elemental_paths/textures/environment/ember_comet.png`.
 
 ```
 java tools/GenComet.java src/main/resources/assets/elemental_paths/textures/environment

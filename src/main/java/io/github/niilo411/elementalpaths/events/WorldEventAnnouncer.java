@@ -75,9 +75,9 @@ public final class WorldEventAnnouncer {
         return switch (event) {
             case BLOOD_MOON -> Component.literal("The moon runs red. Water answers more easily tonight.")
                     .withStyle(ChatFormatting.DARK_RED);
-            case SOZINS_COMET -> Component.literal("Sozin's Comet is overhead. Fire Channeling is at its height.")
+            case EMBER_COMET -> Component.literal("The Ember Comet is overhead. Fire Channeling is at its height.")
                     .withStyle(ChatFormatting.GOLD);
-            case BLACK_SUN -> Component.literal("The moon crosses the sun. Fire Channeling is going out.")
+            case HOLLOW_SUN -> Component.literal("The moon crosses the sun. Fire Channeling is going out.")
                     .withStyle(ChatFormatting.DARK_GRAY);
         };
     }
@@ -86,9 +86,9 @@ public final class WorldEventAnnouncer {
         return switch (event) {
             case BLOOD_MOON -> Component.literal("The blood moon sets.")
                     .withStyle(ChatFormatting.DARK_RED);
-            case SOZINS_COMET -> Component.literal("The comet has passed.")
+            case EMBER_COMET -> Component.literal("The comet has passed.")
                     .withStyle(ChatFormatting.GOLD);
-            case BLACK_SUN -> Component.literal("The sun returns. Fire comes back with it.")
+            case HOLLOW_SUN -> Component.literal("The sun returns. Fire comes back with it.")
                     .withStyle(ChatFormatting.YELLOW);
         };
     }

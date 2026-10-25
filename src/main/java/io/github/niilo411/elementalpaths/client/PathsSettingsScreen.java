@@ -305,7 +305,7 @@ public class PathsSettingsScreen extends Screen {
         rows.add(eventSlider("Damage", PathsConfig.BLOOD_MOON_DAMAGE,
                 "Water Channeling damage while the blood moon is up."));
 
-        rows.add(new HeaderRow("Sozin's Comet — every 6th day, fire channeling"));
+        rows.add(new HeaderRow("Ember Comet — every 6th day, fire channeling"));
         rows.add(new ToggleValueRow("Event happens", PathsConfig.COMET_ENABLED));
         rows.add(new SliderRow("How often", PathsConfig.COMET_PERIOD_DAYS, 1, 60,
                 PathsSettingsScreen::describeDays,
@@ -325,27 +325,27 @@ public class PathsSettingsScreen extends Screen {
         rows.add(eventSlider("Damage", PathsConfig.COMET_DAMAGE,
                 "Fire Channeling damage while the comet is overhead."));
 
-        rows.add(new HeaderRow("Day of Black Sun — every 12th day, 6 minutes at noon"));
-        rows.add(new ToggleValueRow("Event happens", PathsConfig.BLACK_SUN_ENABLED));
-        rows.add(new SliderRow("How often", PathsConfig.BLACK_SUN_PERIOD_DAYS, 1, 60,
+        rows.add(new HeaderRow("Day of the Hollow Sun — every 12th day, 6 minutes at noon"));
+        rows.add(new ToggleValueRow("Event happens", PathsConfig.HOLLOW_SUN_ENABLED));
+        rows.add(new SliderRow("How often", PathsConfig.HOLLOW_SUN_PERIOD_DAYS, 1, 60,
                 PathsSettingsScreen::describeDays,
                 "How many days apart the eclipse falls."));
-        rows.add(new SliderRow("How long it lasts", PathsConfig.BLACK_SUN_DURATION_TICKS, 20, 24000,
+        rows.add(new SliderRow("How long it lasts", PathsConfig.HOLLOW_SUN_DURATION_TICKS, 20, 24000,
                 PathsSettingsScreen::describeTicks,
                 "How long the eclipse runs, centred on noon. 7200 ticks (6m) is the shipped"
                         + " figure."));
-        rows.add(new ToggleValueRow("Fire Channeling goes out", PathsConfig.BLACK_SUN_DISABLES_FIRE));
+        rows.add(new ToggleValueRow("Fire Channeling goes out", PathsConfig.HOLLOW_SUN_DISABLES_FIRE));
         rows.add(new NoteRow("Turn that off to soften it: the four below apply instead."));
-        rows.add(eventSlider("Cooldowns", PathsConfig.BLACK_SUN_COOLDOWN,
+        rows.add(eventSlider("Cooldowns", PathsConfig.HOLLOW_SUN_COOLDOWN,
                 "Fire Channeling cooldowns during the eclipse. Only used when fire channeling is"
                         + " not switched off outright."));
-        rows.add(eventSlider("Charge times", PathsConfig.BLACK_SUN_CHARGE,
+        rows.add(eventSlider("Charge times", PathsConfig.HOLLOW_SUN_CHARGE,
                 "Fire Channeling charge and wind-up times during the eclipse. Only used when"
                         + " fire channeling is not switched off outright."));
-        rows.add(eventSlider("Chi costs", PathsConfig.BLACK_SUN_CHI,
+        rows.add(eventSlider("Chi costs", PathsConfig.HOLLOW_SUN_CHI,
                 "Fire Channeling chi costs during the eclipse. Only used when fire channeling is"
                         + " not switched off outright."));
-        rows.add(eventSlider("Damage", PathsConfig.BLACK_SUN_DAMAGE,
+        rows.add(eventSlider("Damage", PathsConfig.HOLLOW_SUN_DAMAGE,
                 "Fire Channeling damage during the eclipse. Only used when fire channeling is not"
                         + " switched off outright."));
 

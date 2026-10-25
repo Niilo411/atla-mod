@@ -38,7 +38,7 @@ import org.joml.Matrix4f;
  * measured, not assumed. Their shape lives entirely in their BRIGHTNESS, and it is the
  * additive blend that makes their dark parts invisible. So ordinary alpha blending cannot
  * recolour them: painting a red moon over the white one with alpha paints a red SQUARE,
- * and the first black sun was a hard black rectangle hanging in the sky. Anything that
+ * and the first hollow sun was a hard black rectangle hanging in the sky. Anything that
  * wants to change one of them has to work in brightness too — see {@link #subtractive()}.
  *
  * SO RECOLOURING IS TWO PASSES: subtract what vanilla drew, then add what should be there
@@ -61,13 +61,13 @@ public final class WorldEventSky {
 
     /** How far the fog is dragged towards each event's colour, at its strongest. */
     private static final float BLOOD_MOON_STRENGTH = 0.75F;
-    private static final float BLACK_SUN_STRENGTH = 0.90F;
+    private static final float HOLLOW_SUN_STRENGTH = 0.90F;
 
     /** How strong the screen wash is at its deepest. Deliberately slight. */
     private static final float SCREEN_TINT = 0.16F;
 
     private static final ResourceLocation COMET = ResourceLocation.fromNamespaceAndPath(
-            ElementalPaths.MODID, "textures/environment/sozins_comet.png");
+            ElementalPaths.MODID, "textures/environment/ember_comet.png");
 
     /**
      * Where the comet hangs, as two rotations away from straight overhead.
@@ -170,7 +170,7 @@ public final class WorldEventSky {
         float clear = 1.0F - mc.level.getRainLevel(partial);
         float eclipse = WorldEvents.eclipseDepth(mc.level);
         boolean bloodMoon = WorldEvents.isActive(mc.level, WorldEvents.Event.BLOOD_MOON);
-        boolean comet = WorldEvents.isActive(mc.level, WorldEvents.Event.SOZINS_COMET);
+        boolean comet = WorldEvents.isActive(mc.level, WorldEvents.Event.EMBER_COMET);
 
         if (!comet && !bloodMoon && eclipse <= 0.0F) return;
 
@@ -209,7 +209,7 @@ public final class WorldEventSky {
             // rather than shining through.
             if (eclipse > 0.0F) {
                 drawEclipseStars(matrix, eclipse * clear);
-                drawBlackSun(matrix, eclipse * clear);
+                drawHollowSun(matrix, eclipse * clear);
             }
 
             if (bloodMoon) {
@@ -312,7 +312,7 @@ public final class WorldEventSky {
      * totality; a little over covers it. The extra is small enough that the black disc
      * still reads as the moon in front rather than as a hole.
      */
-    private static void drawBlackSun(Matrix4f matrix, float depth) {
+    private static void drawHollowSun(Matrix4f matrix, float depth) {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.setShaderTexture(0, SUN);
 
@@ -347,7 +347,7 @@ public final class WorldEventSky {
      *
      * THIS IS WHY NEITHER THE MOON NOR THE SUN IS DRAWN WITH ORDINARY ALPHA BLENDING.
      * Both textures are 100% opaque — measured — so alpha blending them paints a SQUARE,
-     * not a disc: the first attempt at a black sun put a hard black rectangle in the sky.
+     * not a disc: the first attempt at a hollow sun put a hard black rectangle in the sky.
      * Their shape lives in their brightness, so only a blend that reads brightness can
      * respect it.
      */
@@ -488,7 +488,7 @@ public final class WorldEventSky {
         // rather than switching. At the middle of the six minutes it is total.
         float eclipse = WorldEvents.eclipseDepth(level);
         if (eclipse > 0.0F) {
-            blend(event, 0.02F, 0.02F, 0.04F, BLACK_SUN_STRENGTH * eclipse);
+            blend(event, 0.02F, 0.02F, 0.04F, HOLLOW_SUN_STRENGTH * eclipse);
         }
     }
 
